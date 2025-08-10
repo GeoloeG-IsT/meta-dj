@@ -36,6 +36,7 @@ This document defines how we execute work in this repository. It is concise by d
 - Keep docs minimal and actionable.
 - Structure: `category[/sub-category]/tool-name/README.md` plus supporting files.
 - Reference: `SYSTEM-SPECIFICATIONS.md` for the system-level spec.
+- Keep `TODOs.md` up to date after each completed task. Proceed strictly in milestone order unless a blocker is documented.
 
 ### Code, Style, and Safety
 - Follow repository conventions (TypeScript/Python/SQL styles, logging, security, REST, testing).

@@ -45,4 +45,28 @@ jobs:
         run: |
           if [ -f Cargo.toml ]; then cargo test --all --locked || cargo test --all; else echo "No Rust project"; fi
 
+      - name: Build Rust analyzer crate
+        run: |
+          if [ -f packages/analyzer-rs/Cargo.toml ]; then \
+            cargo build --manifest-path packages/analyzer-rs/Cargo.toml --verbose; \
+          else \
+            echo "No analyzer-rs crate"; \
+          fi
+
+      - name: Validate Rust analyzer JSON output
+        run: |
+          if [ -f packages/analyzer-rs/Cargo.toml ]; then \
+            BIN=target/debug/meta-dj-analyzer-rs; \
+            OUT=$($BIN dummy.mp3); \
+            echo "$OUT" | python3 - <<'PY'
+            import sys, json
+            data = json.load(sys.stdin)
+            assert isinstance(data.get('bpm'), (int, float))
+            assert isinstance(data.get('bpmConfidence'), (int, float))
+            assert isinstance(data.get('musicalKey'), str)
+            print('Rust analyzer JSON OK')
+            PY
+          else \
+            echo "No analyzer-rs crate"; \
+          fi
 

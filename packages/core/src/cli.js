@@ -5,9 +5,38 @@ const path = require('path');
 const crypto = require('crypto');
 const chokidar = require('chokidar');
 const sqlite3 = require('sqlite3').verbose();
+const { spawnSync } = require('child_process');
 const { analyzeFile } = (() => {
     try { return require('../../analyzer/src/index'); } catch { return { analyzeFile: null }; }
 })();
+
+function getAnalyzer() {
+    const mode = (process.env.DJ_ANALYZER || 'auto').toLowerCase();
+    function rustAvailable() {
+        const probe = spawnSync('meta-dj-analyzer-rs', ['--help'], { encoding: 'utf8' });
+        // If ENOENT, binary not found. Any other exit means it exists.
+        return !(probe.error && probe.error.code === 'ENOENT');
+    }
+    function analyzeWithRust(filePath) {
+        const res = spawnSync('meta-dj-analyzer-rs', [filePath], { encoding: 'utf8' });
+        if (res.error) throw res.error;
+        if (res.status !== 0) throw new Error(`rust analyzer exited ${res.status}: ${res.stderr || ''}`);
+        try { return JSON.parse(res.stdout); } catch (e) { throw new Error(`failed to parse rust JSON: ${e}`); }
+    }
+    if (mode === 'rust') {
+        return (filePath) => analyzeWithRust(filePath);
+    }
+    if (mode === 'js') {
+        if (!analyzeFile) throw new Error('JS analyzer not available');
+        return (filePath) => analyzeFile(filePath);
+    }
+    // auto
+    if (rustAvailable()) {
+        return (filePath) => analyzeWithRust(filePath);
+    }
+    if (!analyzeFile) throw new Error('No analyzer available');
+    return (filePath) => analyzeFile(filePath);
+}
 
 const DB_PATH = process.env.DJ_DB_PATH || path.resolve(process.cwd(), 'meta_dj.local.sqlite');
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.wav', '.aiff', '.aif', '.m4a', '.ogg']);
@@ -211,10 +240,8 @@ async function main() {
         const rows = await searchTracks(q);
         for (const r of rows) console.log(r.title);
     } else if (cmd === 'analyze') {
-        if (!analyzeFile) {
-            console.log('Analyzer not available');
-            process.exit(1);
-        }
+        let analyzer;
+        try { analyzer = getAnalyzer(); } catch (e) { console.log(String(e)); process.exit(1); }
         const db = openDb();
         const files = await new Promise((resolve, reject) => {
             db.all('SELECT id, file_path FROM tracks', (err, rows) => {
@@ -223,7 +250,8 @@ async function main() {
             });
         });
         for (const row of files) {
-            const res = analyzeFile(row.file_path);
+            let res;
+            try { res = analyzer(row.file_path); } catch (e) { console.error('Analyze failed for', row.file_path, e); continue; }
             await new Promise((resolve, reject) => {
                 db.run(
                     `INSERT INTO analysis (id, track_id, analyzer_version, bpm, bpm_confidence, musical_key, key_confidence, beatgrid_json, lufs, peak, waveform_ref)

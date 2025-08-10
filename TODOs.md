@@ -15,23 +15,29 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Lint and format commands run locally
 
 ### M1 — Local Library MVP
-- [ ] Define SQLite schema and migrations for core entities (tracks, playlists, cues, analysis)
+- [x] Define SQLite schema and migrations for core entities (tracks, playlists, cues, analysis)
   - Acceptance:
     - Migration applies; tables created; FTS5 enabled
   - Verify:
     - Run migration; inspect schema
-- [ ] Implement filesystem watcher and initial folder import
+- [x] Implement filesystem watcher and initial folder import
   - Acceptance:
     - New/removed files reflected in DB
   - Verify:
     - Add/remove a file; DB updates
-- [ ] Basic search via FTS5 (title/artist/album/tags)
+- [x] Basic search via FTS5 (title/artist/album/tags)
   - Acceptance:
     - Queries return expected rows under 50 ms on sample dataset
   - Verify:
     - Seed sample; run queries; measure latency
 
 ### M2 — Analysis Engine MVP
+- [x] JS placeholder analyzer and integration into CLI
+- [ ] Rust analyzer crate scaffold and CI build
+  - Acceptance:
+    - Crate builds in CI; binary prints JSON
+  - Verify:
+    - CI green; local run returns JSON
 - [ ] Audio decode/resample/downmix pipeline (Rust/C++/WASM binding)
   - Acceptance:
     - Decode MP3/FLAC/WAV; unit tests with fixtures
