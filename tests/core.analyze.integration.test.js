@@ -5,7 +5,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
-const dbPath = path.join(repoRoot, 'meta_dj.local.sqlite');
+const dbPath = path.join(repoRoot, 'meta_dj.test.analyze.sqlite');
 const fixturesDir = path.join(__dirname, 'fixtures', 'audio');
 
 // Ensure fresh DB
@@ -22,8 +22,9 @@ for (const name of ['track1.mp3', 'track2.flac']) {
 execSync(`bash scripts/migrate-local.sh ${dbPath}`, { cwd: repoRoot, stdio: 'pipe' });
 
 // Import and analyze
-execSync(`node packages/core/src/cli.js import ${fixturesDir}`, { cwd: repoRoot, stdio: 'pipe' });
-execSync(`node packages/core/src/cli.js analyze`, { cwd: repoRoot, stdio: 'pipe' });
+const env = { ...process.env, DJ_DB_PATH: dbPath };
+execSync(`node packages/core/src/cli.js import ${fixturesDir}`, { cwd: repoRoot, stdio: 'pipe', env });
+execSync(`node packages/core/src/cli.js analyze`, { cwd: repoRoot, stdio: 'pipe', env });
 
 // Query analysis count
 const out = execSync(`sqlite3 ${dbPath} "SELECT COUNT(*) FROM analysis;"`, { cwd: repoRoot, stdio: 'pipe' }).toString().trim();

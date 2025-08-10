@@ -5,7 +5,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 
 const repoRoot = path.resolve(__dirname, '..');
-const dbPath = path.join(repoRoot, 'meta_dj.local.sqlite');
+const dbPath = path.join(repoRoot, 'meta_dj.test.cues.sqlite');
 const fixturesDir = path.join(__dirname, 'fixtures', 'audio');
 
 // Fresh DB
@@ -18,9 +18,10 @@ for (const name of ['track1.mp3', 'track2.flac']) {
 
 // Migration, import, analyze, autocue
 execSync(`bash scripts/migrate-local.sh ${dbPath}`, { cwd: repoRoot, stdio: 'pipe' });
-execSync(`node packages/core/src/cli.js import ${fixturesDir}`, { cwd: repoRoot, stdio: 'pipe' });
-execSync(`node packages/core/src/cli.js analyze`, { cwd: repoRoot, stdio: 'pipe' });
-execSync(`node packages/core/src/cli.js autocue`, { cwd: repoRoot, stdio: 'pipe' });
+const env = { ...process.env, DJ_DB_PATH: dbPath };
+execSync(`node packages/core/src/cli.js import ${fixturesDir}`, { cwd: repoRoot, stdio: 'pipe', env });
+execSync(`node packages/core/src/cli.js analyze`, { cwd: repoRoot, stdio: 'pipe', env });
+execSync(`node packages/core/src/cli.js autocue`, { cwd: repoRoot, stdio: 'pipe', env });
 
 // Counts
 const cuesCount = execSync(`sqlite3 ${dbPath} "SELECT COUNT(*) FROM cues;"`, { cwd: repoRoot, stdio: 'pipe' }).toString().trim();
@@ -30,8 +31,8 @@ assert.strictEqual(loopsCount, '2', 'autocue should create 1 loop per track');
 
 // Editor ops: add one manual cue and loop to first track
 const trackId = execSync(`sqlite3 ${dbPath} "SELECT id FROM tracks ORDER BY id LIMIT 1;"`, { cwd: repoRoot, stdio: 'pipe' }).toString().trim();
-execSync(`node packages/core/src/cli.js cue add ${trackId} 12345 'Test Cue' red HOT`, { cwd: repoRoot, stdio: 'pipe' });
-execSync(`node packages/core/src/cli.js loop add ${trackId} 64000 16 'Test Loop' blue`, { cwd: repoRoot, stdio: 'pipe' });
+execSync(`node packages/core/src/cli.js cue add ${trackId} 12345 'Test Cue' red HOT`, { cwd: repoRoot, stdio: 'pipe', env });
+execSync(`node packages/core/src/cli.js loop add ${trackId} 64000 16 'Test Loop' blue`, { cwd: repoRoot, stdio: 'pipe', env });
 
 const cuesAfter = execSync(`sqlite3 ${dbPath} "SELECT COUNT(*) FROM cues WHERE track_id='${trackId}';"`, { cwd: repoRoot, stdio: 'pipe' }).toString().trim();
 const loopsAfter = execSync(`sqlite3 ${dbPath} "SELECT COUNT(*) FROM loops WHERE track_id='${trackId}';"`, { cwd: repoRoot, stdio: 'pipe' }).toString().trim();
