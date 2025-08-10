@@ -1,0 +1,15 @@
+{
+    "name": "meta-dj-analyzer",
+    "version": "0.0.1",
+    "private": true,
+    "description": "Placeholder JS analyzer for BPM/key/beatgrid (to be replaced by Rust/WASM)",
+    "main": "src/index.js",
+    "bin": {
+        "meta-dj-analyze": "src/cli.js"
+    },
+    "license": "MIT",
+    "scripts": {
+        "analyze": "node src/cli.js"
+    },
+    "dependencies": {}
+}

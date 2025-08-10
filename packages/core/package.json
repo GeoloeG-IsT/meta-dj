@@ -7,7 +7,8 @@
     "license": "MIT",
     "scripts": {
         "import": "node src/cli.js import",
-        "watch": "node src/cli.js watch"
+        "watch": "node src/cli.js watch",
+        "analyze": "node src/cli.js analyze"
     },
     "dependencies": {
         "chokidar": "^3.6.0",

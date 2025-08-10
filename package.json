@@ -1,0 +1,10 @@
+{
+    "name": "meta-dj",
+    "private": true,
+    "version": "0.1.0",
+    "description": "Meta DJ monorepo",
+    "license": "MIT",
+    "scripts": {
+        "test": "node --test"
+    }
+}

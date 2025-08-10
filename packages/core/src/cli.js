@@ -5,6 +5,9 @@ const path = require('path');
 const crypto = require('crypto');
 const chokidar = require('chokidar');
 const sqlite3 = require('sqlite3').verbose();
+const { analyzeFile } = (() => {
+    try { return require('../../analyzer/src/index'); } catch { return { analyzeFile: null }; }
+})();
 
 const DB_PATH = process.env.DJ_DB_PATH || path.resolve(process.cwd(), 'meta_dj.local.sqlite');
 const AUDIO_EXTS = new Set(['.mp3', '.flac', '.wav', '.aiff', '.aif', '.m4a', '.ogg']);
@@ -137,8 +140,8 @@ function watchFolder(root) {
 
 async function main() {
     const [, , cmd, arg] = process.argv;
-    if (!cmd || !['import', 'watch', 'search'].includes(cmd)) {
-        console.log('Usage: node src/cli.js <import|watch|search> <folder|query>');
+    if (!cmd || !['import', 'watch', 'search', 'analyze'].includes(cmd)) {
+        console.log('Usage: node src/cli.js <import|watch|search|analyze> <folder|query>');
         process.exit(1);
     }
     if (cmd === 'import') {
@@ -155,6 +158,44 @@ async function main() {
         }
         const rows = await searchTracks(q);
         for (const r of rows) console.log(r.title);
+    } else if (cmd === 'analyze') {
+        if (!analyzeFile) {
+            console.log('Analyzer not available');
+            process.exit(1);
+        }
+        const db = openDb();
+        const files = await new Promise((resolve, reject) => {
+            db.all('SELECT id, file_path FROM tracks', (err, rows) => {
+                if (err) return reject(err);
+                resolve(rows || []);
+            });
+        });
+        for (const row of files) {
+            const res = analyzeFile(row.file_path);
+            await new Promise((resolve, reject) => {
+                db.run(
+                    `INSERT INTO analysis (id, track_id, analyzer_version, bpm, bpm_confidence, musical_key, key_confidence, beatgrid_json, lufs, peak, waveform_ref)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     ON CONFLICT(id) DO UPDATE SET analyzer_version=excluded.analyzer_version, bpm=excluded.bpm, bpm_confidence=excluded.bpm_confidence, musical_key=excluded.musical_key, key_confidence=excluded.key_confidence, beatgrid_json=excluded.beatgrid_json, lufs=excluded.lufs, peak=excluded.peak, waveform_ref=excluded.waveform_ref`,
+                    [
+                        generateId(row.id + res.analyzerVersion),
+                        row.id,
+                        res.analyzerVersion,
+                        res.bpm,
+                        res.bpmConfidence,
+                        res.musicalKey,
+                        res.keyConfidence,
+                        res.beatgridJson,
+                        res.lufs,
+                        res.peak,
+                        res.waveformRef,
+                    ],
+                    function (err) { if (err) return reject(err); resolve(); }
+                );
+            });
+        }
+        db.close();
+        console.log(`Analyzed ${files.length} tracks.`);
     }
 }
 
