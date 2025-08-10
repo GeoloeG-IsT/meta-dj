@@ -1,0 +1,8 @@
+---
+description: Testing conventions for reliability and maintainability
+globs: "**/*"
+---
+- Write tests for changed behavior; include edge cases.
+- Prefer deterministic tests; mock time, randomness, and I/O.
+- Keep tests small and focused; avoid hidden coupling.
+- Use clear, explicit assertions with meaningful messages.

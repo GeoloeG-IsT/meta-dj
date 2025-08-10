@@ -1,0 +1,8 @@
+---
+description: Prompt artifacts and conventions
+globs: ["prompts/**", "playbooks/**"]
+---
+- Store reusable prompts with clear goals, constraints, and acceptance criteria.
+- Keep examples minimal and anonymized; avoid proprietary data.
+- Version prompts and record effective dates.
+- Prefer checklists and templates over prose.

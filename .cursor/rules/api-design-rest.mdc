@@ -1,0 +1,8 @@
+---
+description: REST API design principles
+globs: ["api/**", "**/*"]
+---
+- Use nouns for resources; HTTP verbs for actions.
+- Return appropriate HTTP status codes and problem details.
+- Maintain backwards compatibility; use versioning when needed.
+- Document endpoints with OpenAPI; include examples.

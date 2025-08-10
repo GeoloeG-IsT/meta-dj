@@ -1,0 +1,8 @@
+---
+description: Python code conventions
+globs: "**/*.py"
+---
+- Follow PEP 8 and PEP 257; use type hints for public APIs.
+- Prefer `pathlib` over `os.path`.
+- Avoid wildcard imports; keep imports sorted and minimal.
+- Use `ruff`/`black` for consistent style if available.

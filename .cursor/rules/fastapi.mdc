@@ -1,0 +1,14 @@
+---
+description: FastAPI service conventions
+globs: "**/*.py"
+---
+- Use FastAPI `APIRouter` per domain; prefix routes and tags consistently.
+- Define request/response models with Pydantic; validate at boundaries.
+- Dependency injection via `Depends` for auth, db sessions, and config.
+- Return typed responses; standardize error shapes and HTTP codes.
+- Add middlewares for CORS, request ID, compression, and logging.
+- Use async DB drivers where applicable; avoid blocking calls.
+- Document endpoints with summary/description; keep OpenAPI accurate.
+- Add health/readiness probes; expose metrics.
+- Write unit and endpoint tests with `pytest` and `httpx` `AsyncClient`.
+- Use lifespan events for startup/shutdown resource management.

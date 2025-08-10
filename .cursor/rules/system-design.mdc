@@ -1,0 +1,14 @@
+---
+description: System design best practices
+globs: "**/*"
+---
+- Design for clear boundaries: decompose by business capability; define stable, versioned APIs.
+- Prefer simple first: ship a minimal design; iterate with measurements, not guesses.
+- Scalability: scale stateless tiers horizontally; use load balancers; cache aggressively (CDN, edge, app, DB).
+- Data: choose storage per access pattern; index hot queries; plan migrations with backfills and dual-writes when needed.
+- Reliability: eliminate single points of failure; use retries with jitter, timeouts, and circuit breakers; support graceful degradation.
+- Consistency: be explicit about consistency requirements; adopt idempotency for mutating endpoints.
+- Observability: emit structured logs, metrics, and traces with correlation/request IDs; define SLOs and alerts.
+- Security: least privilege; encrypt in transit/at rest; validate inputs; audit sensitive actions; rotate secrets.
+- Performance: profile critical paths; avoid N+1s; batch and stream where appropriate; push work async via queues.
+- Operations: automate deploys/rollbacks; run health/readiness checks; use feature flags and gradual rollouts.

@@ -1,0 +1,8 @@
+---
+description: Performance guidelines for critical paths
+globs: "**/*"
+---
+- Avoid O(n^2) work in hot paths; measure before optimizing.
+- Cache or memoize expensive pure computations where appropriate.
+- Stream or paginate large data; avoid loading entire datasets in memory.
+- Use async/concurrency carefully; avoid contention and race conditions.

@@ -1,0 +1,39 @@
+# Legacy behavior
+
+# Build outputs
+/dist/
+/build/
+/out/
+/.next/
+/.turbo/
+/.parcel-cache/
+/.cache/
+
+# Dependencies
+/node_modules/
+/.venv/
+/venv/
+**/__pycache__/
+**/.pytest_cache/
+
+# Logs & locks
+*.log
+*.lock
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Env & secrets
+.env
+.env.*
+**/*.pem
+**/*.key
+**/id_rsa
+**/secrets*.json
+**/credentials*.json
+
+# Misc
+coverage/
+.tmp/
+logs/*

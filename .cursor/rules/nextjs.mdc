@@ -1,0 +1,15 @@
+---
+description: Next.js application conventions
+globs: "**/*.{ts,tsx,js,jsx}"
+---
+- Prefer App Router (`app/`) over Pages Router unless maintaining legacy routes.
+- Use React Server Components by default; mark Client Components only when needed (state, effects, browser APIs).
+- Colocate route handlers under `app/api/<segment>/route.ts` with clear HTTP methods; return `NextResponse` with proper headers.
+- Use `layout.tsx` for shared chrome and `template.tsx` when segment needs to re-render on navigation.
+- Data fetching: perform on the server when possible (Server Components/Actions). Control caching via `fetch` options and `revalidate`/`tags`.
+- Configure runtime and revalidation per segment (e.g., `export const runtime = 'edge' | 'nodejs'`, `export const revalidate = 60`).
+- Manage env vars via `process.env`; expose only with `NEXT_PUBLIC_` for client usage.
+- Use `next/image` for images and segment `metadata` for SEO; avoid manual `<head>`.
+- Code-split heavy client-only modules with `next/dynamic`.
+- Enforce ESLint `next/core-web-vitals` and strict TypeScript settings.
+- Prefer `next/navigation` in App Router; avoid `next/router`.

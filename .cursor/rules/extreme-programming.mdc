@@ -1,0 +1,16 @@
+---
+description: Extreme Programming (XP) practices
+globs: "**/*"
+---
+- Embrace TDD: write failing tests first, then implement; keep tests fast and isolated.
+- Pair program on important changes; rotate pairs; favor knowledge sharing.
+- Continuous Integration: small commits to main; run full test suite on each change.
+- Small releases: ship frequently; slice work into thin vertical increments.
+- Simple design (YAGNI): implement only what is needed now; prefer clarity over cleverness.
+- Refactor relentlessly: keep code clean; remove duplication; improve names and structure.
+- Coding standards: consistent style enforced by linters/formatters; readable, intention-revealing names.
+- Collective code ownership: anyone can improve any part; avoid silos; review changes promptly.
+- Sustainable pace: avoid overtime; maintain velocity through health, automation, and clarity.
+- Close user collaboration: short feedback loops; executable acceptance tests define done.
+- Planning game: prioritize by value and risk; estimate with the team; replan often.
+- Spikes for uncertainty: timebox research; document findings and next steps.

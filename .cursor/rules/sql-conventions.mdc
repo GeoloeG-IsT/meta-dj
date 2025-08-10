@@ -1,0 +1,8 @@
+---
+description: SQL query conventions
+globs: "**/*.sql"
+---
+- Prefer explicit column lists; avoid `SELECT *` in production queries.
+- Use parameterized queries; avoid string concatenation.
+- Add indices for frequent predicates; analyze query plans for slow queries.
+- Keep migrations idempotent and reversible where possible.

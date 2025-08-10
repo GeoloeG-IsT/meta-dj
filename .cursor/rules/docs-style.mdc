@@ -1,0 +1,8 @@
+---
+description: Documentation style guide
+globs: "**/*.md"
+---
+- Use `##` and `###` headings; concise intro then actionable bullets.
+- Wrap code/config in fenced blocks; avoid over-formatting.
+- Use descriptive link text; wrap bare URLs in backticks.
+- Keep examples minimal and copyable; avoid secrets.

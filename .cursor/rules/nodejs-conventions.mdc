@@ -1,0 +1,8 @@
+---
+description: Node.js service conventions
+globs: ["**/*.js", "**/*.ts"]
+---
+- Use async/await consistently; handle promise rejections.
+- Centralize configuration; validate via schema (e.g., Zod, Joi).
+- Graceful shutdown: handle SIGTERM; close servers and DBs.
+- Health checks and structured logging are mandatory in services.

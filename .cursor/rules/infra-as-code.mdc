@@ -1,0 +1,8 @@
+---
+description: Infrastructure as Code practices
+globs: ["**/*.tf", "**/*.yaml", "**/*.yml"]
+---
+- DRY modules; document inputs/outputs.
+- Keep secrets outside IaC files; use secret stores.
+- Plan and review before apply; tag resources consistently.
+- Limit blast radius; use stages and environments.

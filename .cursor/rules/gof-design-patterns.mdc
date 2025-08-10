@@ -1,0 +1,35 @@
+---
+description: GoF (Gang of Four) Design Patterns guidelines
+globs: "**/*"
+---
+- Use patterns as a shared vocabulary; choose the simplest pattern that fits. Avoid pattern-driven overengineering.
+- Prefer composition over inheritance; depend on abstractions (interfaces) and delegate behavior.
+- Creational patterns (object creation flexibility):
+  - Factory Method / Abstract Factory: decouple creation from usage; hide concrete types.
+  - Builder: construct complex objects step-by-step; keep immutability where possible.
+  - Prototype: clone preconfigured instances when construction is costly.
+  - Singleton: avoid unless truly one instance; make it testable (inject or parameterize) and thread-safe.
+- Structural patterns (object composition):
+  - Adapter: translate one interface to another without changing sources.
+  - Bridge: separate abstraction from implementation to vary independently.
+  - Composite: uniform tree structures; treat part/whole the same.
+  - Decorator: add behavior dynamically without subclassing; keep small, focused decorators.
+  - Facade: provide a simple API over complex subsystems.
+  - Flyweight: share immutable, intrinsic state to reduce memory.
+  - Proxy: control access (lazy-load, remote, cache, protect); be explicit about semantics.
+- Behavioral patterns (interaction, responsibility):
+  - Chain of Responsibility: pass requests along handlers until one handles.
+  - Command: encapsulate actions; enable queues, retries, undo.
+  - Iterator: traverse collections without exposing internals.
+  - Mediator: centralize complex many-to-many interactions.
+  - Memento: capture/restore state safely; avoid leaking internals.
+  - Observer: publish-subscribe with clear ownership; avoid cycles; consider event replay.
+  - State: model state-specific behavior as interchangeable objects.
+  - Strategy: swap algorithms behind a stable interface; inject dependencies for testing.
+  - Template Method: define algorithm skeleton; allow subclass steps (prefer composition to reduce inheritance).
+  - Visitor: separate operations from data structures; trade-off: double-dispatch complexity.
+- Implementation guidance:
+  - Keep inheritance shallow; favor small interfaces (ISP) and dependency injection.
+  - Make side effects explicit; prefer pure functions and immutable data where sensible.
+  - Document intent: mention the chosen pattern and why in module/class docstrings.
+  - Test via behavior: mock interfaces, not concretes; verify substitution (LSP).

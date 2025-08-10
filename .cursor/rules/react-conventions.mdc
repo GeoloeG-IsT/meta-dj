@@ -1,0 +1,8 @@
+---
+description: React component conventions
+globs: ["**/*.tsx", "**/*.jsx"]
+---
+- Components must be pure and small; lift state when shared.
+- Use hooks properly; obey rules of hooks; memoize expensive computations.
+- Prefer composition over inheritance; avoid prop drilling via context where apt.
+- Add tests for interactive logic and accessibility.

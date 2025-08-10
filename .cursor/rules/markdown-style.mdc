@@ -1,0 +1,8 @@
+---
+description: Markdown authoring style
+globs: "**/*.md"
+---
+- Use `##`/`###` headings; avoid `#`.
+- Use backticks for file/dir/function names.
+- Bullet lists should use `- `; bold for key points.
+- Keep lines reasonably short; wrap long links in markdown format.

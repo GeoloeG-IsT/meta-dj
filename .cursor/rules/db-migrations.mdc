@@ -1,0 +1,8 @@
+---
+description: Database migrations
+globs: ["migrations/**", "db/migrations/**"]
+---
+- Write forward and backward steps; test on a copy of production schema.
+- Avoid long locks; batch changes; use online strategies when needed.
+- Default-safe: add columns nullable, backfill, then enforce constraints.
+- Tag migrations with purpose and owner.

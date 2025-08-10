@@ -1,0 +1,8 @@
+---
+description: Robust error handling
+globs: "**/*"
+---
+- Fail fast on programmer errors; handle expected failures gracefully.
+- Return informative errors; preserve stack/context.
+- Avoid swallowing errors; log or propagate with context.
+- Prefer typed/result errors over sentinel values when language supports it.

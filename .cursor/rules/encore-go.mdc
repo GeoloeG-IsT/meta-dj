@@ -1,0 +1,16 @@
+---
+description: Encore (Go) service conventions
+globs: "**/*.go"
+---
+- Structure code by Encore services; one package per service. Name services clearly.
+- Define endpoints with `//encore:api` annotations; prefer explicit request/response types.
+- Pass `context.Context` first; avoid blocking operations in handlers.
+- Use Encore Secrets for credentials; never hardcode secrets or read from files.
+- Store config in Encore Config; keep environment-specific values out of code.
+- Use Encore SQL (`encore.dev/storage/sqldb`) with migrations; ensure idempotent migrations.
+- Return typed errors via Encore errors (`errors.*`) with proper codes; avoid panics.
+- Add metrics/tracing via built-ins; emit structured logs with request IDs.
+- Write table-driven tests for handlers and services; mock external dependencies.
+- Use background tasks/cron with Encore patterns rather than ad-hoc goroutines.
+- Prefer `time.Now()`/`rand` injection for testability; avoid global state.
+- Keep public APIs small; hide implementation behind interfaces for replaceability.

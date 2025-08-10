@@ -1,0 +1,8 @@
+---
+description: Git and commit conventions
+globs: "**/*"
+---
+- Commit small, focused changes with clear messages (imperative mood).
+- Avoid committing generated files and secrets.
+- Reference issues/PRs where helpful.
+- Rebase or squash noisy fixups before merging to main branches.

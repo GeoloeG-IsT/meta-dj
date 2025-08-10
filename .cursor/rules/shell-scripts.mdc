@@ -1,0 +1,8 @@
+---
+description: Shell script practices
+globs: "**/*.sh"
+---
+- Start with `set -euo pipefail` unless you have a reason not to.
+- Quote variables; avoid word-splitting.
+- Use `trap` for cleanup on exit.
+- Prefer portable POSIX sh where possible; document bashisms.

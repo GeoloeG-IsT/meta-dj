@@ -1,0 +1,8 @@
+---
+description: Web security hygiene
+globs: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"]
+---
+- Validate and sanitize inputs at boundaries.
+- Use parameterized queries; never build SQL strings from user input.
+- Escape output; set secure headers; enforce HTTPS.
+- Use CSRF protection and proper session management.

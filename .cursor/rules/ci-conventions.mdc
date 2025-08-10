@@ -1,0 +1,8 @@
+---
+description: Continuous Integration conventions
+globs: [".github/workflows/**", "**/*.yaml", "**/*.yml"]
+---
+- Fast feedback: run lint/typecheck/unit tests on PRs.
+- Cache dependencies correctly; restore keys on misses.
+- Fail on warnings for critical linters; keep logs concise.
+- Upload test reports and artifacts for debugging.

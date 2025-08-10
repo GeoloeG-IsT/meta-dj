@@ -1,0 +1,15 @@
+{
+    "keep": {
+        "days": true,
+        "amount": 14
+    },
+    "auditLog": "/home/pgula/Wks/meta-dj/logs/.d03921dc31131e86ea2b1327e817fd9cd4a8deb0-audit.json",
+    "files": [
+        {
+            "date": 1754863313027,
+            "name": "/home/pgula/Wks/meta-dj/logs/mcp-puppeteer-2025-08-11.log",
+            "hash": "8773a6eaef9336d9527202459bd279cb7323b48332bbad88152b8bd81d5fe9f2"
+        }
+    ],
+    "hashType": "sha256"
+}

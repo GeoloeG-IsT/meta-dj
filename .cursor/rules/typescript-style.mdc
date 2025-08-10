@@ -1,0 +1,8 @@
+---
+description: TypeScript style and safety
+globs: ["**/*.ts", "**/*.tsx"]
+---
+- Prefer explicit function signatures for exported APIs; avoid `any`.
+- Enable strict mode; avoid unsafe casts.
+- Use discriminated unions over enums when expressive.
+- Keep types close to usage; extract only when reused.

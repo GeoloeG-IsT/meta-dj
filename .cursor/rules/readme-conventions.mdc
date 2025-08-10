@@ -1,0 +1,8 @@
+---
+description: README conventions
+globs: ["**/README.md"]
+---
+- Start with a brief purpose statement.
+- Include a quickstart; then deeper sections or links.
+- Keep an index to subfolders where applicable.
+- Avoid duplicating content across READMEs; link instead.

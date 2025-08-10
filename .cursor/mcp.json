@@ -1,0 +1,74 @@
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "mcp-server-filesystem", "/home/pgula/Wks/ai-journey"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"],
+      "env": { "GITHUB_TOKEN": "<YOUR_GITHUB_TOKEN>" }
+    },
+    "linear": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-linear"],
+      "env": { "LINEAR_API_KEY": "<YOUR_LINEAR_API_KEY>" }
+    },
+    "jira": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-jira"],
+      "env": {
+        "JIRA_BASE_URL": "https://your-domain.atlassian.net",
+        "JIRA_EMAIL": "<YOUR_EMAIL>",
+        "JIRA_API_TOKEN": "<YOUR_JIRA_API_TOKEN>"
+      }
+    },
+    "notion": {
+      "command": "npx",
+      "args": ["-y", "@ramidecodes/mcp-server-notion"],
+      "env": { "NOTION_API_KEY": "$NOTION_API_KEY" }
+    },
+    "postgres": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-postgres"],
+      "env": {
+        "PGHOST": "localhost",
+        "PGPORT": "5432",
+        "PGUSER": "<USER>",
+        "PGPASSWORD": "<PASSWORD>",
+        "PGDATABASE": "<DATABASE>",
+        "MCP_PG_READONLY": "true"
+      }
+    },
+    "slack": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-slack"],
+      "env": {
+        "SLACK_BOT_TOKEN": "<YOUR_SLACK_BOT_TOKEN>",
+        "SLACK_APP_TOKEN": "<YOUR_SLACK_APP_TOKEN>"
+      }
+    },
+    "browser_puppeteer": {
+      "command": "npx",
+      "args": ["-y", "puppeteer-mcp-server"],
+      "env": {}
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"],
+      "env": {}
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--access-token",
+        "$SUPABASE_ACCESS_TOKEN"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "$SUPABASE_ACCESS_TOKEN"
+      }
+    }
+  }
+}

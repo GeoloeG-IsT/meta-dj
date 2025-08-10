@@ -1,0 +1,8 @@
+---
+description: Structured logging best practices
+globs: "**/*"
+---
+- Use structured logs with levels; avoid print-style debugging in production.
+- No sensitive data in logs.
+- Include request IDs or correlation IDs when available.
+- Keep logs actionable; avoid excessive verbosity on hot paths.
