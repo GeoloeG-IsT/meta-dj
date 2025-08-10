@@ -192,8 +192,8 @@ async function autoCuesAndLoops() {
 
 async function main() {
     const [, , cmd, arg] = process.argv;
-    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop'].includes(cmd)) {
-        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop> <args>');
+    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop', 'playlist'].includes(cmd)) {
+        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop|playlist> <args>');
         process.exit(1);
     }
     if (cmd === 'import') {
@@ -289,6 +289,100 @@ async function main() {
             const rows = await new Promise((resolve, reject) => db.all('SELECT * FROM loops WHERE track_id = ? ORDER BY start_ms', [trackId], (e, r) => e ? reject(e) : resolve(r || [])));
             for (const r of rows) console.log(`${r.id}|${r.start_ms}|${r.length_beats}|${r.label || ''}|${r.autogen}`);
         } else { console.log('Usage: loop <add|rm|list> ...'); process.exit(1); }
+        db.close();
+    } else if (cmd === 'playlist') {
+        const action = arg;
+        const [, , , , a2, a3, a4] = process.argv;
+        const db = openDb();
+        async function createPlaylist(name, parentId, smartRulesJson) {
+            const id = generateId(name + (parentId || '') + (smartRulesJson || ''));
+            await new Promise((resolve, reject) => db.run(
+                `INSERT INTO playlists (id, parent_id, name, smart_rules_json) VALUES (?, ?, ?, ?)`,
+                [id, parentId || null, name, smartRulesJson || null],
+                function (err) { if (err) return reject(err); resolve(); }
+            ));
+            console.log(id);
+        }
+        async function addTrack(playlistId, trackId) {
+            const position = await new Promise((resolve, reject) => db.get(
+                `SELECT COALESCE(MAX(position), -1) as maxpos FROM playlist_tracks WHERE playlist_id = ?`,
+                [playlistId], (e, row) => e ? reject(e) : resolve((row && row.maxpos + 1) || 0)
+            ));
+            await new Promise((resolve, reject) => db.run(
+                `INSERT INTO playlist_tracks (playlist_id, track_id, position) VALUES (?, ?, ?)`,
+                [playlistId, trackId, position], function (err) { if (err) return reject(err); resolve(); }
+            ));
+        }
+        async function rmTrack(playlistId, trackId) {
+            await new Promise((resolve, reject) => db.run(`DELETE FROM playlist_tracks WHERE playlist_id = ? AND track_id = ?`, [playlistId, trackId], function (err) { if (err) return reject(err); resolve(); }));
+        }
+        function evalSmartRulesObj(rules) {
+            const where = [];
+            const params = [];
+            let joins = '';
+            if (rules.fts) {
+                joins += ' JOIN tracks_fts f ON f.track_id = t.id ';
+                where.push('tracks_fts MATCH ?');
+                params.push(rules.fts);
+            }
+            if (rules.bpmMin != null || rules.bpmMax != null) {
+                joins += ' LEFT JOIN analysis a ON a.track_id = t.id ';
+                if (rules.bpmMin != null) { where.push('a.bpm >= ?'); params.push(Number(rules.bpmMin)); }
+                if (rules.bpmMax != null) { where.push('a.bpm <= ?'); params.push(Number(rules.bpmMax)); }
+            }
+            if (rules.keyIn && Array.isArray(rules.keyIn) && rules.keyIn.length > 0) {
+                joins += ' LEFT JOIN analysis a2 ON a2.track_id = t.id ';
+                const placeholders = rules.keyIn.map(() => '?').join(',');
+                where.push(`a2.musical_key IN (${placeholders})`);
+                params.push(...rules.keyIn);
+            }
+            if (rules.tagIn && Array.isArray(rules.tagIn) && rules.tagIn.length > 0) {
+                const placeholders = rules.tagIn.map(() => '?').join(',');
+                where.push(`EXISTS (SELECT 1 FROM track_tags tt JOIN tags tg ON tg.id = tt.tag_id WHERE tt.track_id = t.id AND tg.name IN (${placeholders}))`);
+                params.push(...rules.tagIn);
+            }
+            const sql = `SELECT t.id, t.title FROM tracks t ${joins} ${where.length ? 'WHERE ' + where.join(' AND ') : ''} ORDER BY t.title LIMIT 200`;
+            return { sql, params };
+        }
+        async function smartEval(playlistId) {
+            const row = await new Promise((resolve, reject) => db.get('SELECT smart_rules_json FROM playlists WHERE id = ?', [playlistId], (e, r) => e ? reject(e) : resolve(r)));
+            if (!row || !row.smart_rules_json) { console.log('[]'); return; }
+            let rules;
+            try { rules = JSON.parse(row.smart_rules_json); } catch { console.log('[]'); return; }
+            const { sql, params } = evalSmartRulesObj(rules);
+            const rows = await new Promise((resolve, reject) => db.all(sql, params, (e, r) => e ? reject(e) : resolve(r || [])));
+            for (const r of rows) console.log(r.title);
+        }
+
+        if (action === 'create') {
+            const name = a2; const parentId = a3 || null;
+            if (!name) { console.log('Usage: playlist create <name> [parentId]'); process.exit(1); }
+            await createPlaylist(name, parentId, null);
+        } else if (action === 'create-smart') {
+            const name = a2; const rulesJson = a3;
+            if (!name || !rulesJson) { console.log('Usage: playlist create-smart <name> <rulesJson>'); process.exit(1); }
+            await createPlaylist(name, null, rulesJson);
+        } else if (action === 'add') {
+            const playlistId = a2; const trackId = a3;
+            if (!playlistId || !trackId) { console.log('Usage: playlist add <playlistId> <trackId>'); process.exit(1); }
+            await addTrack(playlistId, trackId); console.log('OK');
+        } else if (action === 'rmtrack') {
+            const playlistId = a2; const trackId = a3;
+            if (!playlistId || !trackId) { console.log('Usage: playlist rmtrack <playlistId> <trackId>'); process.exit(1); }
+            await rmTrack(playlistId, trackId); console.log('OK');
+        } else if (action === 'list') {
+            const rows = await new Promise((resolve, reject) => db.all('SELECT id, name, smart_rules_json FROM playlists ORDER BY name', [], (e, r) => e ? reject(e) : resolve(r || [])));
+            for (const r of rows) console.log(`${r.id}|${r.name}|${r.smart_rules_json ? 'SMART' : 'STATIC'}`);
+        } else if (action === 'tracks') {
+            const playlistId = a2; if (!playlistId) { console.log('Usage: playlist tracks <playlistId>'); process.exit(1); }
+            const rows = await new Promise((resolve, reject) => db.all('SELECT t.title FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = ? ORDER BY pt.position', [playlistId], (e, r) => e ? reject(e) : resolve(r || [])));
+            for (const r of rows) console.log(r.title);
+        } else if (action === 'smart-eval') {
+            const playlistId = a2; if (!playlistId) { console.log('Usage: playlist smart-eval <playlistId>'); process.exit(1); }
+            await smartEval(playlistId);
+        } else {
+            console.log('Usage: playlist <create|create-smart|add|rmtrack|list|tracks|smart-eval> ...'); process.exit(1);
+        }
         db.close();
     }
 }
