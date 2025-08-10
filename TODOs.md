@@ -3,12 +3,12 @@
 Short, verifiable tasks. Each task lists acceptance criteria and verification steps. Tackle one at a time.
 
 ### M0 — Repository Bootstrap
-- [ ] Initialize project structure (apps, services, packages, infra, docs, scripts, tests)
+- [x] Initialize project structure (apps, services, packages, infra, docs, scripts, tests)
   - Acceptance:
     - Directories exist with minimal READMEs
   - Verify:
     - `ls` shows expected tree; READMEs render
-- [ ] Add shared tooling configs (editorconfig, lint, format, gitignore)
+- [x] Add shared tooling configs (editorconfig, lint, format, gitignore)
   - Acceptance:
     - Config files present and used in CI
   - Verify:

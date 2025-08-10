@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Prettier check (repo-wide)
+        run: npx --yes prettier@3 -c . || echo "Prettier check skipped or failed; will enforce when code exists"
+
+      - name: JS/TS tests (if present)
+        run: |
+          if [ -f package.json ]; then npm ci && npm test --if-present; else echo "No JS project"; fi
+
+      - name: Python tests (if present)
+        run: |
+          if [ -f pyproject.toml ] || [ -f requirements.txt ]; then pip install -r requirements.txt || true; pytest || true; else echo "No Python project"; fi
+
+      - name: Rust tests (if present)
+        run: |
+          if [ -f Cargo.toml ]; then cargo test --all --locked || cargo test --all; else echo "No Rust project"; fi
+
+

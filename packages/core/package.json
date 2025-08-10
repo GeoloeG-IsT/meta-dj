@@ -1,0 +1,16 @@
+{
+    "name": "meta-dj-core",
+    "version": "0.1.0",
+    "private": true,
+    "description": "Core library CLI for importing and watching local DJ library into SQLite",
+    "main": "src/cli.js",
+    "license": "MIT",
+    "scripts": {
+        "import": "node src/cli.js import",
+        "watch": "node src/cli.js watch"
+    },
+    "dependencies": {
+        "chokidar": "^3.6.0",
+        "sqlite3": "^5.1.7"
+    }
+}

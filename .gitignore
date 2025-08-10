@@ -1,0 +1,46 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Node/JS
+node_modules/
+.pnpm-store/
+.yarn/
+.yarn/cache/
+.turbo/
+dist/
+build/
+.next/
+out/
+
+# Python
+.venv/
+venv/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.coverage
+coverage/
+
+# Rust
+target/
+
+# Env & local configs
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+
+# Local DB artifacts
+*.sqlite
+*.db
+
+
+

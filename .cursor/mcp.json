@@ -2,7 +2,7 @@
   "mcpServers": {
     "filesystem": {
       "command": "npx",
-      "args": ["-y", "mcp-server-filesystem", "/home/pgula/Wks/ai-journey"]
+      "args": ["-y", "mcp-server-filesystem", "/home/pgula/Wks/meta-dj"]
     },
     "github": {
       "command": "npx",
