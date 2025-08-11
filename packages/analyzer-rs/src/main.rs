@@ -50,6 +50,7 @@ fn main() -> Result<()> {
             if let Some(track) = probed.format.default_track() {
                 let track_id = track.id;
                 let codec_params = track.codec_params.clone();
+                let sample_rate = codec_params.sample_rate.unwrap_or(44_100) as f64;
                 if let Ok(mut decoder) = symphonia::default::get_codecs().make(&codec_params, &DecoderOptions::default()) {
                     let mut total_frames: usize = 0;
                     let max_frames: usize = 44_100 * 30; // ~30s cap to limit workload
@@ -174,6 +175,57 @@ fn main() -> Result<()> {
                                 std::env::set_var("META_DJ_WAVEFORM_REF", out_path);
                             }
                         }
+
+                        // Naive BPM estimation from RMS envelope autocorrelation
+                        // Convert window count to seconds
+                        let window_sec = (window as f64) / sample_rate;
+                        // Acceptable BPM range
+                        let bpm_min = 60.0;
+                        let bpm_max = 180.0;
+                        let mut best_bpm = 128.0;
+                        let mut best_score = 0.0;
+                        if waveform_values.len() > 8 {
+                            // Compute simple onset function as positive energy difference
+                            let mut onset: Vec<f64> = Vec::with_capacity(waveform_values.len() - 1);
+                            for i in 1..waveform_values.len() {
+                                let d = (waveform_values[i] as f64) - (waveform_values[i-1] as f64);
+                                onset.push(if d > 0.0 { d } else { 0.0 });
+                            }
+                            // Normalize
+                            let mean_onset = onset.iter().copied().sum::<f64>() / (onset.len() as f64);
+                            for v in onset.iter_mut() { *v -= mean_onset; }
+                            // Evaluate autocorrelation at lags corresponding to BPM range
+                            let mut lag = ((60.0 / bpm_max) / window_sec).round() as usize;
+                            let lag_max = ((60.0 / bpm_min) / window_sec).round() as usize;
+                            lag = lag.max(1);
+                            for l in lag..=lag_max {
+                                let mut s = 0.0;
+                                let mut n = 0;
+                                let limit = onset.len().saturating_sub(l);
+                                for i in 0..limit {
+                                    s += onset[i] * onset[i + l];
+                                    n += 1;
+                                }
+                                if n > 0 {
+                                    let score = s / (n as f64);
+                                    if score > best_score {
+                                        best_score = score;
+                                        let period_sec = l as f64 * window_sec;
+                                        if period_sec > 1e-6 {
+                                            best_bpm = 60.0 / period_sec;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        // Clamp and set env for downstream consumer
+                        if best_bpm.is_finite() {
+                            let clamped = best_bpm.clamp(bpm_min, bpm_max) as f32;
+                            std::env::set_var("META_DJ_BPM_EST", format!("{}", clamped));
+                            // Heuristic confidence from normalized score
+                            let conf = (best_score / (best_score + 1.0)).clamp(0.0, 0.99);
+                            std::env::set_var("META_DJ_BPM_CONF", format!("{}", conf));
+                        }
                     }
                 }
             }
@@ -181,8 +233,8 @@ fn main() -> Result<()> {
     }
 
     let seed = pseudo_from(path);
-    let bpm = 60.0 + (seed % 121) as f32; // 60..180
-    let bpm_conf = 0.5 + ((seed >> 3) % 50) as f32 / 100.0;
+    let bpm = if let Ok(val) = std::env::var("META_DJ_BPM_EST") { val.parse::<f32>().unwrap_or(128.0) } else { 60.0 + (seed % 121) as f32 };
+    let bpm_conf = if let Ok(val) = std::env::var("META_DJ_BPM_CONF") { val.parse::<f32>().unwrap_or(0.6) } else { 0.5 + ((seed >> 3) % 50) as f32 / 100.0 };
     let keys = ["C","G","D","A","E","B","F#","C#","F","Bb","Eb","Ab","Db","Gb","Cb"]; 
     let modes = ["maj","min"]; 
     let musical_key = format!("{} {}", keys[(seed as usize) % keys.len()], modes[((seed >> 2) as usize) % 2]);

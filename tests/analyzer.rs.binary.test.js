@@ -33,6 +33,12 @@ if (typeof obj.bpm !== 'number' || typeof obj.lufs !== 'number') {
     process.exit(1);
 }
 
+const conf = obj.bpm_confidence ?? obj.bpmConfidence;
+if (typeof conf !== 'number' || conf <= 0 || conf > 1.0) {
+    console.error('Invalid bpm confidence');
+    process.exit(1);
+}
+
 if (obj.waveform_ref) {
     if (!fs.existsSync(obj.waveform_ref)) {
         console.error('waveform_ref file missing:', obj.waveform_ref);

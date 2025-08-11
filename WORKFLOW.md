@@ -42,6 +42,7 @@ This document defines how we execute work in this repository. It is concise by d
 - Follow repository conventions (TypeScript/Python/SQL styles, logging, security, REST, testing).
 - Secrets: never commit; use environment variables and `.env.example` with placeholders.
 - Error handling: prefer explicit, typed errors with actionable messages.
+- Add relevant inline documentation when code is polished
 
 ### Testing Policy
 - Unit tests for core logic and merge rules.
