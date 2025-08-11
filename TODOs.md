@@ -33,7 +33,7 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
 
 ### M2 — Analysis Engine MVP
 - [x] JS placeholder analyzer and integration into CLI
-- [ ] Rust analyzer crate scaffold and CI build
+- [x] Rust analyzer crate scaffold and CI build
   - Acceptance:
     - Crate builds in CI; binary prints JSON
   - Verify:

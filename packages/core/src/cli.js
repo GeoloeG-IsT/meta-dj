@@ -258,17 +258,17 @@ async function main() {
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                      ON CONFLICT(id) DO UPDATE SET analyzer_version=excluded.analyzer_version, bpm=excluded.bpm, bpm_confidence=excluded.bpm_confidence, musical_key=excluded.musical_key, key_confidence=excluded.key_confidence, beatgrid_json=excluded.beatgrid_json, lufs=excluded.lufs, peak=excluded.peak, waveform_ref=excluded.waveform_ref`,
                     [
-                        generateId(row.id + res.analyzerVersion),
+                        generateId(row.id + (res.analyzer_version || res.analyzerVersion)),
                         row.id,
-                        res.analyzerVersion,
+                        res.analyzer_version || res.analyzerVersion,
                         res.bpm,
-                        res.bpmConfidence,
-                        res.musicalKey,
-                        res.keyConfidence,
-                        res.beatgridJson,
+                        res.bpm_confidence || res.bpmConfidence,
+                        res.musical_key || res.musicalKey,
+                        res.key_confidence || res.keyConfidence,
+                        res.beatgrid_json || res.beatgridJson,
                         res.lufs,
                         res.peak,
-                        res.waveformRef,
+                        res.waveform_ref || res.waveformRef,
                     ],
                     function (err) { if (err) return reject(err); resolve(); }
                 );
