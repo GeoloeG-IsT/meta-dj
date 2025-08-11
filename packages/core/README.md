@@ -69,5 +69,19 @@ Prereqs: SQLite3, Node.js 20+.
   node packages/core/src/cli.js playlist smart-eval "$spid"
   ```
 
+### Export
+
+- M3U8 export:
+
+```bash
+node packages/core/src/cli.js export m3u <playlistId> [outDir]
+```
+
+- Rekordbox XML export (simplified):
+
+```bash
+node packages/core/src/cli.js export rekordbox-xml <playlistId> [outFile]
+```
+
 
 

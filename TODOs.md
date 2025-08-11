@@ -79,12 +79,12 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Rule test cases pass
 
 ### M5 — Exporters
-- [ ] M3U/M3U8 export with path templating
+- [x] M3U/M3U8 export with path templating
   - Acceptance:
     - Playlists export/import round-trip parity ≥99.9%
   - Verify:
     - Re-ingest and diff
-- [ ] Rekordbox XML export (RB XML parity where feasible)
+- [x] Rekordbox XML export (RB XML parity where feasible)
   - Acceptance:
     - Cues/loops/beatgrids appear in Rekordbox on import
   - Verify:

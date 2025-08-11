@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<DJ_PLAYLISTS Version="1.0.0">
+  <PRODUCT Name="meta-dj" Version="0.1.0" Company="meta-dj"/>
+  <COLLECTION Entries="1">
+    <TRACK TrackID="1" Name="track2" Location="file:///home/pgula/Wks/meta-dj/tests/fixtures/audio/track2.flac" Length="-1"/>
+  </COLLECTION>
+  <PLAYLISTS>
+    <NODE Name="ROOT" Type="0">
+      <NODE Name="RB Crate" Type="1">
+        <TRACK Key="1"/>
+      </NODE>
+    </NODE>
+  </PLAYLISTS>
+</DJ_PLAYLISTS>

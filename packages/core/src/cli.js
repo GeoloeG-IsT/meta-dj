@@ -221,8 +221,8 @@ async function autoCuesAndLoops() {
 
 async function main() {
     const [, , cmd, arg] = process.argv;
-    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop', 'playlist'].includes(cmd)) {
-        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop|playlist> <args>');
+    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop', 'playlist', 'export'].includes(cmd)) {
+        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop|playlist|export> <args>');
         process.exit(1);
     }
     if (cmd === 'import') {
@@ -412,6 +412,71 @@ async function main() {
             console.log('Usage: playlist <create|create-smart|add|rmtrack|list|tracks|smart-eval> ...'); process.exit(1);
         }
         db.close();
+    } else if (cmd === 'export') {
+        const action = arg;
+        const [, , , , a2, a3] = process.argv;
+        if (action === 'm3u') {
+            const playlistId = a2; const outDir = a3 || process.cwd();
+            if (!playlistId) { console.log('Usage: export m3u <playlistId> [outDir]'); process.exit(1); }
+            const db = openDb();
+            const rows = await new Promise((resolve, reject) => db.all(
+                'SELECT t.file_path, t.title, t.duration_ms FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = ? ORDER BY pt.position',
+                [playlistId], (e, r) => e ? reject(e) : resolve(r || [])
+            ));
+            const plName = await new Promise((resolve, reject) => db.get('SELECT name FROM playlists WHERE id = ?', [playlistId], (e, r) => e ? reject(e) : resolve((r && r.name) || 'playlist')));
+            const fs = require('fs'); const path = require('path');
+            const outPath = path.join(outDir, `${plName}.m3u8`);
+            const lines = ['#EXTM3U'];
+            for (const r of rows) {
+                const secs = r.duration_ms ? Math.round(r.duration_ms / 1000) : -1;
+                const title = r.title || '';
+                lines.push(`#EXTINF:${secs},${title}`);
+                lines.push(r.file_path);
+            }
+            fs.mkdirSync(outDir, { recursive: true });
+            fs.writeFileSync(outPath, lines.join('\n'), 'utf8');
+            db.close();
+            console.log(outPath);
+        } else if (action === 'rekordbox-xml') {
+            const playlistId = a2; const outFile = a3 || 'export.xml';
+            if (!playlistId) { console.log('Usage: export rekordbox-xml <playlistId> [outFile]'); process.exit(1); }
+            const db = openDb();
+            const rows = await new Promise((resolve, reject) => db.all(
+                'SELECT t.id, t.file_path, t.title, t.duration_ms FROM playlist_tracks pt JOIN tracks t ON t.id = pt.track_id WHERE pt.playlist_id = ? ORDER BY pt.position',
+                [playlistId], (e, r) => e ? reject(e) : resolve(r || [])
+            ));
+            const plName = await new Promise((resolve, reject) => db.get('SELECT name FROM playlists WHERE id = ?', [playlistId], (e, r) => e ? reject(e) : resolve((r && r.name) || 'Playlist')));
+            const fs = require('fs'); const path = require('path');
+            function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+            const entries = rows.length;
+            const trackIdMap = new Map();
+            let trackCounter = 1;
+            const trackXml = rows.map((r) => {
+                const tid = trackCounter++;
+                trackIdMap.set(r.id, tid);
+                const secs = r.duration_ms ? Math.round(r.duration_ms / 1000) : -1;
+                const url = 'file://' + esc(path.resolve(r.file_path));
+                return `    <TRACK TrackID="${tid}" Name="${esc(r.title || '')}" Location="${url}" Length="${secs}"/>`;
+            }).join('\n');
+            const playlistTracksXml = rows.map((r) => `        <TRACK Key="${trackIdMap.get(r.id)}"/>`).join('\n');
+            const xml = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+                `<DJ_PLAYLISTS Version="1.0.0">\n` +
+                `  <PRODUCT Name="meta-dj" Version="0.1.0" Company="meta-dj"/>\n` +
+                `  <COLLECTION Entries="${entries}">\n${trackXml}\n  </COLLECTION>\n` +
+                `  <PLAYLISTS>\n` +
+                `    <NODE Name="ROOT" Type="0">\n` +
+                `      <NODE Name="${esc(plName)}" Type="1">\n` +
+                `${playlistTracksXml}\n` +
+                `      </NODE>\n` +
+                `    </NODE>\n` +
+                `  </PLAYLISTS>\n` +
+                `</DJ_PLAYLISTS>\n`;
+            fs.writeFileSync(outFile, xml, 'utf8');
+            db.close();
+            console.log(outFile);
+        } else {
+            console.log('Usage: export <m3u|rekordbox-xml> ...'); process.exit(1);
+        }
     }
 }
 
