@@ -1,0 +1,91 @@
+package main
+
+import (
+	"context"
+	"encoding/json"
+	"net/http"
+	"os"
+	"time"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
+	"go.uber.org/zap"
+)
+
+func main() {
+	logger, _ := zap.NewProduction()
+	defer logger.Sync()
+
+	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+
+	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("ok"))
+	})
+
+	// Optional: JWT auth middleware can be added here in future.
+
+	// Choose store: Postgres if available, else in-memory
+	var getHandler http.HandlerFunc = handleGetChanges
+	var postHandler http.HandlerFunc = handlePostChanges
+	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
+		if pgStore, err := NewPgChangeStore(context.Background(), dsn); err == nil {
+			getHandler = func(w http.ResponseWriter, r *http.Request) {
+				since := r.URL.Query().Get("since")
+				items, err := pgStore.Since(r.Context(), since)
+				if err != nil {
+					http.Error(w, "error", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				json.NewEncoder(w).Encode(items)
+			}
+			postHandler = func(w http.ResponseWriter, r *http.Request) {
+				var payload []Change
+				if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+					http.Error(w, "invalid json", http.StatusBadRequest)
+					return
+				}
+				n, err := pgStore.Append(r.Context(), payload)
+				if err != nil {
+					http.Error(w, "error", http.StatusInternalServerError)
+					return
+				}
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusAccepted)
+				json.NewEncoder(w).Encode(map[string]any{"status": "ok", "received": n})
+			}
+		}
+	}
+
+	r.Route("/v1/sync", func(sr chi.Router) {
+		sr.Get("/changes", getHandler)
+		sr.Post("/changes", postHandler)
+	})
+
+	srv := &http.Server{
+		Addr:         ":8080",
+		Handler:      r,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+	go func() {
+		logger.Info("api listening", zap.String("addr", srv.Addr))
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			logger.Fatal("server error", zap.Error(err))
+		}
+	}()
+
+	// Graceful shutdown on SIGTERM
+	sig := make(chan os.Signal, 1)
+	// signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM) // add when importing syscall
+	<-sig
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	srv.Shutdown(ctx)
+}

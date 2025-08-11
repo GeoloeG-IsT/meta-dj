@@ -89,6 +89,13 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Cues/loops/beatgrids appear in Rekordbox on import
   - Verify:
     - Manual import test; sample fixtures
+- [ ] Denon Engine DJ export (as feasible)
+  - Acceptance:
+    - Export playlists and tracks consumable by Engine DJ/Prime (document limitations)
+  - Verify:
+    - Manual import into Engine DJ; sample fixtures
+  - Notes:
+    - Engine DJ uses proprietary SQLite layout; may require user-provided sample library to validate
 
 ### M6 — Sync MVP
 - [ ] Change journal with version vectors
@@ -134,5 +141,76 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Installers build; app starts in <3 s cold
   - Verify:
     - Smoke tests on all platforms
+
+### M11 — Web App (Next.js) MVP
+- [ ] Auth pages (sign-in/up) — use Supabase Auth locally
+  - Acceptance:
+    - Email/password auth works locally; session persisted
+  - Verify:
+    - Login/logout flows; protected routes redirect
+- [ ] Library browser
+  - Acceptance:
+    - Paginated track list with search/filter (BPM/key/tags)
+  - Verify:
+    - Queries return expected items; <150 ms interactions
+- [ ] Track detail with waveform and cues/loops editor
+  - Acceptance:
+    - Renders waveform from artifact; add/edit/delete cues/loops
+  - Verify:
+    - UI updates and persists; reload shows changes
+- [ ] Playlists UI (static + smart)
+  - Acceptance:
+    - Create/move/delete; smart rules editor; results preview
+  - Verify:
+    - E2E flows pass
+- [ ] Batch automation UI
+  - Acceptance:
+    - Trigger analysis, auto-cues for selections; progress display
+  - Verify:
+    - Background job feedback; results reflected in UI
+
+### M12 — Backend (Go) MVP
+- [ ] Go API scaffold (HTTP, routing, config)
+  - Acceptance:
+    - Health endpoint; structured logs
+  - Verify:
+    - `curl /health` returns 200
+- [ ] Auth middleware (Supabase JWT verification)
+  - Acceptance:
+    - Protects routes; extracts user context
+  - Verify:
+    - Valid/invalid tokens behavior
+- [ ] Library endpoints (tracks/playlists/cues/loops CRUD)
+  - Acceptance:
+    - Round-trip CRUD with Postgres
+  - Verify:
+    - Integration tests
+- [ ] Search endpoint (FTS proxy / query builder)
+  - Acceptance:
+    - Returns filtered lists consistent with local FTS
+  - Verify:
+    - Query tests
+- [ ] Analysis orchestration endpoints (enqueue/status)
+  - Acceptance:
+    - Enqueue analysis; poll status
+  - Verify:
+    - Worker stub handles job lifecycle
+
+### M13 — Local Supabase & Orchestration
+- [ ] Supabase local configuration (auth, Postgres)
+  - Acceptance:
+    - Supabase Auth available locally; env wired to web/api
+  - Verify:
+    - Sign-in works; JWT issued and verified by API
+- [ ] Object storage (MinIO) for artifacts
+  - Acceptance:
+    - Upload/download waveform/artwork via S3 API
+  - Verify:
+    - Pre-signed URL flow works
+- [ ] Docker Compose for dev (db, storage, api-go, web, optional supabase)
+  - Acceptance:
+    - `docker compose up` brings all services; healthchecks pass
+  - Verify:
+    - Web connects to API; API connects to DB/storage
 
 

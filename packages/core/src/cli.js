@@ -51,6 +51,23 @@ function generateId(input) {
     return crypto.createHash('sha1').update(input).digest('hex');
 }
 
+async function logChange(db, entityType, entityId, field, value) {
+    const deviceId = process.env.DJ_DEVICE_ID || 'local-device';
+    const valueHash = generateId(typeof value === 'string' ? value : JSON.stringify(value || {}));
+    const nextLamport = await new Promise((resolve, reject) => db.get(
+        'SELECT COALESCE(MAX(lamport_clock), 0) + 1 AS next FROM change_log',
+        [], (e, r) => e ? reject(e) : resolve((r && r.next) || 1)
+    ));
+    const vectorClock = JSON.stringify({ [deviceId]: nextLamport });
+    const id = generateId(`${entityType}|${entityId}|${field}|${Date.now()}`);
+    await new Promise((resolve, reject) => db.run(
+        `INSERT INTO change_log (id, entity_type, entity_id, field, value_hash, device_id, lamport_clock, vector_clock)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+        [id, entityType, entityId, field, valueHash, deviceId, nextLamport, vectorClock],
+        function (err) { if (err) return reject(err); resolve(); }
+    ));
+}
+
 function upsertTrack(db, filePath) {
     return new Promise((resolve, reject) => {
         const id = generateId(filePath);
@@ -176,7 +193,7 @@ function insertCue(db, cue) {
              VALUES (?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET position_ms=excluded.position_ms, color=excluded.color, label=excluded.label, type=excluded.type, autogen=excluded.autogen`,
             [id, cue.track_id, cue.position_ms, cue.color || null, cue.label || null, cue.type || 'HOT', cue.autogen ? 1 : 0],
-            function (err) { if (err) return reject(err); resolve(id); }
+            async function (err) { if (err) return reject(err); await logChange(db, 'cue', id, 'upsert', cue); resolve(id); }
         );
     });
 }
@@ -189,7 +206,7 @@ function insertLoop(db, loop) {
              VALUES (?, ?, ?, ?, ?, ?, ?)
              ON CONFLICT(id) DO UPDATE SET start_ms=excluded.start_ms, length_beats=excluded.length_beats, color=excluded.color, label=excluded.label, autogen=excluded.autogen`,
             [id, loop.track_id, loop.start_ms, loop.length_beats, loop.color || null, loop.label || null, loop.autogen ? 1 : 0],
-            function (err) { if (err) return reject(err); resolve(id); }
+            async function (err) { if (err) return reject(err); await logChange(db, 'loop', id, 'upsert', loop); resolve(id); }
         );
     });
 }
@@ -221,8 +238,8 @@ async function autoCuesAndLoops() {
 
 async function main() {
     const [, , cmd, arg] = process.argv;
-    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop', 'playlist', 'export'].includes(cmd)) {
-        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop|playlist|export> <args>');
+    if (!cmd || !['import', 'watch', 'search', 'analyze', 'autocue', 'cue', 'loop', 'playlist', 'export', 'sync'].includes(cmd)) {
+        console.log('Usage: node src/cli.js <import|watch|search|analyze|autocue|cue|loop|playlist|export|sync> <args>');
         process.exit(1);
     }
     if (cmd === 'import') {
@@ -290,7 +307,7 @@ async function main() {
             console.log('Cue added');
         } else if (action === 'rm') {
             const cueId = a2; if (!cueId) { console.log('Usage: cue rm <cueId>'); process.exit(1); }
-            await new Promise((resolve, reject) => db.run('DELETE FROM cues WHERE id = ?', [cueId], function (err) { if (err) return reject(err); resolve(); }));
+            await new Promise((resolve, reject) => db.run('DELETE FROM cues WHERE id = ?', [cueId], async function (err) { if (err) return reject(err); await logChange(db, 'cue', cueId, 'delete', {}); resolve(); }));
             console.log('Cue removed');
         } else if (action === 'list') {
             const trackId = a2; if (!trackId) { console.log('Usage: cue list <trackId>'); process.exit(1); }
@@ -310,7 +327,7 @@ async function main() {
             console.log('Loop added');
         } else if (action === 'rm') {
             const loopId = a2; if (!loopId) { console.log('Usage: loop rm <loopId>'); process.exit(1); }
-            await new Promise((resolve, reject) => db.run('DELETE FROM loops WHERE id = ?', [loopId], function (err) { if (err) return reject(err); resolve(); }));
+            await new Promise((resolve, reject) => db.run('DELETE FROM loops WHERE id = ?', [loopId], async function (err) { if (err) return reject(err); await logChange(db, 'loop', loopId, 'delete', {}); resolve(); }));
             console.log('Loop removed');
         } else if (action === 'list') {
             const trackId = a2; if (!trackId) { console.log('Usage: loop list <trackId>'); process.exit(1); }
@@ -397,7 +414,7 @@ async function main() {
         } else if (action === 'rmtrack') {
             const playlistId = a2; const trackId = a3;
             if (!playlistId || !trackId) { console.log('Usage: playlist rmtrack <playlistId> <trackId>'); process.exit(1); }
-            await rmTrack(playlistId, trackId); console.log('OK');
+            await rmTrack(playlistId, trackId); await logChange(db, 'playlist_track', `${playlistId}:${trackId}`, 'rm', {}); console.log('OK');
         } else if (action === 'list') {
             const rows = await new Promise((resolve, reject) => db.all('SELECT id, name, smart_rules_json FROM playlists ORDER BY name', [], (e, r) => e ? reject(e) : resolve(r || [])));
             for (const r of rows) console.log(`${r.id}|${r.name}|${r.smart_rules_json ? 'SMART' : 'STATIC'}`);
@@ -477,6 +494,48 @@ async function main() {
         } else {
             console.log('Usage: export <m3u|rekordbox-xml> ...'); process.exit(1);
         }
+    } else if (cmd === 'sync') {
+        const action = arg;
+        const [, , , , a2] = process.argv;
+        const db = openDb();
+        if (action === 'dump') {
+            const since = a2 || '1970-01-01T00:00:00Z';
+            const rows = await new Promise((resolve, reject) => db.all(
+                'SELECT entity_type, entity_id, field, value_hash, device_id, lamport_clock, vector_clock, ts FROM change_log WHERE ts >= ? ORDER BY ts',
+                [since], (e, r) => e ? reject(e) : resolve(r || [])
+            ));
+            console.log(JSON.stringify(rows, null, 2));
+        } else if (action === 'clear') {
+            await new Promise((resolve, reject) => db.run('DELETE FROM change_log', [], function (err) { if (err) return reject(err); resolve(); }));
+            console.log('OK');
+        } else if (action === 'push') {
+            const base = a2 || process.env.SYNC_API_BASE || 'http://localhost:8080';
+            const since = process.env.SYNC_SINCE || '1970-01-01T00:00:00Z';
+            const rows = await new Promise((resolve, reject) => db.all(
+                'SELECT entity_type, entity_id, field, value_hash, device_id, lamport_clock, vector_clock, ts FROM change_log WHERE ts >= ? ORDER BY ts',
+                [since], (e, r) => e ? reject(e) : resolve(r || [])
+            ));
+            try {
+                const res = await fetch(`${base}/v1/sync/changes`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(rows) });
+                const t = await res.text();
+                console.log(t);
+            } catch (e) {
+                console.error('push failed', e);
+            }
+        } else if (action === 'pull') {
+            const base = a2 || process.env.SYNC_API_BASE || 'http://localhost:8080';
+            const since = process.env.SYNC_SINCE || '1970-01-01T00:00:00Z';
+            try {
+                const res = await fetch(`${base}/v1/sync/changes?since=${encodeURIComponent(since)}`);
+                const json = await res.json();
+                console.log(JSON.stringify(json, null, 2));
+            } catch (e) {
+                console.error('pull failed', e);
+            }
+        } else {
+            console.log('Usage: sync <dump|clear|push|pull> [baseOrSince]'); process.exit(1);
+        }
+        db.close();
     }
 }
 

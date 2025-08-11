@@ -31,12 +31,14 @@ This document defines how we execute work in this repository. It is concise by d
 ### CI/CD and Quality Gates
 - Required jobs: lint, unit tests, type checks, build (and minimal e2e where applicable).
 - Performance guards where budgets exist; regressions must be called out.
+ - For multi-service orchestration (web/api/db/storage), provide `docker-compose.yml` and healthchecks; CI should at least build containers.
 
 ### Docs and Specs
 - Keep docs minimal and actionable.
 - Structure: `category[/sub-category]/tool-name/README.md` plus supporting files.
 - Reference: `SYSTEM-SPECIFICATIONS.md` for the system-level spec.
 - Keep `TODOs.md` up to date after each completed task. Proceed strictly in milestone order unless a blocker is documented.
+ - For new services (web/api), add `README.md` with local run commands and env requirements.
 
 ### Code, Style, and Safety
 - Follow repository conventions (TypeScript/Python/SQL styles, logging, security, REST, testing).
