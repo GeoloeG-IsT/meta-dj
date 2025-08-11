@@ -1,7 +1,7 @@
 use serde::Serialize;
 use std::env;
 use anyhow::Result;
-use symphonia::core::audio::AudioBufferRef;
+use symphonia::core::audio::{AudioBufferRef, Signal};
 use symphonia::core::codecs::DecoderOptions;
 use symphonia::core::formats::FormatOptions;
 use symphonia::core::io::MediaSourceStream;
@@ -44,13 +44,15 @@ fn main() -> Result<()> {
         let probed = symphonia::default::get_probe().format(&hint, mss, &FormatOptions::default(), &MetadataOptions::default());
         if let Ok(mut probed) = probed {
             if let Some(track) = probed.format.default_track() {
-                if let Ok(mut decoder) = symphonia::default::get_codecs().make(&track.codec_params, &DecoderOptions::default()) {
+                let track_id = track.id;
+                let codec_params = track.codec_params.clone();
+                if let Ok(mut decoder) = symphonia::default::get_codecs().make(&codec_params, &DecoderOptions::default()) {
                     let mut total_frames: usize = 0;
                     let max_frames: usize = 44_100 * 10; // ~10s at 44.1kHz
                     let mut sum_sq: f64 = 0.0;
                     while total_frames < max_frames {
                         let packet = match probed.format.next_packet() { Ok(p) => p, Err(_) => break };
-                        if packet.track_id() != track.id { continue; }
+                        if packet.track_id() != track_id { continue; }
                         let decoded = match decoder.decode(&packet) { Ok(d) => d, Err(_) => continue };
                         match decoded {
                             AudioBufferRef::F32(buf) => {
@@ -100,6 +102,9 @@ fn main() -> Result<()> {
                                     sum_sq += v * v;
                                 }
                                 total_frames += frames;
+                            }
+                            _ => {
+                                // Unsupported sample format for quick pass; skip.
                             }
                         }
                     }
