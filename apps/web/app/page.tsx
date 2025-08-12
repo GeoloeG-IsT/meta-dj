@@ -47,11 +47,12 @@ function buildFolderTree(filePaths: string[]): FolderNode {
         let accum = '';
         for (const dir of dirs) {
             accum = accum ? `${accum}/${dir}` : dir;
-            if (!node.children.has(dir)) {
-                node.children.set(dir, { name: dir, path: accum, children: new Map() });
+            let existing = node.children.get(dir);
+            if (!existing) {
+                existing = { name: dir, path: accum, children: new Map() };
+                node.children.set(dir, existing);
             }
-            // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-            node = node.children.get(dir)!;
+            node = existing;
         }
     }
     const toFolderNode = (n: TempNode): FolderNode => {
