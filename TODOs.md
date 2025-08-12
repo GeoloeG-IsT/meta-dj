@@ -187,7 +187,7 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - UI updates and persists; reload shows changes; DB rows reflect edits (`analysis` or override fields)
   - Progress:
     - [x] Detail page; BPM override form wired to `PUT /v1/tracks/{id}/bpm-override`
-    - [ ] Cues/Loops editor wired to `/v1/cues`
+    - [x] Cues editor wired to `/v1/cues` (list/add/delete)
 - [ ] Playlists UI (static + smart)
   - Acceptance:
     - Create/move/delete; smart rules editor; results preview
