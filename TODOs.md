@@ -176,7 +176,7 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Queries return expected items; <150 ms interactions
   - Progress:
     - [x] SSR page fetching `/v1/tracks` with query/fields/pagination
-    - [ ] Folder tree navigation and filtering end-to-end
+    - [x] Folder tree navigation and filtering end-to-end
 - [ ] Track detail with waveform and cues/loops editor
   - Acceptance:
     - Renders waveform from artifact; add/edit/delete cues/loops
