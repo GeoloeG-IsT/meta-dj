@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type TrackRow struct {
@@ -19,18 +19,16 @@ type TrackRow struct {
 	BpmOverride *float64 `json:"bpm_override,omitempty"`
 }
 
-type PgTrackStore struct {
-	conn *pgx.Conn
-}
+type PgTrackStore struct{ conn *pgxpool.Pool }
 
 func NewPgTrackStore(ctx context.Context, dsn string) (*PgTrackStore, error) {
-	c, err := pgx.Connect(ctx, dsn)
+	c, err := pgxpool.New(ctx, dsn)
 	if err != nil {
 		return nil, err
 	}
 	s := &PgTrackStore{conn: c}
 	if err := s.init(ctx); err != nil {
-		c.Close(ctx)
+		c.Close()
 		return nil, err
 	}
 	return s, nil
