@@ -12,11 +12,9 @@
         "next": "^15.0.0",
         "react": "18.2.0",
         "react-dom": "18.2.0",
-        "better-sqlite3": "^12.2.0",
         "@supabase/supabase-js": "^2.55.0"
     },
     "devDependencies": {
-        "@types/better-sqlite3": "^7.6.13",
         "@types/node": "^22.0.0",
         "@types/react": "18.2.79",
         "@types/react-dom": "18.2.25",

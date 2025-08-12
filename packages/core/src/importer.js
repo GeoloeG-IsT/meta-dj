@@ -146,6 +146,27 @@ function walk(dir) {
 }
 
 async function importFolder(root) {
+    const apiBase = process.env.API_BASE || process.env.SYNC_API_BASE || '';
+    if (apiBase) {
+        try {
+            const res = await fetch(String(apiBase).replace(/\/$/, '') + '/v1/import/scan', {
+                method: 'POST',
+                headers: { 'content-type': 'application/json' },
+                body: JSON.stringify({ root })
+            });
+            if (!res.ok) {
+                const text = await res.text().catch(() => '');
+                console.error('API import failed', res.status, text);
+                return;
+            }
+            const json = await res.json().catch(() => ({}));
+            console.log(`API import ok: scanned=${json.scanned ?? '?'} imported=${json.imported ?? '?'}`);
+            return;
+        } catch (e) {
+            console.error('API import error', e);
+            // fallthrough to local
+        }
+    }
     const db = openDb();
     const files = await walk(root);
     const audioFiles = files.filter((f) => AUDIO_EXTS.has(path.extname(f).toLowerCase()));

@@ -6,5 +6,8 @@
     "license": "MIT",
     "scripts": {
         "test": "node --test"
+    },
+    "devDependencies": {
+        "supabase": "^2.34.3"
     }
 }

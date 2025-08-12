@@ -22,6 +22,20 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 
+	// Dev CORS (allow localhost)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", "*")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+			if req.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, req)
+		})
+	})
+
 	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
@@ -32,6 +46,10 @@ func main() {
 	// Choose store: Postgres if available, else in-memory
 	var getHandler http.HandlerFunc = handleGetChanges
 	var postHandler http.HandlerFunc = handlePostChanges
+	var tracksSvc *TracksService
+	var changesSvc *ChangesService
+	var cuesSvc *CuesService
+	var importSvc *ImportService
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		if pgStore, err := NewPgChangeStore(context.Background(), dsn); err == nil {
 			getHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -60,15 +78,73 @@ func main() {
 				json.NewEncoder(w).Encode(map[string]any{"status": "ok", "received": n})
 			}
 		}
+		if tsvc, err := NewTracksService(context.Background(), dsn); err == nil {
+			tracksSvc = tsvc
+		}
+		if csvc, err := NewChangesService(context.Background(), dsn); err == nil {
+			changesSvc = csvc
+		}
+		if cusvc, err := NewCuesService(context.Background(), dsn); err == nil {
+			cuesSvc = cusvc
+		}
+		if isvc, err := NewImportService(context.Background(), dsn); err == nil {
+			importSvc = isvc
+		}
 	}
 
 	r.Route("/v1/sync", func(sr chi.Router) {
-		sr.Get("/changes", getHandler)
-		sr.Post("/changes", postHandler)
+		if changesSvc != nil {
+			changesSvc.Routes(sr)
+		} else {
+			sr.Get("/changes", getHandler)
+			sr.Post("/changes", postHandler)
+		}
 	})
 
+	r.Route("/v1/tracks", func(tr chi.Router) {
+		if tracksSvc != nil {
+			tracksSvc.Routes(tr)
+		}
+	})
+
+	r.Route("/v1/cues", func(cr chi.Router) {
+		if cuesSvc != nil {
+			cuesSvc.Routes(cr)
+		}
+	})
+
+	r.Route("/v1/import", func(ir chi.Router) {
+		if importSvc != nil {
+			importSvc.Routes(ir)
+		}
+	})
+
+	// Protected routes (require JWT if configured)
+	r.Group(func(pr chi.Router) {
+		pr.Use(maybeJWT)
+		pr.Route("/v1/sync", func(sr chi.Router) {
+			if changesSvc != nil {
+				changesSvc.ProtectedRoutes(sr)
+			}
+		})
+		pr.Route("/v1/tracks", func(tr chi.Router) {
+			if tracksSvc != nil {
+				tracksSvc.ProtectedRoutes(tr)
+			}
+		})
+		pr.Route("/v1/cues", func(cr chi.Router) {
+			if cuesSvc != nil {
+				cuesSvc.ProtectedRoutes(cr)
+			}
+		})
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
 	srv := &http.Server{
-		Addr:         ":8080",
+		Addr:         ":" + port,
 		Handler:      r,
 		ReadTimeout:  5 * time.Second,
 		WriteTimeout: 10 * time.Second,

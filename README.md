@@ -128,6 +128,7 @@ SYNC_SINCE='1970-01-01T00:00:00Z' node packages/core/src/cli.js sync pull http:/
 - `STORAGE_ACCESS_KEY_ID` (optional): S3 access key.
 - `STORAGE_SECRET_ACCESS_KEY` (optional): S3 secret key.
 - `JWT_SECRET` (optional): when set, enables Bearer JWT auth middleware.
+- `IMPORT_HOST_PREFIX` / `IMPORT_CONTAINER_PREFIX` (optional): map host paths to the container mount for API-driven imports.
 
 Defaults for local development are configured in `docker-compose.yml` (Postgres, MinIO, API base URL). Review that file and override via environment or a `.env` file as needed. Do not reuse dev defaults in production.
 
@@ -135,7 +136,7 @@ Defaults for local development are configured in `docker-compose.yml` (Postgres,
 - `NEXT_PUBLIC_API_BASE_URL` (required): base URL of the API for the browser. Default in compose: `http://localhost:8080`.
 
 ## Configuration files
-- `docker-compose.yml`: local orchestration (Postgres, MinIO, API, Web) with healthchecks.
+- `docker-compose.yml`: local orchestration (Supabase Postgres via host.docker.internal, API, Web). Storage uses Supabase Storage (no MinIO).
 - `services/api-go/Dockerfile`: multi-stage Go build to `:8080`.
 - `apps/web/Dockerfile`: multi-stage Next.js build; serves on `:3001`.
 - `apps/web/next.config.js`, `apps/web/tsconfig.json`, `apps/web/.eslintrc.json`.
@@ -158,6 +159,17 @@ go run .
 # curl http://localhost:8080/health
 ```
 
+### Import library via API (Postgres)
+- Ensure your music folder is mounted into the API container (compose mounts `${IMPORT_HOST_ROOT}` to `/import`).
+- Scan and upsert tracks into Postgres:
+```bash
+curl -sS -X POST http://localhost:8080/v1/import/scan \
+  -H 'content-type: application/json' \
+  -d '{"root":"/import/beatport_tracks_2025-08"}'
+```
+- Optional host→container path remap:
+  - Set `IMPORT_HOST_PREFIX=/mnt/c/Users/pasca/Music` and `IMPORT_CONTAINER_PREFIX=/import` to POST host paths directly.
+
 ### Run Web locally (without Docker)
 ```bash
 cd apps/web
@@ -168,7 +180,9 @@ NEXT_PUBLIC_API_BASE_URL='http://localhost:8080' npm run dev
 ### Core CLI common tasks
 ```bash
 # Import, watch, search
-node packages/core/src/cli.js import /path/to/music
+node packages/core/src/cli.js import /path/to/music                 # local SQLite
+API_BASE=http://localhost:8080 node packages/core/src/cli.js import \
+  /mnt/c/Users/pasca/Music/beatport_tracks_2025-08                   # API (Postgres)
 node packages/core/src/cli.js watch /path/to/music
 node packages/core/src/cli.js search 'artist*'
 

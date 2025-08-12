@@ -39,12 +39,18 @@ This document defines how we execute work in this repository. It is concise by d
 - Reference: `SYSTEM-SPECIFICATIONS.md` for the system-level spec.
 - Keep `TODOs.md` up to date after each completed task. Proceed strictly in milestone order unless a blocker is documented.
  - For new services (web/api), add `README.md` with local run commands and env requirements.
+ - When introducing new endpoints or CLI modes, immediately update:
+   - `README.md` (how to run, envs, example requests)
+   - `docker-compose.yml` (volumes/env for dev, e.g., API import path mapping)
+   - `TODOs.md` (mark progress and add follow-ups)
 
 ### Code, Style, and Safety
 - Follow repository conventions (TypeScript/Python/SQL styles, logging, security, REST, testing).
 - Secrets: never commit; use environment variables and `.env.example` with placeholders.
 - Error handling: prefer explicit, typed errors with actionable messages.
 - Add relevant inline documentation when code is polished
+ - Default to API-first access from clients (web/CLI) and avoid direct DB access outside of dev-only utilities
+ - For file-system dependent features in containers, provide env-based path remapping and documented volume mounts
 
 ### Testing Policy
 - Unit tests for core logic and merge rules.

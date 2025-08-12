@@ -174,6 +174,9 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Navigate large folder trees smoothly; folder change updates track list in <150 ms on 10k tracks (sampled)
   - Verify:
     - Queries return expected items; <150 ms interactions
+  - Progress:
+    - [x] SSR page fetching `/v1/tracks` with query/fields/pagination
+    - [ ] Folder tree navigation and filtering end-to-end
 - [ ] Track detail with waveform and cues/loops editor
   - Acceptance:
     - Renders waveform from artifact; add/edit/delete cues/loops
@@ -182,6 +185,9 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Fetch and persist via REST API
   - Verify:
     - UI updates and persists; reload shows changes; DB rows reflect edits (`analysis` or override fields)
+  - Progress:
+    - [x] Detail page; BPM override form wired to `PUT /v1/tracks/{id}/bpm-override`
+    - [ ] Cues/Loops editor wired to `/v1/cues`
 - [ ] Playlists UI (static + smart)
   - Acceptance:
     - Create/move/delete; smart rules editor; results preview
@@ -209,6 +215,10 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Round-trip CRUD with Postgres
   - Verify:
     - Integration tests
+  - Progress:
+    - [x] Tracks: list/get (limit/offset/fields), BPM override
+    - [x] Cues: list by track, upsert/delete
+    - [ ] Loops: list by track, upsert/delete
 - [ ] Search endpoint (FTS proxy / query builder)
   - Acceptance:
     - Returns filtered lists consistent with local FTS
@@ -227,6 +237,9 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Writes retry/sync when API becomes available
   - Verify:
     - End-to-end flows execute via API with API-only mode toggled in CLI
+  - Progress:
+    - [x] CLI search via API when `API_BASE` set
+    - [x] CLI import via API `/v1/import/scan` (falls back to local)
 - [ ] Web: replace direct SQLite reads with REST API data fetching (SSR/ISR as needed)
   - Acceptance:
     - All pages and mutations go through API; no `better-sqlite3` in production paths
@@ -262,6 +275,9 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - `docker compose up` brings all services; healthchecks pass
   - Verify:
     - Web connects to API; API connects to DB/storage
+  - Progress:
+    - [x] Web uses `http://api:8080` internally
+    - [x] API mounts `${IMPORT_HOST_ROOT}` to `/import`; supports host→container path remap for imports
 
 ### M14 - Add various Object Storage support (S3/GCS/GDrive/Dropbox)
 - [ ] S3-compatible storage abstraction layer
