@@ -50,6 +50,7 @@ func main() {
 	var changesSvc *ChangesService
 	var cuesSvc *CuesService
 	var importSvc *ImportService
+	var storageSvc *StorageService
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		if pgStore, err := NewPgChangeStore(context.Background(), dsn); err == nil {
 			getHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +91,7 @@ func main() {
 		if isvc, err := NewImportService(context.Background(), dsn); err == nil {
 			importSvc = isvc
 		}
+		storageSvc = NewStorageService()
 	}
 
 	r.Route("/v1/sync", func(sr chi.Router) {
@@ -99,42 +101,52 @@ func main() {
 			sr.Get("/changes", getHandler)
 			sr.Post("/changes", postHandler)
 		}
+		// Protected subset under the same base path
+		sr.Group(func(gr chi.Router) {
+			gr.Use(maybeJWT)
+			if changesSvc != nil {
+				changesSvc.ProtectedRoutes(gr)
+			}
+		})
 	})
 
 	r.Route("/v1/tracks", func(tr chi.Router) {
 		if tracksSvc != nil {
 			tracksSvc.Routes(tr)
 		}
+		tr.Group(func(gr chi.Router) {
+			gr.Use(maybeJWT)
+			if tracksSvc != nil {
+				tracksSvc.ProtectedRoutes(gr)
+			}
+		})
 	})
 
 	r.Route("/v1/cues", func(cr chi.Router) {
 		if cuesSvc != nil {
 			cuesSvc.Routes(cr)
 		}
+		cr.Group(func(gr chi.Router) {
+			gr.Use(maybeJWT)
+			if cuesSvc != nil {
+				cuesSvc.ProtectedRoutes(gr)
+			}
+		})
 	})
 
 	r.Route("/v1/import", func(ir chi.Router) {
 		if importSvc != nil {
 			importSvc.Routes(ir)
 		}
+		// No protected import endpoints currently
 	})
 
-	// Protected routes (require JWT if configured)
-	r.Group(func(pr chi.Router) {
-		pr.Use(maybeJWT)
-		pr.Route("/v1/sync", func(sr chi.Router) {
-			if changesSvc != nil {
-				changesSvc.ProtectedRoutes(sr)
-			}
-		})
-		pr.Route("/v1/tracks", func(tr chi.Router) {
-			if tracksSvc != nil {
-				tracksSvc.ProtectedRoutes(tr)
-			}
-		})
-		pr.Route("/v1/cues", func(cr chi.Router) {
-			if cuesSvc != nil {
-				cuesSvc.ProtectedRoutes(cr)
+	// Storage protected routes under its own base path
+	r.Route("/v1/storage", func(sr chi.Router) {
+		sr.Group(func(gr chi.Router) {
+			gr.Use(maybeJWT)
+			if storageSvc != nil {
+				storageSvc.ProtectedRoutes(gr)
 			}
 		})
 	})

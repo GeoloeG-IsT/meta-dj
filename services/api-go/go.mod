@@ -3,6 +3,7 @@ module meta-dj/services/api-go
 go 1.23
 
 require (
+	github.com/MicahParks/keyfunc v1.9.0
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/golang-jwt/jwt/v4 v4.5.0
 	github.com/jackc/pgx/v5 v5.6.0

@@ -18,7 +18,7 @@ Refer to `SYSTEM-SPECIFICATIONS.md` for the full system-level spec and `WORKFLOW
 
 ### Overview
 - **Web app**: `apps/web` (Next.js 15) — UI for library management. Talks to the API.
-- **API**: `services/api-go` (Go 1.23) — health, sync endpoints, Postgres + S3-compatible storage.
+- **API**: `services/api-go` (Go 1.23) — health, tracks, cues, import, and storage endpoints; Postgres via Supabase.
 - **Core CLI**: `packages/core` (Node.js) — local SQLite library import/search/analysis/export/sync.
 - **Analyzers**: `packages/analyzer` (JS placeholder) and `packages/analyzer-rs` (Rust binary).
 - **Infra & scripts**: `infra/`, `scripts/`, and `docker-compose.yml` for local orchestration.
@@ -39,7 +39,7 @@ cargo install --path packages/analyzer-rs --force
 ```
 
 ## Quickstart (Docker)
-Runs Postgres, MinIO, API, and Web.
+Runs API and Web; database and auth provided by local Supabase.
 
 ```bash
 docker compose up --build
@@ -47,8 +47,8 @@ docker compose up --build
 
 - Web: `http://localhost:3001`
 - API: `http://localhost:8080/health` → returns `ok`
-- Postgres: `localhost:5432` (user: `meta`, password: `meta`, db: `meta_dj`)
-- MinIO: S3 API at `http://localhost:9000`, console at `http://localhost:9001` (user: `meta`, password: `meta12345`) — dev only
+  
+For Supabase local, ensure it's running (via Supabase CLI) and set `.env` accordingly.
 
 To run just one service:
 ```bash
@@ -122,12 +122,11 @@ SYNC_SINCE='1970-01-01T00:00:00Z' node packages/core/src/cli.js sync pull http:/
 - `SYNC_SINCE` (optional): RFC3339 cursor for sync.
 
 ### API service (`services/api-go`)
-- `DATABASE_URL` (required when using Postgres): e.g., `postgres://meta:meta@localhost:5432/meta_dj?sslmode=disable`.
-- `STORAGE_ENDPOINT` (optional for S3-compatible storage): e.g., `http://localhost:9000`.
-- `STORAGE_BUCKET` (optional): e.g., `meta-dj`.
-- `STORAGE_ACCESS_KEY_ID` (optional): S3 access key.
-- `STORAGE_SECRET_ACCESS_KEY` (optional): S3 secret key.
-- `JWT_SECRET` (optional): when set, enables Bearer JWT auth middleware.
+- `DATABASE_URL` (required): e.g., `postgres://postgres:postgres@host.docker.internal:54322/postgres?sslmode=disable` (Supabase local default).
+- `SUPABASE_URL` (required for storage signing/upload): e.g., ``
+- `SUPABASE_SERVICE_ROLE_KEY` (required for storage): from Supabase project settings.
+- `SUPABASE_STORAGE_BUCKET` (optional, default `meta-dj`): bucket name.
+- `SUPABASE_JWKS_URL` (preferred) or `JWT_SECRET`: enable Bearer JWT auth.
 - `IMPORT_HOST_PREFIX` / `IMPORT_CONTAINER_PREFIX` (optional): map host paths to the container mount for API-driven imports.
 
 Defaults for local development are configured in `docker-compose.yml` (Postgres, MinIO, API base URL). Review that file and override via environment or a `.env` file as needed. Do not reuse dev defaults in production.
@@ -150,11 +149,11 @@ Defaults for local development are configured in `docker-compose.yml` (Postgres,
 ```bash
 cd services/api-go
 go mod tidy
-DATABASE_URL='postgres://meta:meta@localhost:5432/meta_dj?sslmode=disable' \
-STORAGE_ENDPOINT='http://localhost:9000' \
-STORAGE_BUCKET='meta-dj' \
-STORAGE_ACCESS_KEY_ID='<MINIO_ACCESS_KEY>' \
-STORAGE_SECRET_ACCESS_KEY='<MINIO_SECRET>' \
+DATABASE_URL='postgres://postgres:postgres@localhost:54322/postgres?sslmode=disable' \
+SUPABASE_URL='http://localhost:54321' \
+SUPABASE_SERVICE_ROLE_KEY='<service_role_key>' \
+SUPABASE_STORAGE_BUCKET='meta-dj' \
+SUPABASE_JWKS_URL='http://localhost:54321/auth/v1/keys' \
 go run .
 # curl http://localhost:8080/health
 ```
@@ -169,6 +168,20 @@ curl -sS -X POST http://localhost:8080/v1/import/scan \
 ```
 - Optional host→container path remap:
   - Set `IMPORT_HOST_PREFIX=/mnt/c/Users/pasca/Music` and `IMPORT_CONTAINER_PREFIX=/import` to POST host paths directly.
+
+### Storage API
+- Protected routes (requires Authorization: Bearer <jwt>):
+```bash
+curl -sS -X POST "$NEXT_PUBLIC_API_BASE_URL/v1/storage/sign" \
+  -H 'authorization: Bearer <SUPABASE_JWT>' \
+  -H 'content-type: application/json' \
+  -d '{"path":"waveforms/abc.json","expiresIn":3600}'
+
+curl -sS -X POST "$NEXT_PUBLIC_API_BASE_URL/v1/storage/upload" \
+  -H 'authorization: Bearer <SUPABASE_JWT>' \
+  -H 'content-type: application/json' \
+  -d '{"path":"artwork/cover.jpg","dataBase64":"<base64>","contentType":"image/jpeg"}' -i
+```
 
 ### Run Web locally (without Docker)
 ```bash
