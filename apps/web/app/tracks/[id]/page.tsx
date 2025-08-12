@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import CuesEditor from '../../../components/CuesEditor';
 import { revalidatePath } from 'next/cache';
 
 type TrackDetail = { id: string; title: string; file_path: string; year?: number | null; genre?: string | null; duration_ms?: number | null; bpm_override?: number | null };
@@ -46,12 +47,15 @@ export default async function TrackPage({ params }: { params?: Promise<{ id: str
                 <label>BPM:&nbsp;<input name="bpm" type="number" min={40} max={220} step={0.01} defaultValue={t.bpm_override ?? ''} /></label>
                 &nbsp;<button type="submit">Save</button>
             </form>
-            <ul>
-                <li>Cue/Loop editor (TBD)</li>
+            {/* Client component */}
+            <CuesEditor trackId={trackId} />
+            <ul style={{ marginTop: 16 }}>
                 <li>Automation: Re-analyze / Auto-cues (TBD)</li>
             </ul>
         </main>
     );
 }
+
+// no-op
 
 
