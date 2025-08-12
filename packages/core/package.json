@@ -12,6 +12,7 @@
     },
     "dependencies": {
         "chokidar": "^3.6.0",
-        "sqlite3": "^5.1.7"
+        "sqlite3": "^5.1.7",
+        "music-metadata": "^7.14.0"
     }
 }

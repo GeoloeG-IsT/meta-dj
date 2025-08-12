@@ -38,6 +38,22 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
     - Crate builds in CI; binary prints JSON
   - Verify:
     - CI green; local run returns JSON
+  
+#### M2.E — Analyzer Evaluation & ML Improvements
+- [ ] Extensive analyzer evaluation on curated dataset
+  - Acceptance:
+    - Evaluation dataset (≥500 tracks) with ground-truth or tag-derived BPM/key created and documented
+    - Metrics computed: BPM within ±1 and with half/double normalization; key accuracy with enharmonic normalization
+    - Report generated (CSV/Markdown) with per-genre breakdown and error analysis
+  - Verify:
+    - `npm` (or script) runs end-to-end and outputs metrics and samples of mismatches
+- [ ] Investigate ML/AI methods to improve analyzer
+  - Acceptance:
+    - Survey of modern BPM/key/downbeat models (as of ${DATE}), pros/cons, licenses
+    - Prototype experiment(s) integrated behind a flag (WASM/Rust/C++)
+    - Performance baseline (throughput, latency, memory) documented vs current
+  - Verify:
+    - Re-run evaluation with prototype and compare metrics; results summarized in docs
 - [ ] Audio decode/resample/downmix pipeline (Rust/C++/WASM binding)
   - Acceptance:
     - Decode MP3/FLAC/WAV; unit tests with fixtures
@@ -151,13 +167,21 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
 - [ ] Library browser
   - Acceptance:
     - Paginated track list with search/filter (BPM/key/tags)
+    - Folder tree visualization of local library (derived from `tracks.file_path`)
+    - Selecting a folder shows tracks scoped to that folder and its subfolders
+    - Uses REST API (`services/api-go`) for all reads/writes (no direct SQLite in web)
+  - Verify:
+    - Navigate large folder trees smoothly; folder change updates track list in <150 ms on 10k tracks (sampled)
   - Verify:
     - Queries return expected items; <150 ms interactions
 - [ ] Track detail with waveform and cues/loops editor
   - Acceptance:
     - Renders waveform from artifact; add/edit/delete cues/loops
+    - Manual BPM editing and save back to DB (separate from analyzed BPM; track-level override)
+    - Buttons to trigger automation (re-analyze, auto-cues)
+    - Fetch and persist via REST API
   - Verify:
-    - UI updates and persists; reload shows changes
+    - UI updates and persists; reload shows changes; DB rows reflect edits (`analysis` or override fields)
 - [ ] Playlists UI (static + smart)
   - Acceptance:
     - Create/move/delete; smart rules editor; results preview
@@ -196,6 +220,32 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
   - Verify:
     - Worker stub handles job lifecycle
 
+#### M12.A — API Clients Integration (REST)
+- [ ] CLI: use REST API for library operations where applicable (search, playlists, cues/loops, analysis triggers); retain offline-local SQLite as fallback
+  - Acceptance:
+    - Env-configurable API base; graceful offline mode
+    - Writes retry/sync when API becomes available
+  - Verify:
+    - End-to-end flows execute via API with API-only mode toggled in CLI
+- [ ] Web: replace direct SQLite reads with REST API data fetching (SSR/ISR as needed)
+  - Acceptance:
+    - All pages and mutations go through API; no `better-sqlite3` in production paths
+  - Verify:
+    - Web works with only API and Postgres/MinIO running
+
+#### M12.B — GraphQL API (Optional alongside REST)
+- [ ] Implement GraphQL endpoint in Go (e.g., gqlgen) mirroring REST resources (tracks, playlists, cues/loops, analysis)
+  - Acceptance:
+    - Schema defined and documented; GraphiQL enabled in dev
+    - Query and mutation parity for core entities
+  - Verify:
+    - Example queries/mutations return expected data; integration tests pass
+- [ ] Clients (Web/CLI) optional GraphQL path behind feature flag
+  - Acceptance:
+    - Build-time/runtime flag to select REST vs GraphQL
+  - Verify:
+    - Smoke tests for both client paths
+
 ### M13 — Local Supabase & Orchestration
 - [ ] Supabase local configuration (auth, Postgres)
   - Acceptance:
@@ -213,4 +263,35 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
   - Verify:
     - Web connects to API; API connects to DB/storage
 
+### M14 - Add various Object Storage support (S3/GCS/GDrive/Dropbox)
+- [ ] S3-compatible storage abstraction layer
+  - Acceptance:
+    - Common interface for upload/download/delete operations
+  - Verify:
+    - Interface works with MinIO locally
+- [ ] AWS S3 provider implementation
+  - Acceptance:
+    - Supports IAM roles, regions, bucket policies
+  - Verify:
+    - Integration tests with AWS S3
+- [ ] Google Cloud Storage provider implementation
+  - Acceptance:
+    - Service account auth; lifecycle management
+  - Verify:
+    - Integration tests with GCS
+- [ ] Google Drive API provider implementation
+  - Acceptance:
+    - OAuth2 flow; folder-based organization
+  - Verify:
+    - Upload/download via Drive API
+- [ ] Dropbox API provider implementation
+  - Acceptance:
+    - App token auth; chunked uploads for large files
+  - Verify:
+    - Integration tests with Dropbox API
+- [ ] Storage provider configuration and selection
+  - Acceptance:
+    - Environment-driven provider selection; fallback chains
+  - Verify:
+    - Switch providers via config; error handling
 

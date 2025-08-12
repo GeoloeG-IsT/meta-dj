@@ -4,7 +4,7 @@ Shared domain logic: schema, migrations, library operations, rules engine, and s
 
 ### Quickstart
 
-Prereqs: SQLite3, Node.js 20+.
+Prereqs: SQLite3, Node.js 22+.
 
 - Migrate local DB:
   
@@ -18,10 +18,11 @@ Prereqs: SQLite3, Node.js 20+.
   node packages/core/src/cli.js import /path/to/music
   ```
 
-- Search via FTS5:
+ - Search via FTS5:
   
   ```bash
-  node packages/core/src/cli.js search 'track*'
+   node packages/core/src/cli.js search 'track*'
+   # Tip: use '*' to list first 50 tracks without FTS
   ```
 
 - Analyze tracks (auto-detects Rust analyzer if installed, else JS placeholder). Force with `DJ_ANALYZER=rust|js`:

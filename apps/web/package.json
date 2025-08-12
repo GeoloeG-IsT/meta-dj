@@ -9,16 +9,19 @@
         "lint": "next lint"
     },
     "dependencies": {
-        "next": "14.2.5",
+        "next": "^15.0.0",
         "react": "18.2.0",
-        "react-dom": "18.2.0"
+        "react-dom": "18.2.0",
+        "better-sqlite3": "^12.2.0",
+        "@supabase/supabase-js": "^2.55.0"
     },
     "devDependencies": {
-        "@types/node": "20.14.9",
+        "@types/better-sqlite3": "^7.6.13",
+        "@types/node": "^22.0.0",
         "@types/react": "18.2.79",
         "@types/react-dom": "18.2.25",
-        "typescript": "5.4.5",
+        "typescript": "^5.5.0",
         "eslint": "8.57.0",
-        "eslint-config-next": "14.2.5"
+        "eslint-config-next": "^15.0.0"
     }
 }

@@ -6,6 +6,11 @@ const crypto = require('crypto');
 const chokidar = require('chokidar');
 const sqlite3 = require('sqlite3').verbose();
 const { spawnSync } = require('child_process');
+const mm = require('music-metadata');
+// Modularized components
+const importer = require('./importer');
+const searchApi = require('./search');
+const analyzeApi = require('./analyze');
 const { analyzeFile } = (() => {
     try { return require('../../analyzer/src/index'); } catch { return { analyzeFile: null }; }
 })();
@@ -68,33 +73,162 @@ async function logChange(db, entityType, entityId, field, value) {
     ));
 }
 
-function upsertTrack(db, filePath) {
+function dbRun(db, sql, params = []) {
     return new Promise((resolve, reject) => {
-        const id = generateId(filePath);
-        const contentHash = id; // placeholder; later use audio content hash
-        const title = path.basename(filePath, path.extname(filePath));
-        db.run(
-            `INSERT INTO tracks (id, file_path, content_hash, title)
-       VALUES (?, ?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET file_path = excluded.file_path, title = excluded.title`,
-            [id, filePath, contentHash, title],
-            function (err) {
-                if (err) return reject(err);
-                db.serialize(() => {
-                    db.run(`DELETE FROM tracks_fts WHERE track_id = ?`, [id]);
-                    db.run(
-                        `INSERT INTO tracks_fts (track_id, title, artists, album, tags, comments)
-             VALUES (?, ?, '', '', '', '')`,
-                        [id, title],
-                        function (err2) {
-                            if (err2) return reject(err2);
-                            resolve();
-                        }
-                    );
-                });
-            }
-        );
+        db.run(sql, params, function (err) {
+            if (err) return reject(err);
+            resolve(this);
+        });
     });
+}
+
+function dbGet(db, sql, params = []) {
+    return new Promise((resolve, reject) => {
+        db.get(sql, params, (err, row) => (err ? reject(err) : resolve(row)));
+    });
+}
+
+async function ensureArtist(db, name) {
+    if (!name) return null;
+    const id = generateId(`artist:${name.toLowerCase().trim()}`);
+    await dbRun(db, `INSERT OR IGNORE INTO artists (id, name) VALUES (?, ?)`, [id, name]);
+    return id;
+}
+
+async function ensureAlbum(db, name, year) {
+    if (!name) return null;
+    const id = generateId(`album:${name.toLowerCase().trim()}`);
+    const existing = await dbGet(db, `SELECT id FROM albums WHERE id = ?`, [id]);
+    if (!existing) {
+        await dbRun(db, `INSERT INTO albums (id, name, year) VALUES (?, ?, ?)`, [id, name, year || null]);
+    } else if (year != null) {
+        await dbRun(db, `UPDATE albums SET year = COALESCE(year, ?) WHERE id = ?`, [year, id]);
+    }
+    return id;
+}
+
+async function upsertTrack(db, filePath) {
+    const id = generateId(filePath);
+    const contentHash = id; // placeholder; later use audio content hash of file
+    // Defaults from filename
+    let title = path.basename(filePath, path.extname(filePath));
+    let albumName = null; let year = null; let genres = [];
+    let artistNames = []; let albumArtistNames = [];
+    let durationMs = null; let codec = null; let bitRate = null; let sampleRate = null; let channels = null;
+    let comments = null; let rating = null; let trackNo = null; let trackTotal = null; let discNo = null; let discTotal = null; let tagBpm = null; let tagKey = null;
+    try {
+        const meta = await mm.parseFile(filePath, { duration: true, skipCovers: true });
+        const common = meta.common || {};
+        const format = meta.format || {};
+        if (common.title) title = common.title;
+        if (common.album) albumName = common.album;
+        if (Array.isArray(common.artists) && common.artists.length > 0) artistNames = common.artists;
+        else if (common.artist) artistNames = [common.artist];
+        if (Array.isArray(common.albumartist) && common.albumartist.length > 0) albumArtistNames = common.albumartist;
+        else if (common.albumartist) albumArtistNames = [common.albumartist];
+        if (common.genre) genres = Array.isArray(common.genre) ? common.genre : [common.genre];
+        if (common.year) year = common.year;
+        if (Array.isArray(common.comment) && common.comment.length) comments = common.comment.join('\n');
+        if (typeof common.rating === 'number') rating = Math.max(0, Math.min(100, Math.round(common.rating)));
+        if (common.track && typeof common.track.no === 'number') trackNo = common.track.no;
+        if (common.track && typeof common.track.of === 'number') trackTotal = common.track.of;
+        if (common.disk && typeof common.disk.no === 'number') discNo = common.disk.no;
+        if (common.disk && typeof common.disk.of === 'number') discTotal = common.disk.of;
+        if (typeof common.bpm === 'number') tagBpm = common.bpm;
+        if (typeof common.key === 'string') tagKey = common.key;
+        if (typeof format.duration === 'number') durationMs = Math.round(format.duration * 1000);
+        if (format.codec) codec = String(format.codec);
+        if (typeof format.bitrate === 'number') bitRate = Math.round(format.bitrate / 1000);
+        if (typeof format.sampleRate === 'number') sampleRate = Math.round(format.sampleRate);
+        if (typeof format.numberOfChannels === 'number') channels = format.numberOfChannels;
+    } catch (e) {
+        // Best-effort; keep filename-derived fields on failure
+    }
+
+    // Upsert album and artists
+    let albumId = null;
+    if (albumName) albumId = await ensureAlbum(db, albumName, year);
+    const artistIds = [];
+    for (const a of artistNames) {
+        const aid = await ensureArtist(db, a);
+        if (aid) artistIds.push(aid);
+    }
+
+    // Upsert track with richer fields
+    const insertParams = [
+        id,
+        filePath,
+        contentHash,
+        title,
+        albumId ?? null,
+        durationMs ?? null,
+        codec ?? null,
+        bitRate ?? null,
+        sampleRate ?? null,
+        channels ?? null,
+        year ?? null,
+        (genres && genres[0]) || null,
+        comments ?? null,
+        rating ?? null,
+        trackNo ?? null,
+        trackTotal ?? null,
+        discNo ?? null,
+        discTotal ?? null,
+        tagBpm ?? null,
+        tagKey ?? null
+    ];
+    await dbRun(db,
+        `INSERT INTO tracks (id, file_path, content_hash, title, album_id, duration_ms, codec, bit_rate_kbps, sample_rate_hz, channels, year, genre, comments, rating, track_no, track_total, disc_no, disc_total, tag_bpm, tag_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           file_path = excluded.file_path,
+           title = excluded.title,
+           album_id = COALESCE(excluded.album_id, album_id),
+           duration_ms = COALESCE(excluded.duration_ms, duration_ms),
+           codec = COALESCE(excluded.codec, codec),
+           bit_rate_kbps = COALESCE(excluded.bit_rate_kbps, bit_rate_kbps),
+           sample_rate_hz = COALESCE(excluded.sample_rate_hz, sample_rate_hz),
+           channels = COALESCE(excluded.channels, channels),
+           year = COALESCE(excluded.year, year),
+           genre = COALESCE(excluded.genre, genre),
+           comments = COALESCE(excluded.comments, comments),
+           rating = COALESCE(excluded.rating, rating),
+           track_no = COALESCE(excluded.track_no, track_no),
+           track_total = COALESCE(excluded.track_total, track_total),
+           disc_no = COALESCE(excluded.disc_no, disc_no),
+           disc_total = COALESCE(excluded.disc_total, disc_total),
+           tag_bpm = COALESCE(excluded.tag_bpm, tag_bpm),
+           tag_key = COALESCE(excluded.tag_key, tag_key)`,
+        insertParams
+    );
+
+    // Reset artist links and re-create
+    await dbRun(db, `DELETE FROM track_artists WHERE track_id = ?`, [id]);
+    let position = 0;
+    for (const aid of artistIds) {
+        await dbRun(db, `INSERT OR IGNORE INTO track_artists (track_id, artist_id, role, position) VALUES (?, ?, 'PRIMARY', ?)`, [id, aid, position++]);
+    }
+
+    // Update FTS (include album artists and genres)
+    const ftsArtists = [...artistNames, ...albumArtistNames].filter(Boolean).join(', ');
+    await dbRun(db, `DELETE FROM tracks_fts WHERE track_id = ?`, [id]);
+    await dbRun(db,
+        `INSERT INTO tracks_fts (track_id, title, artists, album, tags, comments)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [id, title, ftsArtists, albumName || '', (genres && genres.join(', ')) || '', comments || '']
+    );
+
+    // Album artists relation
+    if (albumId && albumArtistNames.length) {
+        await dbRun(db, `DELETE FROM album_artists WHERE album_id = ?`, [albumId]);
+        let apos = 0;
+        for (const name of albumArtistNames) {
+            const aid = await ensureArtist(db, name);
+            if (aid) await dbRun(db, `INSERT OR IGNORE INTO album_artists (album_id, artist_id, role, position) VALUES (?, ?, 'PRIMARY', ?)`, [albumId, aid, apos++]);
+        }
+    }
+
+    return id;
 }
 
 function removeTrack(db, filePath) {
@@ -244,55 +378,20 @@ async function main() {
     }
     if (cmd === 'import') {
         const target = arg || process.cwd();
-        await importFolder(target);
+        await importer.importFolder(target);
     } else if (cmd === 'watch') {
         const target = arg || process.cwd();
-        watchFolder(target);
+        importer.watchFolder(target);
     } else if (cmd === 'search') {
         const q = arg || '';
         if (!q) {
             console.log('Provide a query, e.g., "node src/cli.js search track*"');
             process.exit(1);
         }
-        const rows = await searchTracks(q);
+        const rows = await searchApi.searchTracks(q);
         for (const r of rows) console.log(r.title);
     } else if (cmd === 'analyze') {
-        let analyzer;
-        try { analyzer = getAnalyzer(); } catch (e) { console.log(String(e)); process.exit(1); }
-        const db = openDb();
-        const files = await new Promise((resolve, reject) => {
-            db.all('SELECT id, file_path FROM tracks', (err, rows) => {
-                if (err) return reject(err);
-                resolve(rows || []);
-            });
-        });
-        for (const row of files) {
-            let res;
-            try { res = analyzer(row.file_path); } catch (e) { console.error('Analyze failed for', row.file_path, e); continue; }
-            await new Promise((resolve, reject) => {
-                db.run(
-                    `INSERT INTO analysis (id, track_id, analyzer_version, bpm, bpm_confidence, musical_key, key_confidence, beatgrid_json, lufs, peak, waveform_ref)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                     ON CONFLICT(id) DO UPDATE SET analyzer_version=excluded.analyzer_version, bpm=excluded.bpm, bpm_confidence=excluded.bpm_confidence, musical_key=excluded.musical_key, key_confidence=excluded.key_confidence, beatgrid_json=excluded.beatgrid_json, lufs=excluded.lufs, peak=excluded.peak, waveform_ref=excluded.waveform_ref`,
-                    [
-                        generateId(row.id + (res.analyzer_version || res.analyzerVersion)),
-                        row.id,
-                        res.analyzer_version || res.analyzerVersion,
-                        res.bpm,
-                        res.bpm_confidence || res.bpmConfidence,
-                        res.musical_key || res.musicalKey,
-                        res.key_confidence || res.keyConfidence,
-                        res.beatgrid_json || res.beatgridJson,
-                        res.lufs,
-                        res.peak,
-                        res.waveform_ref || res.waveformRef,
-                    ],
-                    function (err) { if (err) return reject(err); resolve(); }
-                );
-            });
-        }
-        db.close();
-        console.log(`Analyzed ${files.length} tracks.`);
+        await analyzeApi.analyzeAllTracks();
     } else if (cmd === 'autocue') {
         await autoCuesAndLoops();
     } else if (cmd === 'cue') {
