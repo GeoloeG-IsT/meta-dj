@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import CuesEditor from '../../../components/CuesEditor';
+import WaveformViewer from '../../../components/WaveformViewer';
+import AutomationActions from '../../../components/AutomationActions';
 import { revalidatePath } from 'next/cache';
 
 type TrackDetail = { id: string; title: string; file_path: string; year?: number | null; genre?: string | null; duration_ms?: number | null; bpm_override?: number | null };
@@ -41,7 +43,7 @@ export default async function TrackPage({ params }: { params?: Promise<{ id: str
             <p><b>BPM override</b>: {t.bpm_override ?? '-'}</p>
             <hr />
             <h3>Waveform</h3>
-            <p>(placeholder) Render waveform once artifact API is available.</p>
+            <WaveformViewer trackId={trackId} />
             <h3>Editing</h3>
             <form action={updateBpm} style={{ marginBottom: 16 }}>
                 <label>BPM:&nbsp;<input name="bpm" type="number" min={40} max={220} step={0.01} defaultValue={t.bpm_override ?? ''} /></label>
@@ -49,9 +51,9 @@ export default async function TrackPage({ params }: { params?: Promise<{ id: str
             </form>
             {/* Client component */}
             <CuesEditor trackId={trackId} />
-            <ul style={{ marginTop: 16 }}>
-                <li>Automation: Re-analyze / Auto-cues (TBD)</li>
-            </ul>
+            <div style={{ marginTop: 16 }}>
+                <AutomationActions trackId={trackId} />
+            </div>
         </main>
     );
 }

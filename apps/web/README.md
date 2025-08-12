@@ -17,6 +17,13 @@ npm install
 NEXT_PUBLIC_API_BASE_URL='http://localhost:8080' npm run dev
 ```
 
+If you want to view and edit cues or view the waveform artifact, also set Supabase envs and sign in:
+
+```bash
+export NEXT_PUBLIC_SUPABASE_URL=your_local_supabase_url
+export NEXT_PUBLIC_SUPABASE_ANON_KEY=your_local_anon_key
+```
+
 Set `DJ_DB_PATH` if your SQLite DB is not at the repo root:
 ```bash
 export DJ_DB_PATH=/absolute/path/to/meta_dj.local.sqlite
@@ -41,6 +48,7 @@ supabase start
 - Configure env for Web:
   - `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`
   - Use Supabase Auth for sign-in; API can verify Supabase JWTs via `JWT_SECRET` if configured accordingly
+  - Waveform viewer uses `/v1/storage/sign` which requires the API to be configured with `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_STORAGE_BUCKET`. Artifacts are expected under `waveforms/{trackId}.png` by default.
 
 How to get keys locally:
 - After `supabase start`, run:

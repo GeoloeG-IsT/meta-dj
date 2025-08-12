@@ -188,6 +188,7 @@ Short, verifiable tasks. Each task lists acceptance criteria and verification st
   - Progress:
     - [x] Detail page; BPM override form wired to `PUT /v1/tracks/{id}/bpm-override`
     - [x] Cues editor wired to `/v1/cues` (list/add/delete)
+    - [x] Waveform viewer using signed URL via `/v1/storage/sign` (requires Supabase local/auth)
 - [ ] Playlists UI (static + smart)
   - Acceptance:
     - Create/move/delete; smart rules editor; results preview
