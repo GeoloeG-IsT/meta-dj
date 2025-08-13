@@ -51,6 +51,7 @@ func main() {
 	var cuesSvc *CuesService
 	var importSvc *ImportService
 	var storageSvc *StorageService
+	var analysisSvc *AnalysisService
 	if dsn := os.Getenv("DATABASE_URL"); dsn != "" {
 		if pgStore, err := NewPgChangeStore(context.Background(), dsn); err == nil {
 			getHandler = func(w http.ResponseWriter, r *http.Request) {
@@ -92,6 +93,9 @@ func main() {
 			importSvc = isvc
 		}
 		storageSvc = NewStorageService()
+		if asvc, err := NewAnalysisService(context.Background(), dsn); err == nil {
+			analysisSvc = asvc
+		}
 	}
 
 	r.Route("/v1/sync", func(sr chi.Router) {
@@ -147,6 +151,16 @@ func main() {
 			gr.Use(maybeJWT)
 			if storageSvc != nil {
 				storageSvc.ProtectedRoutes(gr)
+			}
+		})
+	})
+
+	// Analysis protected routes
+	r.Route("/v1/analysis", func(ar chi.Router) {
+		ar.Group(func(gr chi.Router) {
+			gr.Use(maybeJWT)
+			if analysisSvc != nil {
+				analysisSvc.ProtectedRoutes(gr)
 			}
 		})
 	})

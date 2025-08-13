@@ -7,6 +7,7 @@ RUN go mod tidy && go build -o /out/api
 
 FROM alpine:3.20
 WORKDIR /app
+RUN apk add --no-cache ffmpeg
 COPY --from=build /out/api /app/api
 EXPOSE 8080
 ENTRYPOINT ["/app/api"]

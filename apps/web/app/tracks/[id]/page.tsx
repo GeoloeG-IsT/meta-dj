@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import CuesEditor from '../../../components/CuesEditor';
 import WaveformViewer from '../../../components/WaveformViewer';
+import React from 'react';
+import AutomationRefreshBoundary from './_client/AutomationRefreshBoundary';
 import AutomationActions from '../../../components/AutomationActions';
 import { revalidatePath } from 'next/cache';
 
@@ -42,8 +44,7 @@ export default async function TrackPage({ params }: { params?: Promise<{ id: str
             <p><b>Duration</b>: {t.duration_ms ? Math.round(t.duration_ms / 1000) + ' s' : '-'}</p>
             <p><b>BPM override</b>: {t.bpm_override ?? '-'}</p>
             <hr />
-            <h3>Waveform</h3>
-            <WaveformViewer trackId={trackId} />
+            <AutomationRefreshBoundary trackId={trackId} />
             <h3>Editing</h3>
             <form action={updateBpm} style={{ marginBottom: 16 }}>
                 <label>BPM:&nbsp;<input name="bpm" type="number" min={40} max={220} step={0.01} defaultValue={t.bpm_override ?? ''} /></label>
@@ -52,7 +53,7 @@ export default async function TrackPage({ params }: { params?: Promise<{ id: str
             {/* Client component */}
             <CuesEditor trackId={trackId} />
             <div style={{ marginTop: 16 }}>
-                <AutomationActions trackId={trackId} />
+                {/* moved into client boundary above */}
             </div>
         </main>
     );

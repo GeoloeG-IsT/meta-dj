@@ -25,13 +25,15 @@ type WaveformViewerProps = {
     // Optional: override the storage path for the waveform artifact
     makePath?: (trackId: string) => string;
     height?: number;
+    refreshNonce?: number;
 };
 
-export default function WaveformViewer({ trackId, makePath, height = 96 }: WaveformViewerProps) {
+export default function WaveformViewer({ trackId, makePath, height = 96, refreshNonce = 0 }: WaveformViewerProps) {
     const supabase = useSupabaseClient();
     const [loading, setLoading] = React.useState<boolean>(true);
     const [error, setError] = React.useState<string>('');
     const [url, setUrl] = React.useState<string>('');
+    const [cacheBust, setCacheBust] = React.useState<number>(0);
 
     const authEnabled = Boolean(supabaseUrl && supabaseAnonKey);
 
@@ -66,7 +68,11 @@ export default function WaveformViewer({ trackId, makePath, height = 96 }: Wavef
                     setError('No waveform URL returned');
                     return;
                 }
-                if (mounted) setUrl(body.url);
+                if (mounted) {
+                    // Add a cache-busting query string to ensure we fetch the freshly-uploaded image
+                    setUrl(body.url + (body.url.includes('?') ? '&' : '?') + 't=' + Date.now());
+                    setCacheBust((n) => n + 1);
+                }
             } catch (e) {
                 setError('Error fetching waveform');
             } finally {
@@ -76,7 +82,7 @@ export default function WaveformViewer({ trackId, makePath, height = 96 }: Wavef
         return () => {
             mounted = false;
         };
-    }, [trackId, authEnabled, supabase, makePath]);
+    }, [trackId, authEnabled, supabase, makePath, refreshNonce]);
 
     return (
         <section>
@@ -86,6 +92,7 @@ export default function WaveformViewer({ trackId, makePath, height = 96 }: Wavef
                 <p style={{ color: 'crimson', fontSize: 12 }}>{error}</p>
             ) : url ? (
                 <img
+                    key={cacheBust}
                     src={url}
                     alt="Waveform"
                     style={{ display: 'block', height, width: '100%', objectFit: 'cover', background: '#111' }}

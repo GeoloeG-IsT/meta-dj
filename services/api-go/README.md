@@ -7,6 +7,9 @@ Minimal HTTP API scaffold.
 ```bash
 cd services/api-go
 go mod tidy
+# ffmpeg is required for waveform generation endpoints
+# Ubuntu/Debian: sudo apt-get update && sudo apt-get install -y ffmpeg
+# macOS (Homebrew): brew install ffmpeg
 go run .
 # curl http://localhost:8080/health -> ok
 ```
@@ -16,6 +19,8 @@ go run .
 ```bash
 docker compose up --build api
 ```
+
+The API container installs `ffmpeg` so waveform generation works out of the box.
 
 ### Env
 

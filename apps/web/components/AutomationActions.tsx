@@ -20,7 +20,7 @@ async function getAccessToken(supabase: SupabaseClient | null): Promise<string |
     return data.session?.access_token ?? null;
 }
 
-export default function AutomationActions({ trackId }: { trackId: string }) {
+export default function AutomationActions({ trackId, onSuccess }: { trackId: string; onSuccess?: () => void }) {
     const supabase = useSupabaseClient();
     const [message, setMessage] = React.useState<string>('');
     const [loading, setLoading] = React.useState<boolean>(false);
@@ -52,7 +52,8 @@ export default function AutomationActions({ trackId }: { trackId: string }) {
                 setMessage(`Request failed (${res.status})`);
                 return;
             }
-            setMessage('Request accepted');
+            setMessage('Request completed');
+            onSuccess?.();
         } catch (e) {
             setMessage('Network error');
         } finally {
@@ -71,7 +72,7 @@ export default function AutomationActions({ trackId }: { trackId: string }) {
                 <button
                     type="button"
                     disabled={!authEnabled || loading}
-                    onClick={() => callEndpoint('/v1/analysis/reanalyze', { trackId })}
+                    onClick={() => callEndpoint(`/v1/analysis/waveform/${encodeURIComponent(trackId)}`, {})}
                 >
                     Re-analyze
                 </button>
