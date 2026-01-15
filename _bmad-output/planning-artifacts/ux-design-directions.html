@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MetaDJ - Design Direction: Engine OS Parity</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        engine: {
+                            black: '#000000',
+                            surface: '#121212',
+                            green: '#4DFA90',
+                            blue: '#2E8CFF',
+                            red: '#FF3B30',
+                            warning: '#FFCC00'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { background-color: #000000; color: #ffffff; }
+        .tabular-nums { font-variant-numeric: tabular-nums; }
+        .glass-panel { background: rgba(18, 18, 18, 0.95); border: 1px solid #333; }
+        .waveform-mock {
+            background: linear-gradient(90deg, 
+                #000 0%, 
+                rgba(77, 250, 144, 0.2) 20%, 
+                rgba(77, 250, 144, 1) 50%, 
+                rgba(77, 250, 144, 0.2) 80%, 
+                #000 100%
+            );
+            height: 120px;
+            width: 100%;
+            position: relative;
+        }
+        .playhead {
+            position: absolute;
+            left: 50%;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background-color: #ffffff;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden font-sans">
+    
+    <!-- Header / Transport -->
+    <header class="h-16 border-b border-gray-800 flex items-center justify-between px-4 bg-engine-surface">
+        <div class="flex items-center space-x-4">
+            <h1 class="text-xl font-bold tracking-tighter text-engine-green">META-DJ</h1>
+            <div class="h-6 w-px bg-gray-700"></div>
+            <span class="text-xs text-gray-400 font-mono tracking-widest">v1.2.0 • OPFS: ACTIVE</span>
+        </div>
+        <div class="flex items-center space-x-6 tabular-nums font-bold text-xl">
+            <div class="text-engine-green">124.00 <span class="text-xs text-gray-500 font-normal">BPM</span></div>
+            <div class="text-white">04:20.15 <span class="text-xs text-gray-500 font-normal">TIME</span></div>
+        </div>
+        <button class="bg-engine-blue px-4 py-2 rounded-sm text-xs font-bold uppercase hover:bg-opacity-80 transition-colors">Export to USB</button>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 flex flex-col relative">
+        
+        <!-- Waveform Area (The "Cockpit") -->
+        <div class="h-64 border-b border-gray-800 flex flex-col justify-center relative bg-engine-black bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI0MCIgaGVpZ2h0PSI0MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdHRlcm4gaWQ9InNtYWxsR3JpZCIgd2lkdGg9IjEwIiBoZWlnaHQ9IjEwIiBwYXR0ZXJuVW5pdHM9InVzZXJTcGFjZU9uVXNlIj48cGF0aCBkPSJNMTAgMEwwIDBMIHAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzIyMiIgc3Ryb2tlLXdpZHRoPSIwLjUiLz48L3BhdHRlcm4+PHJlY3Qgd2lkdGg9IjQwIiBoZWlnaHQ9IjQwIiBmaWxsPSJ1cmwoI3NtYWxsR3JpZCkiLz48cGF0aCBkPSJNNDAgMEwwIDBMIHAgNDAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzMzMyIgc3Ryb2tlLXdpZHRoPSIxIi8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIiAvPjwvc3ZnPg==')]">
+            <div class="playhead"></div>
+            <div class="waveform-mock opacity-80 mix-blend-screen"></div>
+            <div class="absolute top-4 left-4 text-xs font-mono text-engine-green">DECK A: READY</div>
+            
+            <!-- Grid Markers overlay -->
+            <div class="absolute inset-0 flex justify-between items-end pb-2 px-10 pointer-events-none">
+                 <div class="h-8 w-px bg-engine-green opacity-50"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-8 w-px bg-white opacity-50"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-4 w-px bg-white opacity-20"></div>
+                 <div class="h-8 w-px bg-white opacity-50"></div>
+            </div>
+        </div>
+
+        <!-- Library Splitscreen -->
+        <div class="flex-1 flex">
+            <!-- Sidebar -->
+            <aside class="w-64 bg-engine-surface border-r border-gray-800 flex flex-col text-sm">
+                <div class="p-3 font-bold text-gray-400 uppercase text-xs tracking-wider">Collection</div>
+                <nav class="flex-1 overflow-y-auto">
+                    <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-white border-l-2 border-engine-blue bg-gray-900">All Tracks (50,214)</div>
+                    <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-gray-400">Playlists</div>
+                    <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-gray-400">History</div>
+                    <div class="mt-4 p-3 font-bold text-gray-400 uppercase text-xs tracking-wider">Drives</div>
+                    <div class="px-4 py-2 hover:bg-gray-800 cursor-pointer text-engine-green flex justify-between">
+                        <span>SANDISK_EXT</span>
+                        <span class="w-2 h-2 rounded-full bg-engine-green mt-1.5"></span>
+                    </div>
+                </nav>
+            </aside>
+
+            <!-- Data Grid -->
+            <div class="flex-1 bg-engine-black overflow-hidden relative">
+                <!-- Table Header -->
+                <div class="flex border-b border-gray-800 text-xs font-bold text-gray-500 uppercase tracking-wider py-2 bg-engine-black sticky top-0 z-10">
+                    <div class="w-10 text-center">#</div>
+                    <div class="flex-1 px-4">Title</div>
+                    <div class="flex-1 px-4">Artist</div>
+                    <div class="w-24 px-4 text-right">BPM</div>
+                    <div class="w-24 px-4 text-right">Key</div>
+                    <div class="w-16 px-4 text-right">Rtg</div>
+                </div>
+                
+                <!-- Table Body (Simulated Virtual Scroll) -->
+                <div class="font-sans text-sm ">
+                    <!-- Selected Row -->
+                    <div class="flex items-center py-1.5 bg-gray-900 border-l-2 border-engine-green text-white cursor-pointer hover:bg-gray-800 group">
+                        <div class="w-10 text-center text-xs text-gray-600 group-hover:text-white">1</div>
+                        <div class="flex-1 px-4 font-bold text-engine-green">Technologic (Radio Edit)</div>
+                        <div class="flex-1 px-4 text-gray-300">Daft Punk</div>
+                        <div class="w-24 px-4 text-right tabular-nums font-mono font-bold text-engine-green">127.00</div>
+                        <div class="w-24 px-4 text-right text-gray-400">8A</div>
+                        <div class="w-16 px-4 text-right text-yellow-500">★★★★★</div>
+                    </div>
+                    
+                    <!-- Standard Rows -->
+                     <div class="flex items-center py-1.5 border-b border-gray-900 text-gray-300 cursor-pointer hover:bg-gray-900">
+                        <div class="w-10 text-center text-xs text-gray-700">2</div>
+                        <div class="flex-1 px-4 font-medium">One More Time</div>
+                        <div class="flex-1 px-4 text-gray-500">Daft Punk</div>
+                        <div class="w-24 px-4 text-right tabular-nums font-mono">123.00</div>
+                        <div class="w-24 px-4 text-right text-gray-600">10A</div>
+                        <div class="w-16 px-4 text-right text-gray-700">•••••</div>
+                    </div>
+                    <div class="flex items-center py-1.5 border-b border-gray-900 text-gray-300 cursor-pointer hover:bg-gray-900">
+                        <div class="w-10 text-center text-xs text-gray-700">3</div>
+                        <div class="flex-1 px-4 font-medium">Around The World</div>
+                        <div class="flex-1 px-4 text-gray-500">Daft Punk</div>
+                        <div class="w-24 px-4 text-right tabular-nums font-mono">121.00</div>
+                        <div class="w-24 px-4 text-right text-gray-600">7A</div>
+                        <div class="w-16 px-4 text-right text-gray-700">•••••</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Haptic/Visual Feedback Toast -->
+    <div class="absolute bottom-8 right-8 bg-engine-surface border border-engine-green text-white px-4 py-3 rounded shadow-2xl flex items-center space-x-3 animate-pulse">
+        <svg class="w-5 h-5 text-engine-green" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+        <span class="text-sm font-bold">Grid Saved to Database</span>
+    </div>
+
+</body>
+</html>

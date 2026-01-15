@@ -1,0 +1,59 @@
+# BMM Workflow Status
+# Generated: 2026-01-15T17:53:05+01:00
+# Project: meta-dj
+# Track: BMad Method
+# Type: Greenfield
+
+project: meta-dj
+project_name: meta-dj
+project_type: greenfield
+project_level: bmad-method
+field_type: greenfield
+workflow_path: "{project-root}/_bmad/bmm/workflows/workflow-status/paths/method-greenfield.yaml"
+
+# Current Workflow Status
+# Format: workflow_id: [status | file_path]
+# status options: required, optional, recommended, conditional, skipped
+# file_path: path to completed artifact (e.g., docs/prd.md)
+
+workflow_status:
+  # Phase 1: Analysis (Optional)
+# BMM Workflow Status
+# Generated: 2026-01-15T17:53:05+01:00
+# Project: meta-dj
+# Track: BMad Method
+# Type: Greenfield
+
+project: meta-dj
+project_name: meta-dj
+project_type: greenfield
+project_level: bmad-method
+field_type: greenfield
+workflow_path: "{project-root}/_bmad/bmm/workflows/workflow-status/paths/method-greenfield.yaml"
+
+# Current Workflow Status
+# Format: workflow_id: [status | file_path]
+# status options: required, optional, recommended, conditional, skipped
+# file_path: path to completed artifact (e.g., docs/prd.md)
+
+workflow_status:
+  # Phase 1: Analysis (Optional)
+  brainstorm-project: skipped
+  research: skipped
+  product-brief: skipped
+
+  # Phase 2: Planning
+  prd: docs/provided-prd.md
+  create-ux-design:
+    status: completed
+    stepId: step-14
+    output: _bmad-output/planning-artifacts/ux-design-specification.md
+
+  # Phase 3: Solutioning
+  create-architecture: _bmad-output/planning-artifacts/architecture.md
+  create-epics-and-stories: required
+  test-design: optional
+  implementation-readiness: required
+
+  # Phase 4: Implementation
+  sprint-planning: required
