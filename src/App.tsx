@@ -50,17 +50,13 @@ function App() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#000000] text-[#4DFA90] font-sans p-8 flex flex-col">
+    <div className="h-screen bg-[#000000] text-[#4DFA90] font-sans p-8 flex flex-col overflow-hidden">
       <ModalProvider />
       <ToastContainer />
 
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 overflow-hidden">
         <LibraryView />
       </main>
-
-      <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">
-        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
-      </footer>
     </div>
   );
 }

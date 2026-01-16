@@ -206,6 +206,7 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
    */
   handleMessage(event) {
     const { type, payload } = event.data;
+    console.log('[DeckEngineProcessor] Received message:', type);
 
     switch (type) {
       case 'SET_SAB': {
@@ -221,9 +222,13 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
       }
 
       case 'PLAY':
+        console.log('[DeckEngineProcessor] PLAY - bufferLoaded:', this.bufferLoaded);
         if (this.bufferLoaded) {
           this.isPlaying = true;
+          console.log('[DeckEngineProcessor] Starting playback');
           this.port.postMessage({ type: 'STATE_CHANGED', payload: { isPlaying: true } });
+        } else {
+          console.warn('[DeckEngineProcessor] PLAY ignored - buffer not loaded');
         }
         break;
 
@@ -289,12 +294,19 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
    */
   loadBuffer(data) {
     const { channelData, sampleRate, duration } = data;
+    console.log('[DeckEngineProcessor] Loading buffer:', {
+      channels: channelData?.length,
+      sampleRate,
+      duration,
+      durationSeconds: duration / sampleRate,
+    });
 
     // Store buffer data (already Float32Arrays, no allocation needed)
     this.channelData = channelData;
     this.bufferSampleRate = sampleRate;
     this.bufferDuration = duration;
     this.bufferLoaded = true;
+    console.log('[DeckEngineProcessor] Buffer loaded, bufferLoaded =', this.bufferLoaded);
 
     // Reset playback state
     this.playhead = 0;

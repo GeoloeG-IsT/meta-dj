@@ -5,7 +5,7 @@
  * Supports loading tracks and real-time playhead updates.
  */
 
-import { useCallback, useState, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { WaveformOverview } from '@/modules/audio/components/WaveformOverview';
 import { WaveformDetail } from '@/modules/audio/components/WaveformDetail';
 import { PerformancePads } from '@/modules/audio/components/PerformancePads';
@@ -100,11 +100,41 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
   // Check if track is loaded (needed early for playhead sync)
   const hasTrack = deck.trackId !== null;
 
+  // State for SAB - needs to be state so we can trigger re-renders when it becomes available
+  const [playheadSAB, setPlayheadSAB] = useState<SharedArrayBuffer | null>(null);
+
   // Get SAB for real-time playhead sync from AudioWorklet
-  // Re-check when isAnalyzing changes to false (indicates engine has loaded track)
-  const playheadSAB = useMemo(() => {
-    if (!DeckEngineService.isInitialized()) return null;
-    return DeckEngineService.getPlayheadSAB(deckId);
+  // Use an effect with retry logic to handle the race condition where
+  // the engine may not be fully initialized when isAnalyzing becomes false
+  useEffect(() => {
+    if (!hasTrack) {
+      setPlayheadSAB(null);
+      return;
+    }
+
+    // Try to get SAB immediately
+    if (DeckEngineService.isInitialized()) {
+      const sab = DeckEngineService.getPlayheadSAB(deckId);
+      setPlayheadSAB(sab);
+      return;
+    }
+
+    // If not initialized yet, poll until it is
+    let cancelled = false;
+    const checkInterval = setInterval(() => {
+      if (cancelled) return;
+      if (DeckEngineService.isInitialized()) {
+        const sab = DeckEngineService.getPlayheadSAB(deckId);
+        console.log('[LibraryWaveform] SAB retrieved after polling:', !!sab);
+        setPlayheadSAB(sab);
+        clearInterval(checkInterval);
+      }
+    }, 50); // Check every 50ms
+
+    return () => {
+      cancelled = true;
+      clearInterval(checkInterval);
+    };
   }, [deckId, hasTrack, deck.isAnalyzing]);
 
   const { normalizedPosition: playheadPosition } = usePlayheadSync({
@@ -283,6 +313,10 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
 
       if (existingCue?.isSet) {
         // Cue exists - trigger (seek to cue position)
+        // First, deactivate any active loop so we can jump out of it
+        if (deck.activeLoopIndex >= 0) {
+          setActiveLoop(deckId, -1);
+        }
         const normalizedPosition = existingCue.position / (deck.duration * deck.sampleRate);
         setPosition(deckId, normalizedPosition);
         // Seek audio engine
@@ -315,7 +349,7 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
         }
       }
     },
-    [deckId, deck.trackId, deck.cuePoints, deck.duration, deck.sampleRate, playheadPosition, addCuePoint, removeCuePoint, setPosition]
+    [deckId, deck.trackId, deck.cuePoints, deck.duration, deck.sampleRate, deck.activeLoopIndex, playheadPosition, addCuePoint, removeCuePoint, setPosition, setActiveLoop]
   );
 
   // Context menu state for cue/loop management
@@ -362,15 +396,16 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
       const loop = deck.loops.find((l) => l.index === loopIndex);
       if (!loop) return;
 
-      // Seek to loop in-point
-      const normalizedPosition = loop.inPoint / (deck.duration * deck.sampleRate);
-      setPosition(deckId, normalizedPosition);
-      // Seek audio engine
+      // First, set the new loop in the audio engine BEFORE seeking
+      // This prevents the old loop from catching the seek
       if (DeckEngineService.isInitialized()) {
+        DeckEngineService.setLoop(deckId, loop.inPoint, loop.outPoint);
         DeckEngineService.seek(deckId, loop.inPoint);
       }
 
-      // Activate the loop
+      // Update UI state
+      const normalizedPosition = loop.inPoint / (deck.duration * deck.sampleRate);
+      setPosition(deckId, normalizedPosition);
       setActiveLoop(deckId, loopIndex);
     },
     [deckId, deck.loops, deck.duration, deck.sampleRate, setPosition, setActiveLoop]
@@ -683,12 +718,14 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
         // SAVED MODE: Click to jump to loop and activate
         if (existingLoop) {
           // Loop exists - seek to in-point and activate
-          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
-          setPosition(deckId, normalizedPosition);
-          // Seek audio engine
+          // First, set the new loop in the audio engine BEFORE seeking
+          // This prevents the old loop from catching the seek
           if (DeckEngineService.isInitialized()) {
+            DeckEngineService.setLoop(deckId, existingLoop.inPoint, existingLoop.outPoint);
             DeckEngineService.seek(deckId, existingLoop.inPoint);
           }
+          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
+          setPosition(deckId, normalizedPosition);
           setActiveLoop(deckId, padIndex);
         } else {
           // No loop at this pad - create and save a new loop
@@ -722,13 +759,15 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
       } else {
         // HOT MODE: Press to activate loop immediately
         if (existingLoop) {
-          // Loop exists - seek to in-point and activate (same as cues)
-          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
-          setPosition(deckId, normalizedPosition);
-          // Seek audio engine
+          // Loop exists - seek to in-point and activate
+          // First, set the new loop in the audio engine BEFORE seeking
+          // This prevents the old loop from catching the seek
           if (DeckEngineService.isInitialized()) {
+            DeckEngineService.setLoop(deckId, existingLoop.inPoint, existingLoop.outPoint);
             DeckEngineService.seek(deckId, existingLoop.inPoint);
           }
+          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
+          setPosition(deckId, normalizedPosition);
           setActiveLoop(deckId, padIndex);
         } else {
           // No loop at this pad - create temporary hot loop at current position
