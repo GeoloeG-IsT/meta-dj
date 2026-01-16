@@ -28,14 +28,14 @@ So that I can mark specific performance sections and trigger them during a set.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Database Schema & Service Layer** (AC: 1, 2, 6)
-  - [ ] Define `HotCueData` and `LoopData` TypeScript interfaces matching Engine DJ schema
-  - [ ] Add `saveCuePoint()` method to analysis.service.ts for PerformanceData type=1
-  - [ ] Add `saveLoop()` method to analysis.service.ts for PerformanceData type=2
-  - [ ] Add `getCuePoints()` and `getLoops()` methods to retrieve stored data
-  - [ ] Add `deleteCuePoint()` and `deleteLoop()` methods
-  - [ ] Add `updateCuePoint()` and `updateLoop()` for color/name changes
-  - [ ] Write unit tests for serialization/deserialization
+- [x] **Task 1: Database Schema & Service Layer** (AC: 1, 2, 6)
+  - [x] Define `HotCueData` and `LoopData` TypeScript interfaces matching Engine DJ schema
+  - [x] Add `saveCuePoint()` method to analysis.service.ts for PerformanceData type=1
+  - [x] Add `saveLoop()` method to analysis.service.ts for PerformanceData type=2
+  - [x] Add `getCuePoints()` and `getLoops()` methods to retrieve stored data
+  - [x] Add `deleteCuePoint()` and `deleteLoop()` methods
+  - [x] Add `updateCuePoint()` and `updateLoop()` for color/name changes
+  - [x] Write unit tests for serialization/deserialization
 
 - [ ] **Task 2: Store State Management** (AC: 1, 2, 6)
   - [ ] Add `cuePoints: HotCueData[]` and `loops: LoopData[]` to DeckState in audio.store.ts
