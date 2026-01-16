@@ -18,6 +18,7 @@ import {
 import { detectTransients } from '../utils/transient-detector';
 import { analysisService } from './analysis.service';
 import { stemsCacheService } from './stems-cache.service';
+import { DeckEngineService } from './deck-engine.service';
 import { useAudioStore } from '../store/audio.store';
 import type { DeckId, TrackAnalysisProgress } from '../types';
 import { getFileWithPermission } from '../../library/services/file-handle-store';
@@ -85,6 +86,12 @@ export async function loadTrackToDeck(
 
     // 5. Update store with waveform data
     store.setWaveformData(deckId, waveformData);
+
+    // 5.5. Load audio buffer into DeckEngineService for playback
+    if (!DeckEngineService.isInitialized()) {
+      await DeckEngineService.initialize();
+    }
+    await DeckEngineService.loadTrack(deckId, audioBuffer, metadata?.id || Date.now());
 
     // 6. Detect transients for magnetic snap functionality
     const transients = detectTransients(waveformData);
