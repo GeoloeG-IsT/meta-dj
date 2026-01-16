@@ -9,8 +9,16 @@
  */
 
 import { WaveformAnalyzer } from '../analysis/waveform-analyzer';
+import {
+  analyzeTrack as runTrackAnalysis,
+  serializeBeatgrid,
+  initEssentia,
+  isEssentiaReady,
+  type TrackAnalysisResult,
+} from '../analysis/track-analyzer';
+import { analysisService } from './analysis.service';
 import { useAudioStore } from '../store/audio.store';
-import type { DeckId } from '../types';
+import type { DeckId, TrackAnalysisProgress } from '../types';
 import { getFileWithPermission } from '../../library/services/file-handle-store';
 
 // Shared AudioContext for decoding (created lazily)
@@ -205,6 +213,100 @@ function getMonoSamples(audioBuffer: AudioBuffer): Float32Array {
   }
 
   return mono;
+}
+
+/**
+ * Analyze a track for BPM, Key, and Beatgrid.
+ * Results are stored in the database.
+ *
+ * @param trackId - The track ID to analyze
+ * @param file - The audio file to analyze
+ * @param onProgress - Optional progress callback
+ * @returns Analysis results
+ */
+export async function analyzeTrack(
+  trackId: number,
+  file: File,
+  onProgress?: (progress: TrackAnalysisProgress) => void
+): Promise<TrackAnalysisResult> {
+  onProgress?.({ trackId, progress: 0, stage: 'decoding' });
+
+  // 1. Decode audio file
+  const arrayBuffer = await file.arrayBuffer();
+  const ctx = getAudioContext();
+  const audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+
+  onProgress?.({ trackId, progress: 0.2, stage: 'decoding' });
+
+  const sampleRate = audioBuffer.sampleRate;
+
+  // 2. Get mono samples for analysis
+  const samples = getMonoSamples(audioBuffer);
+
+  // 3. Run full track analysis (BPM, Key, Beatgrid)
+  const progressCallback = (progress: number, stage: 'decoding' | 'analyzing' | 'storing') => {
+    onProgress?.({ trackId, progress, stage });
+  };
+
+  const analysisResult = await runTrackAnalysis(samples, sampleRate, progressCallback);
+
+  onProgress?.({ trackId, progress: 0.85, stage: 'storing' });
+
+  // 4. Serialize beatgrid for storage
+  const beatgridData = serializeBeatgrid(analysisResult.beatgrid);
+
+  // 5. Store results in database
+  await analysisService.storeAnalysisResults(
+    trackId,
+    analysisResult.bpm.bpm,
+    analysisResult.key.camelot,
+    beatgridData
+  );
+
+  onProgress?.({ trackId, progress: 1, stage: 'storing' });
+
+  return analysisResult;
+}
+
+/**
+ * Analyze a track from the library by ID.
+ * Retrieves the file from stored handle and runs analysis.
+ */
+export async function analyzeTrackFromLibrary(
+  trackId: number,
+  onProgress?: (progress: TrackAnalysisProgress) => void
+): Promise<TrackAnalysisResult | null> {
+  const file = await getFileWithPermission(trackId);
+
+  if (!file) {
+    console.warn(`[DeckLoader] Cannot analyze track ${trackId}: file not accessible`);
+    return null;
+  }
+
+  return analyzeTrack(trackId, file, onProgress);
+}
+
+/**
+ * Pre-initialize essentia.js WASM for faster first analysis.
+ */
+export async function warmupAnalyzer(): Promise<void> {
+  if (!isEssentiaReady()) {
+    await initEssentia();
+  }
+}
+
+/**
+ * Check if a track has already been analyzed.
+ */
+export async function isTrackAnalyzed(trackId: number): Promise<boolean> {
+  return analysisService.isTrackAnalyzed(trackId);
+}
+
+/**
+ * Get list of tracks that need analysis.
+ */
+export async function getUnanalyzedTracks(): Promise<number[]> {
+  return analysisService.getUnanalyzedTracks();
 }
 
 // Re-export for convenience

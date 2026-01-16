@@ -54,7 +54,7 @@ development_status:
   # Epic 2: The Analyst (Preparation & Visualization)
   epic-2: in-progress
   2-1-webgl-waveform-renderer: done
-  2-2-automated-track-analysis-bpm-key-grid: backlog
+  2-2-automated-track-analysis-bpm-key-grid: review
   2-3-slip-under-beatgrid-editing: backlog
   2-4-hot-cue-loop-management: backlog
   2-5-client-side-stem-separation-webgpu: backlog

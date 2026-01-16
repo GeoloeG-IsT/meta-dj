@@ -11,6 +11,11 @@ export { WaveformOverview } from './components/WaveformOverview';
 export { WaveformDetail } from './components/WaveformDetail';
 export { WaveformRenderer } from './components/WaveformRenderer';
 export { DeckUI } from './components/DeckUI';
+export {
+  AnalysisProgressInline,
+  AnalysisProgressFull,
+  AnalysisQueueStatus,
+} from './components/AnalysisProgress';
 
 // Services
 export {
@@ -20,7 +25,7 @@ export {
   ejectTrack,
 } from './services/deck-loader.service';
 
-// Analysis
+// Analysis - Waveform
 export {
   WaveformAnalyzer,
   waveformAnalyzer,
@@ -28,6 +33,33 @@ export {
   type WaveformData,
   type WaveformOptions,
 } from './analysis/waveform-analyzer';
+
+// Analysis - Track (BPM/Key/Beatgrid)
+export {
+  analyzeTrack,
+  detectBPM,
+  detectKey,
+  generateBeatgrid,
+  serializeBeatgrid,
+  deserializeBeatgrid,
+  initEssentia,
+  isEssentiaReady,
+  cleanupEssentia,
+  toMono,
+  type BPMResult,
+  type KeyResult,
+  type BeatgridData,
+  type TrackAnalysisResult,
+  type AnalysisError,
+  type ProgressCallback,
+} from './analysis/track-analyzer';
+
+// Camelot Wheel
+export {
+  toCamelot,
+  getCompatibleKeys,
+  CAMELOT_WHEEL,
+} from './constants/camelot';
 
 // Hooks
 export {
@@ -42,7 +74,7 @@ export {
   type UsePlayheadSyncOptions,
 } from './hooks/usePlayheadSync';
 
-// Store
+// Store - Audio
 export {
   useAudioStore,
   selectDeck,
@@ -54,6 +86,34 @@ export {
   type AudioSettings,
 } from './store/audio.store';
 
+// Store - Analysis
+export {
+  useAnalysisStore,
+  selectTrackAnalysis,
+  selectAnalysisQueue,
+  selectIsProcessing,
+  selectIsReady,
+  type AnalysisState,
+  type TrackAnalysisState,
+  type AnalysisStatus,
+} from './store/analysis.store';
+
+// Services
+export {
+  analyzeTrack as analyzeTrackWithFile,
+  analyzeTrackFromLibrary,
+  warmupAnalyzer,
+  isTrackAnalyzed,
+  getUnanalyzedTracks,
+} from './services/deck-loader.service';
+
+export {
+  analysisService,
+  PERFORMANCE_DATA_TYPE,
+  type TrackAnalysisData,
+  type StoredBeatgridData,
+} from './services/analysis.service';
+
 // Types
 export {
   WAVEFORM_COLORS,
@@ -64,4 +124,7 @@ export {
   type WaveformAnalysisResult,
   type WaveformProgressPayload,
   type SeekRequest,
+  type TrackAnalysisRequest,
+  type TrackAnalysisResponse,
+  type TrackAnalysisProgress,
 } from './types';

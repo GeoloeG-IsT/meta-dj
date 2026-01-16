@@ -5,6 +5,14 @@
  */
 
 export { type WaveformData, type WaveformOptions, FREQUENCY_BANDS } from '../analysis/waveform-analyzer';
+export {
+  type BPMResult,
+  type KeyResult,
+  type BeatgridData,
+  type TrackAnalysisResult,
+  type AnalysisError,
+  type ProgressCallback,
+} from '../analysis/track-analyzer';
 
 /** Color mode for waveform rendering */
 export type WaveformColorMode = 'rgb' | 'blue' | '3band';
@@ -45,6 +53,32 @@ export interface WaveformAnalysisResult {
 
 /** Waveform progress update payload */
 export interface WaveformProgressPayload {
+  trackId: number;
+  progress: number; // 0-1
+  stage: 'decoding' | 'analyzing' | 'storing';
+}
+
+/** Track analysis request payload */
+export interface TrackAnalysisRequest {
+  trackId: number;
+  audioBuffer: ArrayBuffer;
+  sampleRate: number;
+  channelCount: number;
+}
+
+/** Track analysis response payload */
+export interface TrackAnalysisResponse {
+  trackId: number;
+  bpm: number; // Integer BPM
+  bpmConfidence: number; // 0-1
+  key: string; // Camelot notation (e.g., "8A")
+  keyConfidence: number; // 0-1
+  beatgridData: Uint8Array; // Serialized BeatgridData
+  beatCount: number;
+}
+
+/** Track analysis progress payload */
+export interface TrackAnalysisProgress {
   trackId: number;
   progress: number; // 0-1
   stage: 'decoding' | 'analyzing' | 'storing';

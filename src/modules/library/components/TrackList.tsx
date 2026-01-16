@@ -1,12 +1,14 @@
 import React, { useRef, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
-import { Trash2, XCircle } from 'lucide-react';
+import { Trash2, XCircle, Zap } from 'lucide-react';
 import { useTracks, type SortField } from '../hooks/useTracks';
 import { useLibraryStore } from '../store/library.store';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { CSS } from '@dnd-kit/utilities';
 import { loadTrackFromLibrary } from '../../audio/services/deck-loader.service';
+import { useAnalysisStore, selectTrackAnalysis } from '../../audio/store/analysis.store';
+import { AnalysisProgressInline } from '../../audio/components/AnalysisProgress';
 
 export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -21,8 +23,10 @@ interface TrackRowUIProps {
     style?: React.CSSProperties;
     onAction?: () => void;
     onDoubleClick?: () => void;
+    onAnalyze?: () => void;
     actionIcon: React.ReactNode;
     className?: string;
+    isAnalyzing?: boolean;
 }
 
 export const TrackRowUI: React.FC<TrackRowUIProps> = ({
@@ -32,9 +36,13 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
     style,
     onAction,
     onDoubleClick,
+    onAnalyze,
     actionIcon,
-    className
+    className,
+    isAnalyzing
 }) => {
+    const needsAnalysis = !track.isAnalyzed && !isAnalyzing;
+
     return (
         <div
             className={`flex items-center border-b border-[#4DFA90]/5 hover:bg-[#0055FF]/20 group transition-colors tabular-nums
@@ -52,7 +60,11 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
                 {track.artist}
             </div>
             <div className="w-24 px-2 text-xs font-mono text-right tabular-nums">
-                {(track.bpm || 0).toFixed(1)}
+                {isAnalyzing ? (
+                    <AnalysisProgressInline trackId={track.id} compact />
+                ) : (
+                    (track.bpm || 0).toFixed(1)
+                )}
             </div>
             <div className="w-20 px-2 text-xs font-mono text-center text-[#4DFA90]/80">
                 {track.key || '-'}
@@ -60,15 +72,27 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
             <div className="w-20 px-2 text-xs font-mono text-right opacity-60">
                 {formatDuration(track.duration || 0)}
             </div>
-            <div className="w-12 flex justify-center">
+            <div className="w-24 flex justify-center gap-1">
                 {!isDragging && (
-                    <button
-                        onPointerDown={(e) => e.stopPropagation()}
-                        onClick={onAction}
-                        className="text-red-500/40 hover:text-red-500 transition-colors p-2"
-                    >
-                        {actionIcon}
-                    </button>
+                    <>
+                        {needsAnalysis && onAnalyze && (
+                            <button
+                                onPointerDown={(e) => e.stopPropagation()}
+                                onClick={onAnalyze}
+                                className="text-[#4DFA90]/40 hover:text-[#4DFA90] transition-colors p-2"
+                                title="Analyze track (BPM, Key, Beatgrid)"
+                            >
+                                <Zap size={14} />
+                            </button>
+                        )}
+                        <button
+                            onPointerDown={(e) => e.stopPropagation()}
+                            onClick={onAction}
+                            className="text-red-500/40 hover:text-red-500 transition-colors p-2"
+                        >
+                            {actionIcon}
+                        </button>
+                    </>
                 )}
             </div>
         </div>
@@ -78,6 +102,10 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
 const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualItem }) => {
   const { deleteTrack, removeTrackFromPlaylist, selectedPlaylistId } = useLibraryStore();
   const { showConfirm } = useModalStore();
+  const analyzeTrack = useAnalysisStore((state) => state.analyzeTrack);
+  const analysisState = useAnalysisStore(selectTrackAnalysis(track.id));
+  const isAnalyzing = analysisState?.status === 'analyzing';
+
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: track.id,
     data: { track }
@@ -117,6 +145,10 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
     }
   };
 
+  const handleAnalyze = useCallback(() => {
+    analyzeTrack(track.id);
+  }, [track.id, analyzeTrack]);
+
   const style = {
     height: `${virtualItem.size}px`,
     top: `${virtualItem.start}px`,
@@ -137,8 +169,10 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
             isDragging={isDragging}
             onAction={handleAction}
             onDoubleClick={handleDoubleClick}
+            onAnalyze={handleAnalyze}
             actionIcon={selectedPlaylistId ? <XCircle size={14} /> : <Trash2 size={14} />}
             className={virtualItem.index % 2 === 0 ? 'bg-transparent' : 'bg-[#4DFA90]/5'}
+            isAnalyzing={isAnalyzing}
         />
     </div>
   );
@@ -175,7 +209,9 @@ export const TrackList: React.FC<{ searchQuery?: string }> = ({ searchQuery }) =
         {renderHeader('BPM', 'bpm', 'w-24')}
         {renderHeader('Key', 'key', 'w-20')}
         {renderHeader('Time', 'duration', 'w-20')}
-        <div className="w-24 border-b border-[#4DFA90]/20" />
+        <div className="w-24 border-b border-[#4DFA90]/20 px-2 py-3 text-[10px] font-bold tracking-widest uppercase text-center opacity-40">
+          Actions
+        </div>
       </div>
 
       {/* Virtualized Body */}
