@@ -111,6 +111,10 @@ export {
   type StoredBeatgridData,
 } from './services/analysis.service';
 
+// Deck Engine (AudioWorklet)
+export { DeckEngineNode, resampleBuffer } from './worklet/deck-engine.node';
+export { DeckEngineService } from './services/deck-engine.service';
+
 // Types
 export {
   WAVEFORM_COLORS,
