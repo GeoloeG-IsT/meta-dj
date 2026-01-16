@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
+import { ImportControl } from './modules/library/components/ImportControl';
 
 function App() {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -97,8 +98,11 @@ function App() {
       </header>
 
       <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm shadow-[0_0_15px_rgba(77,250,144,0.1)]">
-          <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">System Status</h2>
+        <div className="flex flex-col gap-8">
+          <ImportControl />
+          
+          <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm shadow-[0_0_15px_rgba(77,250,144,0.1)]">
+            <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">System Status</h2>
           
           <div className="space-y-4">
             <div>
@@ -122,6 +126,7 @@ function App() {
             </div>
           </div>
         </section>
+      </div>
 
         <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm">
           <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">Worker Logs</h2>

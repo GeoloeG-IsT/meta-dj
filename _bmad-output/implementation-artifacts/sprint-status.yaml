@@ -44,7 +44,7 @@ development_status:
   epic-1: in-progress
   1-1-project-scaffolding-shared-worker-setup: done
   1-2-opfs-database-initialization-mounting: done
-  1-3-local-folder-ingestion-track-scanning: backlog
+  1-3-local-folder-ingestion-track-scanning: review
   1-4-track-list-virtualization-rendering: backlog
   1-5-playlist-tree-management: backlog
   1-6-full-text-search-fts-type-ahead: backlog

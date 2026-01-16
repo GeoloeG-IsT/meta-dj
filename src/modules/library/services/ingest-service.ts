@@ -1,0 +1,111 @@
+import * as mm from 'music-metadata-browser';
+import { kernel } from '../../../shared/kernel/kernel-manager';
+import { EventType } from '../../../shared/types/messaging';
+import { scanDirectory } from '../utils/file-system';
+
+export interface IngestProgress {
+  total: number;
+  processed: number;
+  currentFile: string;
+}
+
+export type ProgressCallback = (progress: IngestProgress) => void;
+
+export class IngestService {
+  /**
+   * Scans and ingests a directory handle.
+   */
+  async ingestDirectory(dirHandle: FileSystemDirectoryHandle, onProgress?: ProgressCallback) {
+    const files: { handle: FileSystemFileHandle; relativePath: string }[] = [];
+    
+    // 1. Discovery phase
+    for await (const file of scanDirectory(dirHandle)) {
+      files.push(file);
+    }
+
+    const total = files.length;
+    let processed = 0;
+
+    // 2. Processing phase (chunked to prevent blocking)
+    const batchSize = 10;
+    for (let i = 0; i < files.length; i += batchSize) {
+      const batch = files.slice(i, i + batchSize);
+      const trackBatch = [];
+
+      for (const file of batch) {
+        try {
+          if (onProgress) {
+            onProgress({ total, processed, currentFile: file.relativePath });
+          }
+
+          const trackData = await this.processFile(file.handle, file.relativePath);
+          if (trackData) {
+            trackBatch.push(trackData);
+          }
+        } catch (err) {
+          console.error(`Failed to process ${file.relativePath}:`, err);
+        }
+        processed++;
+      }
+
+      // 3. Database batch insert
+      if (trackBatch.length > 0) {
+        await this.saveTracks(trackBatch);
+      }
+    }
+
+    if (onProgress) {
+      onProgress({ total, processed, currentFile: 'Complete' });
+    }
+  }
+
+  private async processFile(handle: FileSystemFileHandle, relativePath: string) {
+    const file = await handle.getFile();
+    
+    // Parse metadata
+    const metadata = await mm.parseBlob(file);
+    const { common, format } = metadata;
+
+    return {
+      title: common.title || handle.name,
+      artist: common.artist || 'Unknown Artist',
+      album: common.album || 'Unknown Album',
+      genre: common.genre?.[0] || 'Unknown Genre',
+      bpm: common.bpm || 0,
+      key: common.key || '',
+      duration: Math.round(format.duration || 0),
+      path: relativePath,
+      filename: handle.name,
+      fileSize: file.size,
+      bitrate: format.bitrate,
+      fileType: file.type,
+      dateAdded: Date.now(),
+      // hash: hash // Store hash if column exists, for now we rely on path UNIQUE or future hash column
+    };
+  }
+
+  private async saveTracks(tracks: any[]) {
+    // Construct batch insert
+    // Note: SQLite WASM selectObjects/exec handles params
+    // We'll use individual inserts in a transaction or a multi-values insert
+    // Since our database.worker handles one query at a time, we'll build a batch SQL
+    
+    const columns = [
+      'title', 'artist', 'album', 'genre', 'bpm', 'key', 
+      'duration', 'path', 'filename', 'dateAdded'
+    ];
+    
+    const placeholders = tracks.map(() => `(${columns.map(() => '?').join(',')})`).join(',');
+    const sql = `INSERT OR REPLACE INTO Track (${columns.join(',')}) VALUES ${placeholders}`;
+    const params = tracks.flatMap(t => columns.map(col => (t as any)[col]));
+
+    await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      params,
+      method: 'run',
+      targetDb: 'm'
+    });
+  }
+}
+
+export const ingestService = new IngestService();
