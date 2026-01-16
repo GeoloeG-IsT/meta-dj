@@ -41,7 +41,7 @@ story_location: _bmad-output/implementation-artifacts
 
 development_status:
   # Epic 1: The Librarian (Ingest & Organization)
-  epic-1: in-progress
+  epic-1: done
   1-1-project-scaffolding-shared-worker-setup: done
   1-2-opfs-database-initialization-mounting: done
   1-3-local-folder-ingestion-track-scanning: done
@@ -49,7 +49,7 @@ development_status:
   1-5-playlist-tree-management: done
   1-6-full-text-search-fts-type-ahead: done
   1-7-smartlist-visual-query-builder: done
-  epic-1-retrospective: optional
+  epic-1-retrospective: done
 
   # Epic 2: The Analyst (Preparation & Visualization)
   epic-2: backlog
