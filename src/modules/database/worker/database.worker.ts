@@ -98,7 +98,7 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         
         let result;
         if (method === 'run') {
-            target.run(sql, params);
+            target.exec({ sql, bind: params });
             result = { changes: target.changes() };
         } else if (method === 'get') {
             result = target.selectObject(sql, params);
