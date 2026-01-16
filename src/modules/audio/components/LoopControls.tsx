@@ -233,7 +233,7 @@ export function LoopControls({
                   : undefined
               }
               onClick={() => onSetLoopLength(beats)}
-              title={`Create ${label} beat loop at current position`}
+              title={isLoopActive ? `Resize loop to ${label} beats` : `Create ${label} beat loop at current position`}
             >
               {label}
             </button>

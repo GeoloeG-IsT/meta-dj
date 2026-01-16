@@ -7,10 +7,12 @@
  * UX Reference: Engine DJ-style overview waveform
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { WaveformColorMode } from '../types';
+import type { HotCueData, LoopData } from '../types/cue-loop';
+import { CUE_COLOR_HEX } from '../types/cue-loop';
 
 export interface WaveformOverviewProps {
   /** Waveform data to render */
@@ -27,6 +29,22 @@ export interface WaveformOverviewProps {
   isPlaying?: boolean;
   /** Height of the component in pixels */
   height?: number;
+  /** Hot cue points to display as markers */
+  cuePoints?: HotCueData[];
+  /** Loop regions to display as markers */
+  loops?: LoopData[];
+  /** Total samples in the track (needed for cue/loop position calculation) */
+  totalSamples?: number;
+  /** Currently active loop index (-1 if none) */
+  activeLoopIndex?: number;
+  /** Callback when a loop region is clicked */
+  onLoopClick?: (loopIndex: number) => void;
+  /** Callback when a loop region is right-clicked (context menu) */
+  onLoopContextMenu?: (loopIndex: number, event: React.MouseEvent) => void;
+  /** Callback when a cue marker is clicked */
+  onCueClick?: (cueIndex: number) => void;
+  /** Callback when a cue marker is right-clicked (context menu) */
+  onCueContextMenu?: (cueIndex: number, event: React.MouseEvent) => void;
 }
 
 /**
@@ -56,9 +74,39 @@ export function WaveformOverview({
   onSeek,
   isPlaying = false,
   height = 64,
+  cuePoints = [],
+  loops = [],
+  totalSamples = 0,
+  activeLoopIndex = -1,
+  onLoopClick,
+  onLoopContextMenu,
+  onCueClick,
+  onCueContextMenu,
 }: WaveformOverviewProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [previewPosition, setPreviewPosition] = useState<number | null>(null);
+
+  // Calculate visible cue markers
+  const visibleCues = useMemo(() => {
+    if (totalSamples <= 0) return [];
+    return cuePoints
+      .filter((cue) => cue.isSet)
+      .map((cue) => ({
+        cue,
+        position: cue.position / totalSamples,
+      }));
+  }, [cuePoints, totalSamples]);
+
+  // Calculate visible loop regions
+  const visibleLoops = useMemo(() => {
+    if (totalSamples <= 0) return [];
+    return loops.map((loop) => ({
+      loop,
+      startPosition: loop.inPoint / totalSamples,
+      endPosition: loop.outPoint / totalSamples,
+      isActive: loop.index === activeLoopIndex,
+    }));
+  }, [loops, totalSamples, activeLoopIndex]);
 
   // Handle click to seek (Needle Drop)
   const handleClick = useCallback(
@@ -142,6 +190,79 @@ export function WaveformOverview({
         animate={isPlaying}
         className="w-full h-full"
       />
+
+      {/* Loop region markers */}
+      {visibleLoops.map(({ loop, startPosition, endPosition, isActive }) => {
+        const colorHex = CUE_COLOR_HEX[loop.color];
+        return (
+          <div
+            key={`loop-${loop.index}`}
+            className="absolute top-0 bottom-0 cursor-pointer"
+            style={{
+              left: `${startPosition * 100}%`,
+              width: `${(endPosition - startPosition) * 100}%`,
+              backgroundColor: isActive ? `${colorHex}30` : `${colorHex}15`,
+              borderLeft: `2px solid ${colorHex}`,
+              borderRight: `2px solid ${colorHex}`,
+              boxShadow: isActive ? `inset 0 0 8px ${colorHex}40` : 'none',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLoopClick?.(loop.index);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onLoopContextMenu?.(loop.index, e);
+            }}
+          />
+        );
+      })}
+
+      {/* Cue point markers */}
+      {visibleCues.map(({ cue, position }) => {
+        const colorHex = CUE_COLOR_HEX[cue.color];
+        return (
+          <div
+            key={`cue-${cue.index}`}
+            className="absolute top-0 cursor-pointer"
+            style={{
+              left: `${position * 100}%`,
+              transform: 'translateX(-50%)',
+            }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onCueClick?.(cue.index);
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              onCueContextMenu?.(cue.index, e);
+            }}
+          >
+            {/* Vertical line */}
+            <div
+              className="absolute top-0 w-0.5"
+              style={{
+                height: `${height}px`,
+                backgroundColor: colorHex,
+                opacity: 0.7,
+              }}
+            />
+            {/* Triangle marker at top */}
+            <div
+              style={{
+                width: 0,
+                height: 0,
+                borderLeft: '4px solid transparent',
+                borderRight: '4px solid transparent',
+                borderTop: `6px solid ${colorHex}`,
+                marginLeft: '-3.5px',
+              }}
+            />
+          </div>
+        );
+      })}
 
       {/* Position indicator during drag */}
       {isDragging && previewPosition !== null && (

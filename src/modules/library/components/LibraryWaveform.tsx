@@ -28,7 +28,7 @@ import { analysisService } from '@/modules/audio/services/analysis.service';
 import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '@/modules/audio/types';
 import type { HotCueData, LoopData, CueColor, LoopMode } from '@/modules/audio/types/cue-loop';
-import { DEFAULT_CUE_COLOR } from '@/modules/audio/types/cue-loop';
+import { getDefaultCueColor, getDefaultLoopColor } from '@/modules/audio/types/cue-loop';
 import type { StemType } from '@/modules/audio/types/stems';
 import { stemsService, StemsService } from '@/modules/audio/services/stems.service';
 
@@ -256,7 +256,7 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
         const newCue: HotCueData = {
           index: padIndex,
           position: samplePosition,
-          color: DEFAULT_CUE_COLOR,
+          color: getDefaultCueColor(padIndex),
           name: '',
           isSet: true,
         };
@@ -316,6 +316,37 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
       y: event.clientY,
     });
   }, []);
+
+  // Handle loop click on waveform - seek to loop and activate
+  const handleWaveformLoopClick = useCallback(
+    (loopIndex: number) => {
+      const loop = deck.loops.find((l) => l.index === loopIndex);
+      if (!loop) return;
+
+      // Seek to loop in-point
+      const normalizedPosition = loop.inPoint / (deck.duration * deck.sampleRate);
+      setPlayheadPosition(normalizedPosition);
+      setPosition(deckId, normalizedPosition);
+
+      // Activate the loop
+      setActiveLoop(deckId, loopIndex);
+    },
+    [deckId, deck.loops, deck.duration, deck.sampleRate, setPosition, setActiveLoop]
+  );
+
+  // Handle cue click on waveform - seek to cue position
+  const handleWaveformCueClick = useCallback(
+    (cueIndex: number) => {
+      const cue = deck.cuePoints[cueIndex];
+      if (!cue?.isSet) return;
+
+      // Seek to cue position
+      const normalizedPosition = cue.position / (deck.duration * deck.sampleRate);
+      setPlayheadPosition(normalizedPosition);
+      setPosition(deckId, normalizedPosition);
+    },
+    [deckId, deck.cuePoints, deck.duration, deck.sampleRate, setPosition]
+  );
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenuState(null);
@@ -489,7 +520,7 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
         index: nextIndex,
         inPoint,
         outPoint,
-        color: DEFAULT_CUE_COLOR,
+        color: getDefaultLoopColor(nextIndex),
         name: '',
         isActive: true,
       };
@@ -526,49 +557,74 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
     async (beats: number) => {
       if (!deck.trackId || !deck.beatgridData) return;
 
-      const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
       const samplesPerBeat = (60 / deck.bpm) * deck.sampleRate;
       const loopLength = Math.round(beats * samplesPerBeat);
 
-      const inPoint = currentSample;
-      const outPoint = currentSample + loopLength;
+      // Check if there's an active loop to resize
+      const activeLoop = deck.activeLoopIndex >= 0
+        ? deck.loops.find((l) => l.index === deck.activeLoopIndex)
+        : null;
 
-      // Find next available loop slot
-      const usedIndices = new Set(deck.loops.map((l) => l.index));
-      let nextIndex = 0;
-      while (usedIndices.has(nextIndex) && nextIndex < 8) {
-        nextIndex++;
-      }
+      if (activeLoop) {
+        // RESIZE existing active loop - keep inPoint, update outPoint
+        const newOutPoint = activeLoop.inPoint + loopLength;
+        const originalOutPoint = activeLoop.outPoint;
 
-      if (nextIndex >= 8) {
-        toast.error('Maximum 8 loops reached');
-        return;
-      }
+        // Optimistic update
+        updateLoop(deckId, activeLoop.index, { outPoint: newOutPoint });
 
-      const newLoop: LoopData = {
-        index: nextIndex,
-        inPoint,
-        outPoint,
-        color: DEFAULT_CUE_COLOR,
-        name: '',
-        isActive: true,
-      };
+        // Persist to database
+        try {
+          await analysisService.updateLoop(deck.trackId, activeLoop.index, { outPoint: newOutPoint });
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to resize loop:', error);
+          // Rollback on failure
+          updateLoop(deckId, activeLoop.index, { outPoint: originalOutPoint });
+          toast.error('Failed to resize loop');
+        }
+      } else {
+        // CREATE new loop at current position
+        const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+        const inPoint = currentSample;
+        const outPoint = currentSample + loopLength;
 
-      // Optimistic update
-      addLoop(deckId, newLoop);
-      setActiveLoop(deckId, nextIndex);
+        // Find next available loop slot
+        const usedIndices = new Set(deck.loops.map((l) => l.index));
+        let nextIndex = 0;
+        while (usedIndices.has(nextIndex) && nextIndex < 8) {
+          nextIndex++;
+        }
 
-      // Persist to database
-      try {
-        await analysisService.saveLoop(deck.trackId, newLoop);
-        toast.success(`${beats} beat loop saved`);
-      } catch (error) {
-        console.error('[LibraryWaveform] Failed to save loop:', error);
-        removeLoop(deckId, nextIndex);
-        toast.error('Failed to save loop');
+        if (nextIndex >= 8) {
+          toast.error('Maximum 8 loops reached');
+          return;
+        }
+
+        const newLoop: LoopData = {
+          index: nextIndex,
+          inPoint,
+          outPoint,
+          color: getDefaultLoopColor(nextIndex),
+          name: '',
+          isActive: true,
+        };
+
+        // Optimistic update
+        addLoop(deckId, newLoop);
+        setActiveLoop(deckId, nextIndex);
+
+        // Persist to database
+        try {
+          await analysisService.saveLoop(deck.trackId, newLoop);
+          toast.success(`${beats} beat loop saved`);
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to save loop:', error);
+          removeLoop(deckId, nextIndex);
+          toast.error('Failed to save loop');
+        }
       }
     },
-    [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, playheadPosition, addLoop, setActiveLoop, removeLoop]
+    [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, deck.activeLoopIndex, playheadPosition, addLoop, setActiveLoop, removeLoop, updateLoop]
   );
 
   // Loop pad click handler - handles both hot and saved mode
@@ -596,7 +652,7 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
             index: padIndex,
             inPoint: currentSample,
             outPoint: currentSample + loopLength,
-            color: DEFAULT_CUE_COLOR,
+            color: getDefaultLoopColor(padIndex),
             name: '',
             isActive: true,
           };
@@ -618,7 +674,10 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
       } else {
         // HOT MODE: Press to activate loop immediately
         if (existingLoop) {
-          // Loop exists - activate it (seek optional, but keep position)
+          // Loop exists - seek to in-point and activate (same as cues)
+          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
+          setPlayheadPosition(normalizedPosition);
+          setPosition(deckId, normalizedPosition);
           setActiveLoop(deckId, padIndex);
         } else {
           // No loop at this pad - create temporary hot loop at current position
@@ -630,7 +689,7 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
             index: padIndex,
             inPoint: currentSample,
             outPoint: currentSample + loopLength,
-            color: DEFAULT_CUE_COLOR,
+            color: getDefaultLoopColor(padIndex),
             name: '',
             isActive: true,
           };
@@ -852,6 +911,14 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
           onSeek={handleSeek}
           isPlaying={deck.isPlaying}
           height={48}
+          cuePoints={deck.cuePoints}
+          loops={deck.loops}
+          totalSamples={Math.round(deck.duration * deck.sampleRate)}
+          activeLoopIndex={deck.activeLoopIndex}
+          onLoopClick={handleWaveformLoopClick}
+          onLoopContextMenu={handleLoopContextMenu}
+          onCueClick={handleWaveformCueClick}
+          onCueContextMenu={handlePadContextMenu}
         />
       </div>
 
@@ -881,6 +948,9 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
           onKeyboardNudge={handleKeyboardNudge}
           cuePoints={deck.cuePoints}
           loops={deck.loops}
+          onCueContextMenu={handlePadContextMenu}
+          onLoopClick={handleWaveformLoopClick}
+          onLoopContextMenu={handleLoopContextMenu}
         />
       </div>
 

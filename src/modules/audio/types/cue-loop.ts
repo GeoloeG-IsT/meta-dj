@@ -16,32 +16,48 @@
 export type LoopMode = 'hot' | 'saved';
 
 /**
- * Engine DJ standard color palette for cue points and loops.
- * These match the 8-color palette available on Engine DJ hardware.
+ * Extended 16-color palette for cue points and loops.
+ * Provides distinct colors for all 8 cue pads and 8 loop pads.
  */
 export type CueColor =
   | 'red'
   | 'orange'
   | 'yellow'
+  | 'lime'
   | 'green'
+  | 'teal'
   | 'cyan'
+  | 'sky'
   | 'blue'
+  | 'indigo'
   | 'purple'
-  | 'pink';
+  | 'violet'
+  | 'pink'
+  | 'rose'
+  | 'coral'
+  | 'amber';
 
 /**
- * Color index mapping for Engine DJ compatibility.
+ * Color index mapping for database compatibility.
  * Used when serializing/deserializing from database.
  */
 export const CUE_COLOR_INDEX: Record<CueColor, number> = {
   red: 0,
   orange: 1,
   yellow: 2,
-  green: 3,
-  cyan: 4,
-  blue: 5,
-  purple: 6,
-  pink: 7,
+  lime: 3,
+  green: 4,
+  teal: 5,
+  cyan: 6,
+  sky: 7,
+  blue: 8,
+  indigo: 9,
+  purple: 10,
+  violet: 11,
+  pink: 12,
+  rose: 13,
+  coral: 14,
+  amber: 15,
 };
 
 /**
@@ -51,32 +67,92 @@ export const INDEX_TO_CUE_COLOR: Record<number, CueColor> = {
   0: 'red',
   1: 'orange',
   2: 'yellow',
-  3: 'green',
-  4: 'cyan',
-  5: 'blue',
-  6: 'purple',
-  7: 'pink',
+  3: 'lime',
+  4: 'green',
+  5: 'teal',
+  6: 'cyan',
+  7: 'sky',
+  8: 'blue',
+  9: 'indigo',
+  10: 'purple',
+  11: 'violet',
+  12: 'pink',
+  13: 'rose',
+  14: 'coral',
+  15: 'amber',
 };
 
 /**
  * Hex color values for rendering.
- * Matches Engine DJ visual style.
+ * Carefully chosen for visual distinction and readability.
  */
 export const CUE_COLOR_HEX: Record<CueColor, string> = {
   red: '#FF3B30',
   orange: '#FF9500',
   yellow: '#FFCC00',
-  green: '#4DFA90', // Engine Green (default)
+  lime: '#32D74B',
+  green: '#4DFA90', // Engine Green
+  teal: '#30D5C8',
   cyan: '#5AC8FA',
+  sky: '#64D2FF',
   blue: '#007AFF',
+  indigo: '#5856D6',
   purple: '#AF52DE',
+  violet: '#BF5AF2',
   pink: '#FF2D92',
+  rose: '#FF375F',
+  coral: '#FF6B6B',
+  amber: '#FFD60A',
 };
 
 /**
  * Default color for new cue points/loops (Engine Green).
  */
 export const DEFAULT_CUE_COLOR: CueColor = 'green';
+
+/**
+ * Default colors for each pad index (0-7).
+ * Each cue pad and loop pad gets a distinct default color.
+ */
+export const DEFAULT_CUE_COLORS: CueColor[] = [
+  'red',      // Pad 1
+  'orange',   // Pad 2
+  'yellow',   // Pad 3
+  'green',    // Pad 4
+  'cyan',     // Pad 5
+  'blue',     // Pad 6
+  'purple',   // Pad 7
+  'pink',     // Pad 8
+];
+
+/**
+ * Default colors for each loop pad index (0-7).
+ * Uses different colors from cue pads for visual distinction.
+ */
+export const DEFAULT_LOOP_COLORS: CueColor[] = [
+  'coral',    // Loop 1
+  'amber',    // Loop 2
+  'lime',     // Loop 3
+  'teal',     // Loop 4
+  'sky',      // Loop 5
+  'indigo',   // Loop 6
+  'violet',   // Loop 7
+  'rose',     // Loop 8
+];
+
+/**
+ * Get the default color for a cue pad by index.
+ */
+export function getDefaultCueColor(padIndex: number): CueColor {
+  return DEFAULT_CUE_COLORS[padIndex % DEFAULT_CUE_COLORS.length];
+}
+
+/**
+ * Get the default color for a loop pad by index.
+ */
+export function getDefaultLoopColor(padIndex: number): CueColor {
+  return DEFAULT_LOOP_COLORS[padIndex % DEFAULT_LOOP_COLORS.length];
+}
 
 /**
  * Hot Cue data structure (Engine DJ compatible).

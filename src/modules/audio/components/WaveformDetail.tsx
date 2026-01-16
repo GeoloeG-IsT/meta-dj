@@ -167,6 +167,7 @@ export function WaveformDetail({
   const [browseOffset, setBrowseOffset] = useState(0);
   const [containerWidth, setContainerWidth] = useState(800);
   const slipStartXRef = useRef<number>(0);
+  const wasDraggingRef = useRef(false);
 
   // Calculate duration and total samples
   const duration = waveformData?.duration ?? 0;
@@ -350,11 +351,21 @@ export function WaveformDetail({
     if (isSlipDragging) {
       // Commit slip mode changes
       setIsSlipDragging(false);
+      wasDraggingRef.current = true;
       onSlipCommit?.();
       return;
     }
+    if (isDragging) {
+      wasDraggingRef.current = true;
+      // Seek to the browsed position so loops are created where user is looking
+      if (browseOffset !== 0 && onSeek) {
+        const newPosition = Math.max(0, Math.min(1, playheadPosition + browseOffset));
+        onSeek(newPosition);
+        setBrowseOffset(0);
+      }
+    }
     setIsDragging(false);
-  }, [isSlipDragging, onSlipCommit]);
+  }, [isDragging, isSlipDragging, onSlipCommit, browseOffset, playheadPosition, onSeek]);
 
   // Handle keyboard nudge (Shift+Arrow keys)
   // Per AC6: Shift+Left/Right nudges beatgrid by 1ms increments
@@ -386,6 +397,12 @@ export function WaveformDetail({
   // Handle click to seek
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
+      // Don't seek if we just finished dragging (click fires after mouseup)
+      if (wasDraggingRef.current) {
+        wasDraggingRef.current = false;
+        return;
+      }
+
       // Don't seek during drag or slip operations
       if (!onSeek || !containerRef.current || isDragging || isSlipDragging || isSlipModeActive) return;
 
