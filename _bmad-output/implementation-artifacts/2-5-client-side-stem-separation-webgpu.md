@@ -28,12 +28,12 @@ So that I can create live remixes and mashups without specialized source files.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: WebGPU Detection & Feature Gating** (AC: 1)
-  - [ ] Create `src/modules/audio/services/webgpu-detector.ts` to check `navigator.gpu` availability
-  - [ ] Add `hasWebGPU` flag to application state (Zustand store)
-  - [ ] Create `StemsUnavailable.tsx` placeholder component when WebGPU not supported
-  - [ ] Add feature flag check before showing stem UI controls
-  - [ ] Write unit tests for detection logic
+- [x] **Task 1: WebGPU Detection & Feature Gating** (AC: 1)
+  - [x] Create `src/modules/audio/services/webgpu-detector.ts` to check `navigator.gpu` availability
+  - [x] Add `hasWebGPU` flag to application state (Zustand store)
+  - [x] Create `StemsUnavailable.tsx` placeholder component when WebGPU not supported
+  - [x] Add feature flag check before showing stem UI controls
+  - [x] Write unit tests for detection logic
 
 - [ ] **Task 2: ONNX Runtime Web Setup** (AC: 2, 8)
   - [ ] Add `onnxruntime-web` package to dependencies

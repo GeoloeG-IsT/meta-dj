@@ -75,6 +75,10 @@ export interface AudioSettings {
   masterVolume: number;
   /** Active deck (receives keyboard commands) */
   activeDeck: DeckId;
+  /** Whether WebGPU is available for stems feature */
+  hasWebGPU: boolean;
+  /** Reason why WebGPU is unavailable (if applicable) */
+  webGPUUnavailableReason: string | null;
 }
 
 /** Full audio store state */
@@ -119,6 +123,7 @@ export interface AudioState {
   setColorMode: (mode: WaveformColorMode) => void;
   setMasterVolume: (volume: number) => void;
   setActiveDeck: (deckId: DeckId) => void;
+  setWebGPUStatus: (available: boolean, unavailableReason?: string | null) => void;
 }
 
 /** Create initial slip mode state */
@@ -167,6 +172,8 @@ export const useAudioStore = create<AudioState>()(
         colorMode: 'rgb',
         masterVolume: 1,
         activeDeck: 'A',
+        hasWebGPU: false, // Will be set by initWebGPUDetection
+        webGPUUnavailableReason: null,
       },
 
       // Deck actions
@@ -561,6 +568,15 @@ export const useAudioStore = create<AudioState>()(
             activeDeck: deckId,
           },
         })),
+
+      setWebGPUStatus: (available, unavailableReason = null) =>
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            hasWebGPU: available,
+            webGPUUnavailableReason: unavailableReason,
+          },
+        })),
     }),
     {
       name: 'meta-dj-audio',
@@ -580,3 +596,5 @@ export const selectDeck = (deckId: DeckId) => (state: AudioState) => state.decks
 export const selectColorMode = (state: AudioState) => state.settings.colorMode;
 export const selectActiveDeck = (state: AudioState) => state.settings.activeDeck;
 export const selectMasterVolume = (state: AudioState) => state.settings.masterVolume;
+export const selectHasWebGPU = (state: AudioState) => state.settings.hasWebGPU;
+export const selectWebGPUUnavailableReason = (state: AudioState) => state.settings.webGPUUnavailableReason;
