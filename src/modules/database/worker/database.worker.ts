@@ -3,6 +3,7 @@
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import { EventType } from '../../../shared/types/messaging';
 import schemaSql from '../schema/engine-dj-schema.sql?raw';
+import { generateSmartListSql, type SmartListRule } from './smartlist';
 
 /**
  * Database Worker
@@ -70,6 +71,27 @@ const init = async () => {
           dbs.m.exec("ALTER TABLE Playlist ADD COLUMN parentListId INTEGER DEFAULT 0");
           dbs.m.exec("ALTER TABLE Playlist ADD COLUMN isFolder BOOLEAN DEFAULT 0");
           log('Migrated Playlist table');
+        } catch (e) {}
+
+        // Migration: SmartList support
+        try {
+          dbs.m.exec("ALTER TABLE Playlist ADD COLUMN isSmartList BOOLEAN DEFAULT 0");
+          log('Migrated Playlist table for SmartLists');
+        } catch (e) {}
+
+        try {
+          dbs.m.exec(`
+            CREATE TABLE IF NOT EXISTS SmartListRule (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              playlistId INTEGER,
+              field TEXT,
+              operator TEXT,
+              value TEXT,
+              logic TEXT DEFAULT 'AND',
+              FOREIGN KEY(playlistId) REFERENCES Playlist(id)
+            )
+          `);
+          log('Created SmartListRule table');
         } catch (e) {}
 
         // Migration: PlaylistEntity table (fix for persistent "playlistId" NOT NULL constraints)

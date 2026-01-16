@@ -36,7 +36,19 @@ CREATE TABLE IF NOT EXISTS Playlist (
     parentListId INTEGER DEFAULT 0,
     title TEXT,
     isFolder BOOLEAN DEFAULT 0,
+    isSmartList BOOLEAN DEFAULT 0,
     FOREIGN KEY(parentListId) REFERENCES Playlist(id)
+);
+
+-- SmartListRule Table: Rules for dynamic playlists
+CREATE TABLE IF NOT EXISTS SmartListRule (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    playlistId INTEGER,
+    field TEXT, -- e.g., 'bpm', 'genre', 'key', 'rating'
+    operator TEXT, -- e.g., '=', '>', '<', 'CONTAINS'
+    value TEXT,
+    logic TEXT DEFAULT 'AND', -- 'AND' or 'OR'
+    FOREIGN KEY(playlistId) REFERENCES Playlist(id)
 );
 
 -- PlaylistEntity Table: Linked list for track ordering in playlists
