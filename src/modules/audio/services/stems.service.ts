@@ -28,7 +28,7 @@ interface AnalysisCallbacks {
   onError?: StemsErrorCallback;
 }
 
-class StemsService {
+export class StemsService {
   private worker: Worker | null = null;
   private isInitialized = false;
   private isModelLoaded = false;

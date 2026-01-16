@@ -103,11 +103,13 @@ async function initializeONNX(): Promise<boolean> {
     reportModelLoading(20, 'Checking WebGPU availability...');
 
     // Check if WebGPU is available in this worker context
-    if (!('gpu' in navigator)) {
+    // TypeScript doesn't have WebGPU types for workers, so we use type assertion
+    const gpu = (navigator as unknown as { gpu?: GPU }).gpu;
+    if (!gpu) {
       throw new Error('WebGPU not available in worker context');
     }
 
-    const adapter = await navigator.gpu.requestAdapter();
+    const adapter = await gpu.requestAdapter();
     if (!adapter) {
       throw new Error('No WebGPU adapter found');
     }
