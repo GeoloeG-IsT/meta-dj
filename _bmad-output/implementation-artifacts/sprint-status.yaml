@@ -57,7 +57,7 @@ development_status:
   2-2-automated-track-analysis-bpm-key-grid: done
   2-3-slip-under-beatgrid-editing: done
   2-4-hot-cue-loop-management: done
-  2-5-client-side-stem-separation-webgpu: in-progress
+  2-5-client-side-stem-separation-webgpu: review
   epic-2-retrospective: optional
 
   # Epic 3: The Performer (Playback & DSP)
