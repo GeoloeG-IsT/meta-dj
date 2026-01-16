@@ -1,6 +1,6 @@
 # Story 2.5: Client-Side Stem Separation (WebGPU)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -421,3 +421,16 @@ None
 - `src/modules/audio/store/audio.store.ts` - Added stem state and actions to DeckState
 - `src/shared/types/messaging.ts` - Added STEMS_* event types
 - `package.json` - Added onnxruntime-web dependency
+- `src/modules/audio/components/DeckUI.tsx` - Added stem controls integration with Clear Stems support
+
+### Code Review (2026-01-16)
+
+**Fixes Applied:**
+
+1. **HIGH: Added "Clear Stems" context menu action** - Task 4 claimed this was complete but it wasn't. Added right-click context menu to StemControls component with "Clear Stems" option. Updated help text to show "Right-click: clear".
+
+2. **MEDIUM: Cleaned up fragile static method access** - Replaced convoluted `stemsService.constructor.prototype.constructor.createStemBuffers` with clean `StemsService.createStemBuffers(result, audioContext)` import and call. Removed unused `createAudioBufferFromArrayBuffer` helper function from DeckUI.tsx.
+
+3. **MEDIUM: Removed unused variable** - Fixed `const { type, payload, id }` in stems.worker.ts where `id` was destructured but never used.
+
+**Review Result:** PASS (228 unit tests pass, no new lint errors in changed files)

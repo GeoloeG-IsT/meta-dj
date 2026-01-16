@@ -27,7 +27,7 @@ import type { WaveformColorMode, DeckId } from '../types';
 import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
 import { DEFAULT_CUE_COLOR } from '../types/cue-loop';
 import type { StemType } from '../types/stems';
-import { stemsService } from '../services/stems.service';
+import { stemsService, StemsService } from '../services/stems.service';
 
 export interface DeckUIProps {
   /** Deck identifier */
@@ -609,14 +609,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
         },
         onComplete: (result) => {
           // Convert ArrayBuffers to AudioBuffers
-          const stemBuffers = stemsService.constructor.prototype.constructor.createStemBuffers
-            ? (stemsService.constructor as typeof import('../services/stems.service').StemsService).createStemBuffers(result, audioContext)
-            : {
-                vocals: createAudioBufferFromArrayBuffer(result.stems.vocals, result.sampleRate, audioContext),
-                drums: createAudioBufferFromArrayBuffer(result.stems.drums, result.sampleRate, audioContext),
-                bass: createAudioBufferFromArrayBuffer(result.stems.bass, result.sampleRate, audioContext),
-                other: createAudioBufferFromArrayBuffer(result.stems.other, result.sampleRate, audioContext),
-              };
+          const stemBuffers = StemsService.createStemBuffers(result, audioContext);
           setStemBuffers(deckId, stemBuffers);
           toast.success('Stem separation complete');
         },
@@ -638,6 +631,12 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       setStemAnalyzing(deckId, false);
     }
   }, [deckId, deck.trackId, setStemAnalyzing]);
+
+  // Clear stems action
+  const clearStems = useAudioStore((s) => s.clearStems);
+  const handleClearStems = useCallback(() => {
+    clearStems(deckId);
+  }, [deckId, clearStems]);
 
   // Get active loop data
   const activeLoop = deck.activeLoopIndex >= 0
@@ -838,6 +837,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
             onToggleSolo={handleStemSoloToggle}
             onAnalyzeStems={handleAnalyzeStems}
             onCancelAnalysis={handleCancelStemAnalysis}
+            onClearStems={handleClearStems}
             keyboardEnabled={true}
           />
         </div>
@@ -864,16 +864,4 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-function createAudioBufferFromArrayBuffer(
-  data: ArrayBuffer,
-  sampleRate: number,
-  audioContext: AudioContext
-): AudioBuffer | null {
-  if (data.byteLength === 0) return null;
-  const float32 = new Float32Array(data);
-  const buffer = audioContext.createBuffer(1, float32.length, sampleRate);
-  buffer.copyToChannel(float32, 0);
-  return buffer;
 }

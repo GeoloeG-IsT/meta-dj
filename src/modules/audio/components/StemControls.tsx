@@ -7,8 +7,8 @@
  * Story 2.5: Client-Side Stem Separation (WebGPU)
  */
 
-import { useCallback, useEffect } from 'react';
-import { Mic, Drum, Music2, Piano, Loader2, X } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { Mic, Drum, Music2, Piano, Loader2, X, Trash2 } from 'lucide-react';
 import type { StemType, StemState, StemAnalysisStage } from '../types/stems';
 import { STEM_COLORS, STEM_LABELS } from '../types/stems';
 import { StemsUnavailable } from './StemsUnavailable';
@@ -28,6 +28,8 @@ export interface StemControlsProps {
   onAnalyzeStems: () => void;
   /** Callback when cancel button is clicked */
   onCancelAnalysis: () => void;
+  /** Callback when clear stems is clicked */
+  onClearStems?: () => void;
   /** Whether keyboard shortcuts are enabled */
   keyboardEnabled?: boolean;
   /** CSS class name */
@@ -68,10 +70,39 @@ export function StemControls({
   onToggleSolo,
   onAnalyzeStems,
   onCancelAnalysis,
+  onClearStems,
   keyboardEnabled = true,
   className = '',
 }: StemControlsProps) {
   const { available, analyzing, progress, stage, muted, solo } = stemState;
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Handle context menu open
+  const handleContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      if (!available || !onClearStems) return;
+      event.preventDefault();
+      setContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    [available, onClearStems]
+  );
+
+  // Handle clear stems action
+  const handleClearStems = useCallback(() => {
+    setContextMenu(null);
+    onClearStems?.();
+  }, [onClearStems]);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    if (!contextMenu) return;
+
+    const handleClick = () => setContextMenu(null);
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, [contextMenu]);
 
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback(
@@ -172,7 +203,24 @@ export function StemControls({
 
   // Show stem controls
   return (
-    <div className={`stem-controls ${className}`}>
+    <div className={`stem-controls relative ${className}`} onContextMenu={handleContextMenu}>
+      {/* Context menu for Clear Stems */}
+      {contextMenu && onClearStems && (
+        <div
+          className="fixed z-[1000] w-36 bg-[#121212] border border-[#4DFA90]/30 shadow-[0_10px_25px_rgba(0,0,0,0.5)] rounded-sm overflow-hidden py-1"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            type="button"
+            onClick={handleClearStems}
+            className="w-full flex items-center gap-3 px-3 py-2 text-[10px] uppercase font-bold tracking-widest transition-colors text-left text-red-500 hover:bg-red-500/10"
+          >
+            <Trash2 size={12} />
+            Clear Stems
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center gap-1">
         {STEM_CONFIG.map(({ type, icon: Icon }) => {
           const isMuted = muted[type];
@@ -181,7 +229,7 @@ export function StemControls({
           const color = STEM_COLORS[type];
           const label = STEM_LABELS[type];
           const shortcut = Object.entries(STEM_SHORTCUTS).find(
-            ([_, t]) => t === type
+            ([, t]) => t === type
           )?.[0];
 
           // Effective state: if another stem is soloed, this one is effectively muted
@@ -257,7 +305,7 @@ export function StemControls({
 
       {/* Help text */}
       <p className="mt-1 text-[10px] text-zinc-500 text-center">
-        Click: mute | Shift+Click: solo
+        Click: mute | Shift+Click: solo{onClearStems ? ' | Right-click: clear' : ''}
       </p>
     </div>
   );

@@ -423,7 +423,7 @@ function blendChunkOutputs(
 // ============================================================
 
 self.onmessage = async (event: MessageEvent) => {
-  const { type, payload, id } = event.data;
+  const { type, payload } = event.data;
 
   switch (type) {
     case EventType.STEMS_ANALYZE_REQUEST: {
