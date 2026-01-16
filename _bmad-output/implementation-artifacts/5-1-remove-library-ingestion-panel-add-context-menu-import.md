@@ -1,6 +1,6 @@
 # Story 5.1: Remove Library Ingestion Panel & Add Context Menu Import
 
-Status: review
+Status: done
 
 ## Story
 
@@ -197,12 +197,13 @@ None
 ### File List
 
 **Created:**
-- src/shared/store/toast.store.test.ts (13 new tests for toast functionality)
+- src/shared/store/toast.store.test.ts (17 tests for toast functionality including persistent toast tests)
 
 **Modified:**
 - src/modules/library/LibraryView.tsx (removed ImportControl import and component)
-- src/modules/library/components/PlaylistTree.tsx (added handleImportFolder, context menu option)
-- src/shared/store/toast.store.ts (added update method and dismiss to convenience object)
+- src/modules/library/components/PlaylistTree.tsx (added handleImportFolder, context menu option, empty folder handling)
+- src/modules/library/components/ContextMenu.tsx (added ContextMenuOption export, ReactNode icon type, disabled prop support)
+- src/shared/store/toast.store.ts (added update, progress, persistent flag, duration=0 support)
 
 **Deleted:**
 - src/modules/library/components/ImportControl.tsx
@@ -210,3 +211,9 @@ None
 ### Change Log
 
 - 2026-01-16: Completed all tasks. Removed ImportControl panel from LibraryView, added Import Folder context menu option to PlaylistTree, implemented toast-based progress feedback with new update method, deleted unused ImportControl.tsx. 241 tests pass (13 new).
+- 2026-01-16: Code Review fixes applied:
+  - H1/H2: Added persistent toast support (no auto-dismiss, won't be evicted) via `toast.progress()`
+  - M1: Fixed type safety - exported ContextMenuOption interface, removed `as any` cast
+  - M2: Added empty folder handling with warning message
+  - M3: Updated toast.store.ts header comment
+  - Added 4 new tests for persistent toast functionality. 245 tests pass (17 toast tests total).

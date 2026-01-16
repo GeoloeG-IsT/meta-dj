@@ -7,7 +7,7 @@ import { usePlaylists } from '../hooks/usePlaylists';
 import { useTracks } from '../hooks/useTracks';
 import { PlaylistItem } from './PlaylistItem';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
-import { ContextMenu } from './ContextMenu';
+import { ContextMenu, type ContextMenuOption } from './ContextMenu';
 import { SmartListBuilder } from './SmartListBuilder';
 import { ingestService } from '../services/ingest-service';
 import { toast } from '../../../shared/store/toast.store';
@@ -98,8 +98,8 @@ export const PlaylistTree: React.FC = () => {
       const dirHandle = await window.showDirectoryPicker();
 
       setIsImporting(true);
-      // Duration 0 = no auto-dismiss (persistent until manually dismissed)
-      const toastId = toast.info('Importing: scanning...', 60000);
+      // Persistent progress toast - won't auto-dismiss or be evicted
+      const toastId = toast.progress('Importing: scanning...');
 
       let lastTotal = 0;
       await ingestService.ingestDirectory(dirHandle, (progress) => {
@@ -107,13 +107,18 @@ export const PlaylistTree: React.FC = () => {
         lastTotal = progress.total;
       });
 
-      // Success
+      // Dismiss progress toast
       toast.dismiss(toastId);
-      toast.success(`Imported ${lastTotal} tracks`);
 
-      // Refresh the library
-      await fetchPlaylists();
-      refreshTracks();
+      // Handle empty folder case
+      if (lastTotal === 0) {
+        toast.warning('No audio files found in folder');
+      } else {
+        toast.success(`Imported ${lastTotal} tracks`);
+        // Refresh the library only if we imported something
+        await fetchPlaylists();
+        refreshTracks();
+      }
 
     } catch (err: unknown) {
       const error = err as Error;
@@ -133,7 +138,7 @@ export const PlaylistTree: React.FC = () => {
     setMenuPos({ x: e.clientX, y: e.clientY });
   };
 
-  const allTracksMenuOptions = [
+  const allTracksMenuOptions: ContextMenuOption[] = [
     {
       label: 'Import Folder...',
       icon: <FolderInput size={14} />,
@@ -184,11 +189,11 @@ export const PlaylistTree: React.FC = () => {
         </div>
 
         {menuPos && (
-          <ContextMenu 
-            x={menuPos.x} 
-            y={menuPos.y} 
-            onClose={() => setMenuPos(null)} 
-            options={allTracksMenuOptions as any} 
+          <ContextMenu
+            x={menuPos.x}
+            y={menuPos.y}
+            onClose={() => setMenuPos(null)}
+            options={allTracksMenuOptions}
           />
         )}
 

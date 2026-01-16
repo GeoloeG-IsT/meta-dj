@@ -125,5 +125,76 @@ describe('toast.store', () => {
       toast.warning('Warning message');
       expect(useToastStore.getState().toasts[0].variant).toBe('warning');
     });
+
+    it('toast.progress should create persistent info toast with no auto-dismiss', () => {
+      const id = toast.progress('Loading...');
+      const toasts = useToastStore.getState().toasts;
+
+      expect(toasts[0].variant).toBe('info');
+      expect(toasts[0].persistent).toBe(true);
+      expect(toasts[0].duration).toBe(0);
+
+      // Clean up
+      toast.dismiss(id);
+    });
+  });
+
+  describe('persistent toasts', () => {
+    it('should not evict persistent toasts when at MAX_TOASTS', () => {
+      // Create persistent toast first
+      const persistentId = toast.progress('Progress...');
+
+      // Fill up remaining slots
+      toast.info('Toast 2');
+      toast.info('Toast 3');
+      toast.info('Toast 4'); // Should evict Toast 2, not Progress
+
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts).toHaveLength(3);
+
+      // Persistent toast should still be there
+      expect(toasts.some(t => t.id === persistentId)).toBe(true);
+      expect(toasts.find(t => t.id === persistentId)?.message).toBe('Progress...');
+
+      // Toast 2 should have been evicted (first non-persistent)
+      expect(toasts.some(t => t.message === 'Toast 2')).toBe(false);
+
+      // Clean up
+      toast.dismiss(persistentId);
+    });
+
+    it('should allow exceeding MAX_TOASTS if all are persistent', () => {
+      // Create 4 persistent toasts (MAX_TOASTS is 3)
+      const id1 = toast.progress('Progress 1');
+      const id2 = toast.progress('Progress 2');
+      const id3 = toast.progress('Progress 3');
+      const id4 = toast.progress('Progress 4');
+
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts).toHaveLength(4); // Exceeds MAX_TOASTS
+
+      // Clean up
+      toast.dismiss(id1);
+      toast.dismiss(id2);
+      toast.dismiss(id3);
+      toast.dismiss(id4);
+    });
+
+    it('duration 0 should not auto-dismiss', async () => {
+      // Use show directly with duration 0
+      const id = useToastStore.getState().show({
+        message: 'No auto-dismiss',
+        duration: 0
+      });
+
+      // Wait longer than default duration
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      const toasts = useToastStore.getState().toasts;
+      expect(toasts.some(t => t.id === id)).toBe(true);
+
+      // Clean up
+      toast.dismiss(id);
+    });
   });
 });

@@ -2,8 +2,7 @@
  * Toast Store - Zustand state management for toast notifications
  *
  * Manages a queue of toast messages with auto-dismiss functionality.
- *
- * Story 2.3: "Slip-Under" Beatgrid Editing
+ * Supports persistent toasts for progress tracking that won't be evicted.
  */
 
 import { create } from 'zustand';
@@ -19,10 +18,12 @@ export interface ToastMessage {
   message: string;
   /** Visual variant */
   variant: ToastVariant;
-  /** Duration in milliseconds before auto-dismiss (default: 2000) */
+  /** Duration in milliseconds before auto-dismiss (default: 2000, 0 = no auto-dismiss) */
   duration: number;
   /** Timestamp when toast was created */
   createdAt: number;
+  /** If true, toast won't be evicted when MAX_TOASTS exceeded */
+  persistent?: boolean;
 }
 
 /** Toast store state */
@@ -35,6 +36,7 @@ interface ToastState {
     message: string;
     variant?: ToastVariant;
     duration?: number;
+    persistent?: boolean;
   }) => string;
 
   /** Update an existing toast message */
@@ -76,14 +78,20 @@ const MAX_TOASTS = 3;
 export const useToastStore = create<ToastState>((set, get) => ({
   toasts: [],
 
-  show: ({ message, variant = 'success', duration = DEFAULT_DURATION }) => {
+  show: ({ message, variant = 'success', duration = DEFAULT_DURATION, persistent = false }) => {
     const id = generateId();
 
     set((state) => {
-      // Limit queue size - remove oldest if at max
-      const toasts = state.toasts.length >= MAX_TOASTS
-        ? state.toasts.slice(1)
-        : state.toasts;
+      // Limit queue size - remove oldest non-persistent toast if at max
+      let toasts = state.toasts;
+      if (toasts.length >= MAX_TOASTS) {
+        // Find first non-persistent toast to evict
+        const evictIndex = toasts.findIndex((t) => !t.persistent);
+        if (evictIndex !== -1) {
+          toasts = [...toasts.slice(0, evictIndex), ...toasts.slice(evictIndex + 1)];
+        }
+        // If all are persistent, allow exceeding MAX_TOASTS
+      }
 
       return {
         toasts: [
@@ -94,15 +102,18 @@ export const useToastStore = create<ToastState>((set, get) => ({
             variant,
             duration,
             createdAt: Date.now(),
+            persistent,
           },
         ],
       };
     });
 
-    // Auto-dismiss after duration
-    setTimeout(() => {
-      get().dismiss(id);
-    }, duration);
+    // Auto-dismiss after duration (skip if duration is 0)
+    if (duration > 0) {
+      setTimeout(() => {
+        get().dismiss(id);
+      }, duration);
+    }
 
     return id;
   },
@@ -152,6 +163,10 @@ export const toast = {
 
   warning: (message: string, duration?: number) =>
     useToastStore.getState().show({ message, variant: 'warning', duration }),
+
+  /** Create a persistent progress toast (no auto-dismiss, won't be evicted) */
+  progress: (message: string) =>
+    useToastStore.getState().show({ message, variant: 'info', duration: 0, persistent: true }),
 
   /** Update an existing toast's message */
   update: (id: string, message: string, variant?: ToastVariant) =>

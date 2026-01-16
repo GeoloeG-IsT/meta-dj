@@ -1,15 +1,18 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, type ReactNode } from 'react';
+
+export interface ContextMenuOption {
+  label: string;
+  icon: ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+  disabled?: boolean;
+}
 
 interface ContextMenuProps {
   x: number;
   y: number;
   onClose: () => void;
-  options: {
-    label: string;
-    icon: string;
-    onClick: () => void;
-    danger?: boolean;
-  }[];
+  options: ContextMenuOption[];
 }
 
 export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options }) => {
@@ -38,15 +41,20 @@ export const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, options
       {options.map((opt, i) => (
         <button
           key={i}
+          disabled={opt.disabled}
           onClick={(e) => {
             e.stopPropagation();
-            opt.onClick();
-            onClose();
+            if (!opt.disabled) {
+              opt.onClick();
+              onClose();
+            }
           }}
           className={`w-full flex items-center gap-3 px-3 py-2 text-[10px] uppercase font-bold tracking-widest transition-colors text-left
-            ${opt.danger 
-              ? 'text-red-500 hover:bg-red-500/10' 
-              : 'text-[#4DFA90]/80 hover:bg-[#4DFA90]/10 hover:text-[#4DFA90]'}
+            ${opt.disabled
+              ? 'text-[#4DFA90]/30 cursor-not-allowed'
+              : opt.danger
+                ? 'text-red-500 hover:bg-red-500/10'
+                : 'text-[#4DFA90]/80 hover:bg-[#4DFA90]/10 hover:text-[#4DFA90]'}
           `}
         >
           <span className="text-xs">{opt.icon}</span>
