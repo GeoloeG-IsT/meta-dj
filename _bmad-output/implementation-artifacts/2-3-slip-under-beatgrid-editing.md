@@ -1,6 +1,6 @@
 # Story 2.3: "Slip-Under" Beatgrid Editing
 
-Status: ready-for-dev
+Status: in-progress
 
 ## Story
 
@@ -24,12 +24,12 @@ So that I can ensure 100% accurate sync for tracks with complex transients.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Beatgrid Rendering on Waveform** (AC: 3)
-  - [ ] Create `BeatgridOverlay.tsx` component to render beat markers
-  - [ ] Load and deserialize beatgrid data from PerformanceData table
-  - [ ] Calculate pixel positions for each beat based on view range
-  - [ ] Render vertical lines at each beat position (subtle gray for normal, Engine Green for downbeats)
-  - [ ] Integrate overlay with WaveformDetail component
+- [x] **Task 1: Beatgrid Rendering on Waveform** (AC: 3)
+  - [x] Create `BeatgridOverlay.tsx` component to render beat markers
+  - [x] Load and deserialize beatgrid data from PerformanceData table
+  - [x] Calculate pixel positions for each beat based on view range
+  - [x] Render vertical lines at each beat position (subtle gray for normal, Engine Green for downbeats)
+  - [x] Integrate overlay with WaveformDetail component
 
 - [ ] **Task 2: Slip Mode Interaction** (AC: 1)
   - [ ] Detect Shift+Drag combination on waveform component
@@ -267,12 +267,26 @@ Follow established patterns from recent commits:
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
 ### Completion Notes List
 
+- **Task 1 (2026-01-16):** Implemented BeatgridOverlay component with `getVisibleBeats()` utility function for calculating beat positions within view range. Added beatgrid data to audio store (DeckState interface). Updated WaveformDetail to render beatgrid overlay. Modified deck-loader.service to load beatgrid from database when track is loaded. Added 11 unit tests for beat visibility and position calculations, all passing.
+
 ### Change Log
 
+- 2026-01-16: Task 1 - Beatgrid Rendering on Waveform completed
+
 ### File List
+
+**Created:**
+- src/modules/audio/components/BeatgridOverlay.tsx
+- src/modules/audio/components/BeatgridOverlay.test.ts
+
+**Modified:**
+- src/modules/audio/components/WaveformDetail.tsx
+- src/modules/audio/components/DeckUI.tsx
+- src/modules/audio/store/audio.store.ts
+- src/modules/audio/services/deck-loader.service.ts

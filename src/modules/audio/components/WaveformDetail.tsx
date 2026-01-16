@@ -9,12 +9,16 @@
 
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
+import { BeatgridOverlay } from './BeatgridOverlay';
 import type { WaveformData } from '../analysis/waveform-analyzer';
+import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode } from '../types';
 
 export interface WaveformDetailProps {
   /** Waveform data to render */
   waveformData: WaveformData | null;
+  /** Beatgrid data for beat markers */
+  beatgridData?: BeatgridData | null;
   /** Current playhead position (0-1) */
   playheadPosition?: number;
   /** Color mode for rendering */
@@ -27,8 +31,8 @@ export interface WaveformDetailProps {
   isPlaying?: boolean;
   /** BPM of the track (for calculating bars) */
   bpm?: number;
-  /** Sample rate for time calculations (reserved for future use) */
-  _sampleRate?: number;
+  /** Sample rate for time calculations */
+  sampleRate?: number;
   /** Zoom level: number of bars visible (1, 2, 4, 8) */
   zoomLevel?: 1 | 2 | 4 | 8;
   /** Callback when zoom level changes */
@@ -91,12 +95,14 @@ function calculateViewRange(
  */
 export function WaveformDetail({
   waveformData,
+  beatgridData,
   playheadPosition = 0,
   colorMode = 'rgb',
   className = '',
   onSeek,
   isPlaying = false,
   bpm = 120,
+  sampleRate = 44100,
   zoomLevel = 4,
   onZoomChange,
   height = 128,
@@ -107,8 +113,9 @@ export function WaveformDetail({
   const [dragStartOffset, setDragStartOffset] = useState(0);
   const [browseOffset, setBrowseOffset] = useState(0);
 
-  // Calculate duration
+  // Calculate duration and total samples
   const duration = waveformData?.duration ?? 0;
+  const totalSamples = Math.round(duration * sampleRate);
 
   // Reset browse offset when playback starts
   useEffect(() => {
@@ -243,6 +250,16 @@ export function WaveformDetail({
         animate={isPlaying}
         className="w-full h-full pointer-events-none"
       />
+
+      {/* Beatgrid Overlay */}
+      {beatgridData && (
+        <BeatgridOverlay
+          beatgridData={beatgridData}
+          viewRange={viewRange}
+          totalSamples={totalSamples}
+          height={height}
+        />
+      )}
 
       {/* Center line (playhead target) */}
       <div

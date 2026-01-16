@@ -8,6 +8,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { WaveformData } from '../analysis/waveform-analyzer';
+import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
 
 /** State for a single deck */
@@ -22,12 +23,16 @@ export interface DeckState {
   bpm: number;
   /** Track duration in seconds */
   duration: number;
+  /** Sample rate of the loaded track */
+  sampleRate: number;
   /** Whether this deck is currently playing */
   isPlaying: boolean;
   /** Current playhead position (0-1) */
   position: number;
   /** Waveform data for visualization */
   waveformData: WaveformData | null;
+  /** Beatgrid data for beat markers */
+  beatgridData: BeatgridData | null;
   /** Whether waveform is currently being analyzed */
   isAnalyzing: boolean;
   /** Zoom level for detail view (bars visible) */
@@ -52,11 +57,12 @@ export interface AudioState {
   settings: AudioSettings;
 
   // Actions - Deck
-  loadTrack: (deckId: DeckId, trackId: number, metadata: { title: string; artist: string; bpm: number; duration: number }) => void;
+  loadTrack: (deckId: DeckId, trackId: number, metadata: { title: string; artist: string; bpm: number; duration: number; sampleRate?: number }) => void;
   ejectTrack: (deckId: DeckId) => void;
   setPlaying: (deckId: DeckId, isPlaying: boolean) => void;
   setPosition: (deckId: DeckId, position: number) => void;
   setWaveformData: (deckId: DeckId, waveformData: WaveformData | null) => void;
+  setBeatgridData: (deckId: DeckId, beatgridData: BeatgridData | null) => void;
   setAnalyzing: (deckId: DeckId, isAnalyzing: boolean) => void;
   setZoomLevel: (deckId: DeckId, zoomLevel: 1 | 2 | 4 | 8) => void;
 
@@ -73,9 +79,11 @@ const createInitialDeckState = (): DeckState => ({
   artist: '',
   bpm: 120,
   duration: 0,
+  sampleRate: 44100,
   isPlaying: false,
   position: 0,
   waveformData: null,
+  beatgridData: null,
   isAnalyzing: false,
   zoomLevel: 4,
 });
@@ -109,9 +117,11 @@ export const useAudioStore = create<AudioState>()(
               artist: metadata.artist,
               bpm: metadata.bpm,
               duration: metadata.duration,
+              sampleRate: metadata.sampleRate ?? 44100,
               position: 0,
               isPlaying: false,
               waveformData: null,
+              beatgridData: null,
               isAnalyzing: false,
             },
           },
@@ -155,6 +165,17 @@ export const useAudioStore = create<AudioState>()(
               ...state.decks[deckId],
               waveformData,
               isAnalyzing: false,
+            },
+          },
+        })),
+
+      setBeatgridData: (deckId, beatgridData) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              beatgridData,
             },
           },
         })),

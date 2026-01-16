@@ -12,6 +12,7 @@ import { WaveformAnalyzer } from '../analysis/waveform-analyzer';
 import {
   analyzeTrack as runTrackAnalysis,
   serializeBeatgrid,
+  deserializeBeatgrid,
   initEssentia,
   isEssentiaReady,
   type TrackAnalysisResult,
@@ -72,6 +73,7 @@ export async function loadTrackToDeck(
       artist,
       bpm,
       duration,
+      sampleRate,
     });
 
     // 3. Get mono samples for analysis
@@ -87,6 +89,24 @@ export async function loadTrackToDeck(
     console.error(`[DeckLoader] Failed to load track to deck ${deckId}:`, error);
     store.setAnalyzing(deckId, false);
     throw error;
+  }
+}
+
+/**
+ * Load beatgrid data from database for a deck.
+ * Called after track is loaded to add beatgrid overlay.
+ */
+async function loadBeatgridForDeck(deckId: DeckId, trackId: number): Promise<void> {
+  try {
+    const beatgridBytes = await analysisService.getBeatgrid(trackId);
+    if (beatgridBytes) {
+      const beatgridData = deserializeBeatgrid(beatgridBytes);
+      const store = useAudioStore.getState();
+      store.setBeatgridData(deckId, beatgridData);
+      console.log(`[DeckLoader] Loaded beatgrid for track ${trackId}: ${beatgridData.beatCount} beats at ${beatgridData.bpm.toFixed(1)} BPM`);
+    }
+  } catch (error) {
+    console.warn(`[DeckLoader] Failed to load beatgrid for track ${trackId}:`, error);
   }
 }
 
@@ -119,6 +139,9 @@ export async function loadTrackFromLibrary(
       bpm: track.bpm,
       duration: track.duration,
     });
+
+    // Load beatgrid data from database if available
+    await loadBeatgridForDeck(deckId, track.id);
     return;
   }
 
@@ -146,6 +169,9 @@ export async function loadTrackFromLibrary(
       bpm: track.bpm,
       duration: track.duration,
     });
+
+    // Load beatgrid data from database if available
+    await loadBeatgridForDeck(deckId, track.id);
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
       return;

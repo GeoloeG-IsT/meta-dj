@@ -168,11 +168,13 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       <div className="px-4 pb-4">
         <WaveformDetail
           waveformData={deck.waveformData}
+          beatgridData={deck.beatgridData}
           playheadPosition={playheadPosition}
           colorMode={colorMode}
           onSeek={handleSeek}
           isPlaying={deck.isPlaying}
           bpm={deck.bpm}
+          sampleRate={deck.sampleRate}
           zoomLevel={deck.zoomLevel}
           onZoomChange={handleZoomChange}
           height={100}
