@@ -8,11 +8,14 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { WaveformOverview } from './WaveformOverview';
 import { WaveformDetail } from './WaveformDetail';
+import { PerformancePads } from './PerformancePads';
 import { useAudioStore, selectDeck, selectColorMode } from '../store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '../services/deck-loader.service';
 import { analysisService } from '../services/analysis.service';
 import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '../types';
+import type { HotCueData } from '../types/cue-loop';
+import { DEFAULT_CUE_COLOR } from '../types/cue-loop';
 
 export interface DeckUIProps {
   /** Deck identifier */
@@ -51,6 +54,10 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   const setSnappedBeat = useAudioStore((s) => s.setSnappedBeat);
   const cancelSlipMode = useAudioStore((s) => s.cancelSlipMode);
   const commitSlipMode = useAudioStore((s) => s.commitSlipMode);
+
+  // Cue point actions
+  const addCuePoint = useAudioStore((s) => s.addCuePoint);
+  const removeCuePoint = useAudioStore((s) => s.removeCuePoint);
 
   // Local playhead for demo (will be replaced by SAB sync in real implementation)
   const [playheadPosition, setPlayheadPosition] = useState(0);
@@ -195,6 +202,62 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     }
   }, [deck.trackId]);
 
+  // Cue point pad click handler - set or trigger cue
+  const handlePadClick = useCallback(
+    async (padIndex: number) => {
+      if (!deck.trackId) return;
+
+      const existingCue = deck.cuePoints[padIndex];
+
+      if (existingCue?.isSet) {
+        // Cue exists - trigger (seek to cue position)
+        const normalizedPosition = existingCue.position / (deck.duration * deck.sampleRate);
+        setPlayheadPosition(normalizedPosition);
+        setPosition(deckId, normalizedPosition);
+      } else {
+        // No cue at this pad - set new cue at current position
+        const samplePosition = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+        const newCue: HotCueData = {
+          index: padIndex,
+          position: samplePosition,
+          color: DEFAULT_CUE_COLOR,
+          name: '',
+          isSet: true,
+        };
+
+        // Optimistic update
+        addCuePoint(deckId, newCue);
+
+        // Persist to database
+        try {
+          await analysisService.saveCuePoint(deck.trackId, newCue);
+          toast.success(`Cue ${padIndex + 1} set`);
+        } catch (error) {
+          console.error('[DeckUI] Failed to save cue point:', error);
+          // Rollback on failure
+          removeCuePoint(deckId, padIndex);
+          toast.error('Failed to save cue point');
+        }
+      }
+    },
+    [deckId, deck.trackId, deck.cuePoints, deck.duration, deck.sampleRate, playheadPosition, addCuePoint, removeCuePoint, setPosition]
+  );
+
+  // Cue point context menu handler (placeholder for now)
+  const [contextMenuState, setContextMenuState] = useState<{
+    cueIndex: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const handlePadContextMenu = useCallback((padIndex: number, event: React.MouseEvent) => {
+    setContextMenuState({
+      cueIndex: padIndex,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
   // Cleanup nudge timeout on unmount
   useEffect(() => {
     return () => {
@@ -308,7 +371,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       </div>
 
       {/* Detail Waveform */}
-      <div className="px-4 pb-4">
+      <div className="px-4 pb-2">
         <WaveformDetail
           waveformData={deck.waveformData}
           beatgridData={deck.beatgridData}
@@ -331,8 +394,23 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           snappedBeatIndex={deck.slipMode.snappedBeatIndex}
           onSnapChange={handleSnapChange}
           onKeyboardNudge={handleKeyboardNudge}
+          cuePoints={deck.cuePoints}
+          loops={deck.loops}
         />
       </div>
+
+      {/* Performance Pads */}
+      {hasTrack && (
+        <div className="px-4 pb-4">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">HOT CUES</div>
+          <PerformancePads
+            cuePoints={deck.cuePoints}
+            onPadClick={handlePadClick}
+            onPadContextMenu={handlePadContextMenu}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
     </div>
   );
 }

@@ -59,13 +59,13 @@ So that I can mark specific performance sections and trigger them during a set.
   - [x] Integrate with WaveformDetail component
   - [x] Write unit tests for region calculations
 
-- [ ] **Task 5: Performance Pad UI** (AC: 1, 7)
-  - [ ] Create `PerformancePads.tsx` component with 8 pad buttons
-  - [ ] Display pad number and assigned cue name/color
-  - [ ] Handle click to set/trigger cue point
-  - [ ] Show "empty" state for unassigned pads
-  - [ ] Integrate with DeckUI component
-  - [ ] Add keyboard event listeners for keys 1-8
+- [x] **Task 5: Performance Pad UI** (AC: 1, 7)
+  - [x] Create `PerformancePads.tsx` component with 8 pad buttons
+  - [x] Display pad number and assigned cue name/color
+  - [x] Handle click to set/trigger cue point
+  - [x] Show "empty" state for unassigned pads
+  - [x] Integrate with DeckUI component
+  - [x] Add keyboard event listeners for keys 1-8
 
 - [ ] **Task 6: Loop Controls UI** (AC: 2, 7)
   - [ ] Create `LoopControls.tsx` component with loop in/out/active buttons
