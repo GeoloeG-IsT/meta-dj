@@ -8,6 +8,7 @@
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
 import type { BeatgridData } from '../analysis/track-analyzer';
+import { serializeBeatgrid, deserializeBeatgrid } from '../analysis/track-analyzer';
 
 /**
  * Performance data type constants matching Engine DJ schema.
@@ -178,6 +179,34 @@ export class AnalysisService {
     });
 
     return (results || []).map((r: { id: number }) => r.id);
+  }
+
+  /**
+   * Update beatgrid with a sample offset.
+   * Used after slip mode editing to persist the new beat positions.
+   *
+   * @param trackId - Track ID to update
+   * @param beatgridData - Updated beatgrid data with new positions
+   * @returns Promise that resolves when update is complete
+   */
+  async updateBeatgridOffset(trackId: number, beatgridData: BeatgridData): Promise<void> {
+    try {
+      // Serialize the beatgrid data
+      const serializedData = serializeBeatgrid(beatgridData);
+
+      // Update in database
+      await kernel.send(EventType.DB_QUERY_REQUEST, {
+        sql: `UPDATE PerformanceData SET data = ? WHERE trackId = ? AND type = ?`,
+        params: [serializedData, trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
+        method: 'run',
+        targetDb: this.DB,
+      });
+
+      console.log(`[AnalysisService] Updated beatgrid for track ${trackId}: firstBeat=${beatgridData.firstBeatSample}`);
+    } catch (error) {
+      console.error(`[AnalysisService] Failed to update beatgrid for track ${trackId}:`, error);
+      throw new Error(`Failed to update beatgrid: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**

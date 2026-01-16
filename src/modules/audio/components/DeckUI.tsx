@@ -5,11 +5,12 @@
  * Supports loading tracks and real-time playhead updates.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useRef } from 'react';
 import { WaveformOverview } from './WaveformOverview';
 import { WaveformDetail } from './WaveformDetail';
 import { useAudioStore, selectDeck, selectColorMode } from '../store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '../services/deck-loader.service';
+import { analysisService } from '../services/analysis.service';
 import type { WaveformColorMode, DeckId } from '../types';
 
 export interface DeckUIProps {
@@ -46,6 +47,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   // Slip mode actions
   const startSlipMode = useAudioStore((s) => s.startSlipMode);
   const updateSlipOffset = useAudioStore((s) => s.updateSlipOffset);
+  const setSnappedBeat = useAudioStore((s) => s.setSnappedBeat);
   const cancelSlipMode = useAudioStore((s) => s.cancelSlipMode);
   const commitSlipMode = useAudioStore((s) => s.commitSlipMode);
 
@@ -86,9 +88,43 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     cancelSlipMode(deckId);
   }, [deckId, cancelSlipMode]);
 
-  const handleSlipCommit = useCallback(() => {
+  const handleSlipCommit = useCallback(async () => {
+    // Get current state before committing
+    const state = useAudioStore.getState();
+    const currentDeck = state.decks[deckId];
+
+    if (!currentDeck.beatgridData || !currentDeck.slipMode.isActive || !currentDeck.trackId) {
+      commitSlipMode(deckId);
+      return;
+    }
+
+    // Calculate new beatgrid with offset applied
+    const offset = currentDeck.slipMode.currentOffset;
+    const newBeatgrid = {
+      ...currentDeck.beatgridData,
+      firstBeatSample: currentDeck.beatgridData.firstBeatSample + offset,
+      anchors: currentDeck.beatgridData.anchors.map((anchor) => anchor + offset),
+    };
+
+    // Commit to local store (optimistic update)
     commitSlipMode(deckId);
+
+    // Persist to database
+    try {
+      await analysisService.updateBeatgridOffset(currentDeck.trackId, newBeatgrid);
+      console.log(`[DeckUI] Beatgrid saved for track ${currentDeck.trackId}`);
+    } catch (error) {
+      console.error('[DeckUI] Failed to save beatgrid:', error);
+      // TODO: Show error toast and potentially revert optimistic update
+    }
   }, [deckId, commitSlipMode]);
+
+  const handleSnapChange = useCallback(
+    (beatIndex: number | null, isSnapped: boolean) => {
+      setSnappedBeat(deckId, beatIndex, isSnapped);
+    },
+    [deckId, setSnappedBeat]
+  );
 
   const cycleColorMode = useCallback(() => {
     const currentIndex = COLOR_MODES.indexOf(colorMode);
@@ -213,6 +249,8 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           onSlipUpdate={handleSlipUpdate}
           onSlipCommit={handleSlipCommit}
           onSlipCancel={handleSlipCancel}
+          snappedBeatIndex={deck.slipMode.snappedBeatIndex}
+          onSnapChange={handleSnapChange}
         />
       </div>
     </div>

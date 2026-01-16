@@ -21,6 +21,10 @@ export interface SlipModeState {
   startX: number;
   /** Original beatgrid firstBeatSample before slip started */
   originalFirstBeat: number;
+  /** Index of beat that is currently snapped (for magnetic snap highlight) */
+  snappedBeatIndex: number | null;
+  /** Whether the current position is snapped to a transient */
+  isSnapped: boolean;
 }
 
 /** State for a single deck */
@@ -83,6 +87,7 @@ export interface AudioState {
   // Actions - Slip Mode
   startSlipMode: (deckId: DeckId, startX: number, originalFirstBeat: number) => void;
   updateSlipOffset: (deckId: DeckId, offset: number) => void;
+  setSnappedBeat: (deckId: DeckId, beatIndex: number | null, isSnapped: boolean) => void;
   cancelSlipMode: (deckId: DeckId) => void;
   commitSlipMode: (deckId: DeckId) => void;
 
@@ -98,6 +103,8 @@ const createInitialSlipModeState = (): SlipModeState => ({
   currentOffset: 0,
   startX: 0,
   originalFirstBeat: 0,
+  snappedBeatIndex: null,
+  isSnapped: false,
 });
 
 /** Create initial deck state */
@@ -244,6 +251,8 @@ export const useAudioStore = create<AudioState>()(
                 currentOffset: 0,
                 startX,
                 originalFirstBeat,
+                snappedBeatIndex: null,
+                isSnapped: false,
               },
             },
           },
@@ -258,6 +267,21 @@ export const useAudioStore = create<AudioState>()(
               slipMode: {
                 ...state.decks[deckId].slipMode,
                 currentOffset: offset,
+              },
+            },
+          },
+        })),
+
+      setSnappedBeat: (deckId, beatIndex, isSnapped) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              slipMode: {
+                ...state.decks[deckId].slipMode,
+                snappedBeatIndex: beatIndex,
+                isSnapped,
               },
             },
           },

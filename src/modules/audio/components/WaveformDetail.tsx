@@ -51,6 +51,10 @@ export interface WaveformDetailProps {
   onSlipCommit?: () => void;
   /** Callback when slip mode is cancelled (Shift release) */
   onSlipCancel?: () => void;
+  /** Index of currently snapped beat (for highlight) */
+  snappedBeatIndex?: number | null;
+  /** Callback when snap state changes */
+  onSnapChange?: (beatIndex: number | null, isSnapped: boolean) => void;
 }
 
 /** Calculate view range based on zoom level and center position */
@@ -124,6 +128,8 @@ export function WaveformDetail({
   onSlipUpdate,
   onSlipCommit,
   onSlipCancel,
+  snappedBeatIndex = null,
+  onSnapChange,
 }: WaveformDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -339,6 +345,7 @@ export function WaveformDetail({
           totalSamples={totalSamples}
           height={height}
           slipOffset={slipOffset}
+          snappedBeatIndex={snappedBeatIndex}
         />
       )}
 
