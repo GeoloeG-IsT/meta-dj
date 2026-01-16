@@ -272,6 +272,7 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
   const readerRef = useRef<PlayheadReader | null>(null);
   const animationFrameRef = useRef<number>(0);
   const lastPositionRef = useRef<number>(-1);
+  const syncLoopRef = useRef<(() => void) | null>(null);
 
   // Initialize reader when SAB changes
   useEffect(() => {
@@ -283,6 +284,7 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
   }, [sharedArrayBuffer]);
 
   // Animation loop for reading playhead
+  // Use ref to store the callback to avoid variable-before-declaration issue with recursive calls
   const syncLoop = useCallback(() => {
     const reader = readerRef.current;
 
@@ -309,13 +311,20 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
       }
     }
 
-    animationFrameRef.current = requestAnimationFrame(syncLoop);
+    if (syncLoopRef.current) {
+      animationFrameRef.current = requestAnimationFrame(syncLoopRef.current);
+    }
   }, [onPositionChange]);
+
+  // Store the callback in ref via effect to avoid updating ref during render
+  useEffect(() => {
+    syncLoopRef.current = syncLoop;
+  }, [syncLoop]);
 
   // Start/stop sync loop
   useEffect(() => {
-    if (enabled && sharedArrayBuffer) {
-      animationFrameRef.current = requestAnimationFrame(syncLoop);
+    if (enabled && sharedArrayBuffer && syncLoopRef.current) {
+      animationFrameRef.current = requestAnimationFrame(syncLoopRef.current);
 
       return () => {
         cancelAnimationFrame(animationFrameRef.current);

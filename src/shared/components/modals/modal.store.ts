@@ -2,15 +2,24 @@ import { create } from 'zustand';
 
 type ModalType = 'confirm' | 'prompt' | null;
 
-interface ModalConfig {
+interface BaseModalConfig {
   title: string;
   message?: string;
   placeholder?: string;
   defaultValue?: string;
   confirmLabel?: string;
   isDanger?: boolean;
-  onConfirm?: ((value: void) => void) | ((value: string) => void);
 }
+
+interface ConfirmModalConfig extends BaseModalConfig {
+  onConfirm?: () => void;
+}
+
+interface PromptModalConfig extends BaseModalConfig {
+  onConfirm?: (value: string) => void;
+}
+
+type ModalConfig = ConfirmModalConfig | PromptModalConfig;
 
 interface ModalState {
   type: ModalType;
@@ -18,8 +27,8 @@ interface ModalState {
   config: ModalConfig;
 
   // API
-  showConfirm: (config: Omit<ModalConfig, 'onConfirm'> & { onConfirm: () => void }) => void;
-  showPrompt: (config: Omit<ModalConfig, 'onConfirm'> & { onConfirm: (val: string) => void }) => void;
+  showConfirm: (config: ConfirmModalConfig) => void;
+  showPrompt: (config: PromptModalConfig) => void;
   hideModal: () => void;
 }
 
@@ -28,16 +37,16 @@ export const useModalStore = create<ModalState>((set) => ({
   isOpen: false,
   config: { title: '' },
 
-  showConfirm: (config) => set({ 
-    type: 'confirm', 
-    isOpen: true, 
-    config: { ...config } as any
+  showConfirm: (config) => set({
+    type: 'confirm',
+    isOpen: true,
+    config
   }),
 
-  showPrompt: (config) => set({ 
-    type: 'prompt', 
-    isOpen: true, 
-    config: { ...config } as any
+  showPrompt: (config) => set({
+    type: 'prompt',
+    isOpen: true,
+    config
   }),
 
   hideModal: () => set({ isOpen: false, type: null })

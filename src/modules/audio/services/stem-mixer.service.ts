@@ -178,7 +178,7 @@ export class StemMixer {
       if (sourceNode) {
         try {
           sourceNode.stop();
-        } catch (_) {
+        } catch {
           // Ignore errors if already stopped
         }
         sourceNode.disconnect();

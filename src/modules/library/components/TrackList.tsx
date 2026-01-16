@@ -11,6 +11,7 @@ import { useAnalysisStore, selectTrackAnalysis } from '../../audio/store/analysi
 import { AnalysisProgressInline } from '../../audio/components/AnalysisProgress';
 
 // Format duration (exported for reuse)
+// eslint-disable-next-line react-refresh/only-export-components
 export function formatDuration(seconds: number) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
@@ -135,8 +136,8 @@ const TrackRow: React.FC<{ track: TrackForDisplay; virtualItem: VirtualItem }> =
         id: track.id,
         title: track.title,
         artist: track.artist,
-        bpm: track.bpm,
-        duration: track.duration,
+        bpm: track.bpm ?? 0,
+        duration: track.duration ?? 0,
       });
     } catch (error) {
       console.error('Failed to load track to deck:', error);

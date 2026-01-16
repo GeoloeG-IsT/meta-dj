@@ -296,7 +296,8 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
    */
   clearAnalysisState: (trackId: number) => {
     set((s) => {
-      const { [trackId]: _, ...rest } = s.tracks;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { [trackId]: _removed, ...rest } = s.tracks;
       return { tracks: rest };
     });
   },

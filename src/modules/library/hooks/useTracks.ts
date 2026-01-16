@@ -95,7 +95,7 @@ export function useTracks(searchQuery?: string) {
       }
 
       // 1. Get total count
-      const countResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      const countResult = await kernel.send<unknown, { count: number } | null>(EventType.DB_QUERY_REQUEST, {
         sql: countSql,
         params,
         method: 'get',
@@ -104,7 +104,7 @@ export function useTracks(searchQuery?: string) {
       setTotalCount(countResult?.count || 0);
 
       // 2. Fetch tracks
-      const queryResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      const queryResult = await kernel.send<unknown, Track[]>(EventType.DB_QUERY_REQUEST, {
         sql: `${dataSql} ORDER BY ${safeSortField} ${safeSortOrder}`,
         params,
         method: 'all',
@@ -128,7 +128,7 @@ export function useTracks(searchQuery?: string) {
 
     const checkReady = async () => {
         try {
-            const result = await kernel.send(EventType.DB_PING, {});
+            const result = await kernel.send<unknown, { ready: boolean }>(EventType.DB_PING, {});
             if (isMounted && result?.ready) {
               setIsDbReady(true);
             }

@@ -36,6 +36,7 @@ export interface LoopRegionOverlayProps {
  * @param totalSamples - Total samples in the track
  * @returns Array of visible loops with position info
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getVisibleLoops(
   loops: LoopData[],
   viewRange: { start: number; end: number },

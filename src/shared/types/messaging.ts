@@ -49,7 +49,7 @@ export const EventType = {
 
 export type EventType = typeof EventType[keyof typeof EventType];
 
-export interface WorkerMessage<T = any> {
+export interface WorkerMessage<T = unknown> {
   id: string;      // UUID (v4)
   type: EventType; // e.g., 'PING'
   payload: T;      // Data

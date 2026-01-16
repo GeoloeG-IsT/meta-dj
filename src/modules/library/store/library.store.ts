@@ -40,7 +40,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   fetchPlaylists: async () => {
     if (!get().isDbReady) {
         try {
-            const check = await kernel.send(EventType.DB_PING, {});
+            const check = await kernel.send<unknown, { ready: boolean }>(EventType.DB_PING, {});
             if (check?.ready) {
                 set({ isDbReady: true });
             } else {

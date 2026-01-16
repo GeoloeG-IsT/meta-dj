@@ -34,6 +34,7 @@ export interface CueMarkerOverlayProps {
  * @param totalSamples - Total samples in the track
  * @returns Array of visible cues with position info
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getVisibleCues(
   cuePoints: HotCueData[],
   viewRange: { start: number; end: number },

@@ -165,6 +165,7 @@ export function WaveformDetail({
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartOffset, setDragStartOffset] = useState(0);
   const [browseOffset, setBrowseOffset] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(800);
   const slipStartXRef = useRef<number>(0);
 
   // Calculate duration and total samples
@@ -180,6 +181,7 @@ export function WaveformDetail({
   // Reset browse offset when playback starts
   useEffect(() => {
     if (isPlaying) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- reset browse when playback starts
       setBrowseOffset(0);
     }
   }, [isPlaying]);
@@ -200,12 +202,29 @@ export function WaveformDetail({
     return calculateViewRange(centerPosition, zoomLevel, bpm, duration);
   }, [centerPosition, zoomLevel, bpm, duration]);
 
+  // Track container width for calculations
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        setContainerWidth(entry.contentRect.width || 800);
+      }
+    });
+
+    observer.observe(container);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initialize width on mount
+    setContainerWidth(container.clientWidth || 800);
+
+    return () => observer.disconnect();
+  }, []);
+
   // Calculate samples per pixel for offset conversion
   const samplesPerPixel = useMemo(() => {
-    const containerWidth = containerRef.current?.clientWidth || 800;
     const viewWidthSamples = (viewRange.end - viewRange.start) * totalSamples;
     return viewWidthSamples / containerWidth;
-  }, [viewRange, totalSamples]);
+  }, [viewRange, totalSamples, containerWidth]);
 
   // Listen for Shift key release to cancel slip mode
   useEffect(() => {

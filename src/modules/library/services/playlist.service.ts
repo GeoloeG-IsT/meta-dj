@@ -28,7 +28,7 @@ export class PlaylistService {
   private async validateParent(parentId: number): Promise<void> {
     if (parentId === 0) return;
 
-    const parent = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const parent = await kernel.send<unknown, { isFolder: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT isFolder FROM Playlist WHERE id = ?`,
       params: [parentId],
       method: 'get',
@@ -56,7 +56,7 @@ export class PlaylistService {
         GROUP BY p.id
         ORDER BY p.title ASC
       `;
-      const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      const results = await kernel.send<unknown, DBPlaylist[]>(EventType.DB_QUERY_REQUEST, {
         sql,
         method: 'all',
         targetDb: this.DB
@@ -75,15 +75,15 @@ export class PlaylistService {
     await this.validateParent(parentId);
 
     const sql = `INSERT INTO Playlist (title, parentListId, isFolder) VALUES (?, ?, ?)`;
-    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const result = await kernel.send<unknown, { changes: number }>(EventType.DB_QUERY_REQUEST, {
       sql,
       params: [title, parentId, isFolder ? 1 : 0],
       method: 'run',
       targetDb: this.DB
     });
-    // Assuming database.worker returns info about the last inserted ID if needed, 
+    // Assuming database.worker returns info about the last inserted ID if needed,
     // or we can query it. For now we just return a placeholder or success.
-    return result.changes; 
+    return result.changes;
   }
 
   /**
@@ -134,7 +134,7 @@ export class PlaylistService {
   async addTrackToPlaylist(trackId: number, playlistId: number): Promise<void> {
     // 1. Find the current tail of the playlist
     const tailQuery = `SELECT id FROM PlaylistEntity WHERE listId = ? AND nextEntityId = 0 LIMIT 1`;
-    const tail = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const tail = await kernel.send<unknown, { id: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: tailQuery,
       params: [playlistId],
       method: 'get',
@@ -168,14 +168,14 @@ export class PlaylistService {
    */
   async removeFromPlaylist(trackId: number, playlistId: number): Promise<void> {
     // 1. Find the entity to remove and its predecessor
-    const predecessor = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const predecessor = await kernel.send<unknown, { id: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT id FROM PlaylistEntity WHERE listId = ? AND nextEntityId = (SELECT id FROM PlaylistEntity WHERE listId = ? AND trackId = ? LIMIT 1)`,
       params: [playlistId, playlistId, trackId],
       method: 'get',
       targetDb: this.DB
     });
 
-    const target = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const target = await kernel.send<unknown, { id: number; nextEntityId: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT id, nextEntityId FROM PlaylistEntity WHERE listId = ? AND trackId = ? LIMIT 1`,
       params: [playlistId, trackId],
       method: 'get',
@@ -192,7 +192,7 @@ export class PlaylistService {
           targetDb: this.DB
         });
       }
-      
+
       // 3. Delete the entity
       await kernel.send(EventType.DB_QUERY_REQUEST, {
         sql: `DELETE FROM PlaylistEntity WHERE id = ?`,
@@ -235,7 +235,7 @@ export class PlaylistService {
     await this.validateParent(parentId);
 
     const sql = `INSERT INTO Playlist (title, parentListId, isFolder, isSmartList) VALUES (?, ?, 0, 1)`;
-    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const result = await kernel.send<unknown, { changes: number }>(EventType.DB_QUERY_REQUEST, {
       sql,
       params: [title, parentId],
       method: 'run',
@@ -249,7 +249,7 @@ export class PlaylistService {
    */
   async getSmartListRules(playlistId: number): Promise<SmartListRule[]> {
     const sql = `SELECT id, playlistId, field, operator, value, logic FROM SmartListRule WHERE playlistId = ? ORDER BY id ASC`;
-    const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const results = await kernel.send<unknown, SmartListRule[]>(EventType.DB_QUERY_REQUEST, {
       sql,
       params: [playlistId],
       method: 'all',
@@ -281,7 +281,7 @@ export class PlaylistService {
     }
 
     // 3. Trigger smartlist update (refreshes PlaylistEntity with matching tracks)
-    const result = await kernel.send(EventType.DB_SMARTLIST_UPDATE, {
+    const result = await kernel.send<unknown, { success: boolean; trackCount: number }>(EventType.DB_SMARTLIST_UPDATE, {
       playlistId,
       rules
     });

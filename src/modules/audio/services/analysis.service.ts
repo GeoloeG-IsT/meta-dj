@@ -116,7 +116,7 @@ export class AnalysisService {
    * Get track analysis data.
    */
   async getTrackAnalysis(trackId: number): Promise<TrackAnalysisData | null> {
-    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const result = await kernel.send<unknown, { id: number; bpm: number | null; key: string | null; isAnalyzed: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT id, bpm, key, isAnalyzed FROM Track WHERE id = ?`,
       params: [trackId],
       method: 'get',
@@ -137,7 +137,7 @@ export class AnalysisService {
    * Get beatgrid data for a track.
    */
   async getBeatgrid(trackId: number): Promise<Uint8Array | null> {
-    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const result = await kernel.send<unknown, { data: Uint8Array | ArrayBuffer | number[] | null } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT data FROM PerformanceData WHERE trackId = ? AND type = ?`,
       params: [trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
       method: 'get',
@@ -165,7 +165,7 @@ export class AnalysisService {
    * Check if a track has been analyzed.
    */
   async isTrackAnalyzed(trackId: number): Promise<boolean> {
-    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const result = await kernel.send<unknown, { isAnalyzed: number } | null>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT isAnalyzed FROM Track WHERE id = ?`,
       params: [trackId],
       method: 'get',
@@ -179,13 +179,13 @@ export class AnalysisService {
    * Get all unanalyzed tracks.
    */
   async getUnanalyzedTracks(): Promise<number[]> {
-    const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
+    const results = await kernel.send<unknown, Array<{ id: number }>>(EventType.DB_QUERY_REQUEST, {
       sql: `SELECT id FROM Track WHERE isAnalyzed = 0 OR isAnalyzed IS NULL`,
       method: 'all',
       targetDb: this.DB,
     });
 
-    return (results || []).map((r: { id: number }) => r.id);
+    return (results || []).map((r) => r.id);
   }
 
   /**
@@ -335,7 +335,7 @@ export class AnalysisService {
   ): Promise<void> {
     try {
       // Get existing cue
-      const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      const result = await kernel.send<unknown, { data: Uint8Array } | null>(EventType.DB_QUERY_REQUEST, {
         sql: `SELECT data FROM PerformanceData WHERE trackId = ? AND type = ? AND position = ?`,
         params: [trackId, PERFORMANCE_DATA_TYPE.HOT_CUE, cueIndex],
         method: 'get',
@@ -496,7 +496,7 @@ export class AnalysisService {
   ): Promise<void> {
     try {
       // Get existing loop
-      const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      const result = await kernel.send<unknown, { data: Uint8Array } | null>(EventType.DB_QUERY_REQUEST, {
         sql: `SELECT data FROM PerformanceData WHERE trackId = ? AND type = ? AND position = ?`,
         params: [trackId, PERFORMANCE_DATA_TYPE.LOOP, loopIndex],
         method: 'get',

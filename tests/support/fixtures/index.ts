@@ -2,6 +2,7 @@ import { test as base } from '@playwright/test';
 // Import factories here as we create them
 // import { UserFactory } from './factories/user-factory';
 
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 type TestFixtures = {
   // Add fixture types here
   // userFactory: UserFactory;

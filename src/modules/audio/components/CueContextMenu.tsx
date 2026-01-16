@@ -102,6 +102,7 @@ export function CueContextMenu({
   // Sync edit name with data when menu opens
   useEffect(() => {
     if (isOpen) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync state when menu opens
       setEditName(currentName);
       setHoldProgress(0);
     }

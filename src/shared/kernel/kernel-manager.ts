@@ -88,7 +88,7 @@ class KernelManager {
       this.pendingRequests.delete(id);
 
       if (type === EventType.ERROR || type === EventType.DB_ERROR) {
-        reject(new Error(payload));
+        reject(new Error(typeof payload === 'string' ? payload : String(payload)));
       } else {
         resolve(payload);
       }
@@ -121,7 +121,7 @@ class KernelManager {
     };
 
     return new Promise((resolve, reject) => {
-      this.pendingRequests.set(id, { resolve, reject });
+      this.pendingRequests.set(id, { resolve: resolve as (value: unknown) => void, reject });
       this.worker!.port.postMessage(message);
 
       // Timeout safety

@@ -39,6 +39,7 @@ const BEAT_COLOR_SNAPPED = '#4DFA90'; // Engine Green with glow for snapped beat
  * @param slipOffset - Optional sample offset for slip mode preview
  * @returns Array of visible beats with position and type info
  */
+// eslint-disable-next-line react-refresh/only-export-components
 export function getVisibleBeats(
   beatgrid: BeatgridData,
   viewRange: { start: number; end: number },

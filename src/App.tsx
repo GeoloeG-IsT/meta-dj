@@ -18,7 +18,7 @@ function App() {
       // 1. Heartbeat test
       try {
         console.debug('[UI] Testing kernel heartbeat...');
-        const response = await kernel.send(EventType.PING, { message: 'Hello from UI' });
+        const response = await kernel.send<{ message: string }, { message: string; workerStartTime: number }>(EventType.PING, { message: 'Hello from UI' });
         console.debug('[UI] Heartbeat Success:', response.message, `(Worker started at ${new Date(response.workerStartTime).toLocaleTimeString()})`);
       } catch (error) {
         console.error('[UI] Heartbeat Failed:', error);
@@ -30,7 +30,7 @@ function App() {
         await kernel.waitFor(EventType.DB_READY);
 
         console.debug('[UI] Performing DB Health Check...');
-        const versionResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
+        const versionResult = await kernel.send<unknown, { version: string }>(EventType.DB_QUERY_REQUEST, {
           sql: 'SELECT sqlite_version() as version',
           method: 'get',
           targetDb: 'm'

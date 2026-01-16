@@ -74,11 +74,12 @@ export const LibraryView: React.FC = () => {
 
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    if (active.data.current?.type === 'playlist') {
-      setActivePlaylist(active.data.current);
+    const data = active.data.current as { type?: string; track?: DraggedTrack; playlistId?: number; name?: string } | undefined;
+    if (data?.type === 'playlist') {
+      setActivePlaylist(data as DraggedPlaylist);
     }
     else {
-      setActiveTrack(active.data.current?.track || null);
+      setActiveTrack(data?.track || null);
     }
   };
 

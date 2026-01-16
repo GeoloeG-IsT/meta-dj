@@ -343,7 +343,8 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
                 sql: 'INSERT INTO PlaylistEntity (listId, trackId, nextEntityId) VALUES (?, ?, ?)',
                 bind: [playlistId, track.id, prevEntityId]
               });
-              prevEntityId = dbs.m.selectObject('SELECT last_insert_rowid() as id').id;
+              const lastInsert = dbs.m.selectObject('SELECT last_insert_rowid() as id') as { id: number };
+              prevEntityId = lastInsert.id;
             }
 
             dbs.m.exec('COMMIT');
