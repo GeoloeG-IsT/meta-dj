@@ -60,8 +60,8 @@ export class StemMixer {
     other: null,
   };
 
-  // Mixer node to combine stems
-  private mixerNode: ChannelMergerNode;
+  // Mixer node to combine stems (stereo output)
+  private mixerNode: GainNode;
 
   // State
   private muted: Record<StemType, boolean> = {
@@ -79,8 +79,9 @@ export class StemMixer {
     this.audioContext = config.audioContext;
     this.destination = config.destination;
 
-    // Create mixer node (4 inputs, 1 stereo output)
-    this.mixerNode = this.audioContext.createChannelMerger(4);
+    // Create mixer node (GainNode acts as a summing junction for stereo output)
+    this.mixerNode = this.audioContext.createGain();
+    this.mixerNode.gain.value = 1.0;
 
     // Create gain nodes for each stem
     for (const stemType of STEM_TYPES) {
@@ -88,14 +89,9 @@ export class StemMixer {
       gainNode.gain.value = 1.0;
       this.gainNodes.set(stemType, gainNode);
       this.sourceNodes.set(stemType, null);
-    }
 
-    // Connect gain nodes to mixer
-    let inputIndex = 0;
-    for (const stemType of STEM_TYPES) {
-      const gainNode = this.gainNodes.get(stemType)!;
-      gainNode.connect(this.mixerNode, 0, inputIndex);
-      inputIndex++;
+      // Connect each stem's gain node to the mixer (additive mixing)
+      gainNode.connect(this.mixerNode);
     }
 
     // Connect mixer to destination

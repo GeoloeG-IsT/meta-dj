@@ -19,6 +19,7 @@ import {
 } from '../analysis/track-analyzer';
 import { detectTransients } from '../utils/transient-detector';
 import { analysisService } from './analysis.service';
+import { stemsCacheService } from './stems-cache.service';
 import { useAudioStore } from '../store/audio.store';
 import type { DeckId, TrackAnalysisProgress } from '../types';
 import { getFileWithPermission } from '../../library/services/file-handle-store';
@@ -153,6 +154,69 @@ async function loadCueLoopDataForDeck(deckId: DeckId, trackId: number): Promise<
 }
 
 /**
+ * Load cached stems for a deck if available.
+ * Called after track is loaded to check if stems are already analyzed.
+ */
+async function loadStemsForDeck(deckId: DeckId, trackId: number): Promise<void> {
+  const store = useAudioStore.getState();
+
+  try {
+    // Check if stems are cached for this track
+    const cacheStatus = await stemsCacheService.getCacheStatus(trackId);
+
+    if (cacheStatus.cached) {
+      console.log(`[DeckLoader] Found cached stems for track ${trackId}, loading...`);
+
+      // We need to get the audio file to generate hash for retrieval
+      const file = await getFileWithPermission(trackId);
+      if (!file) {
+        console.warn(`[DeckLoader] Cannot load stems - file not accessible`);
+        return;
+      }
+
+      // Decode to get AudioBuffer for hash generation
+      const arrayBuffer = await file.arrayBuffer();
+      const ctx = getAudioContext();
+      const audioBuffer = await ctx.decodeAudioData(arrayBuffer.slice(0));
+
+      // Generate hash and retrieve cached stems
+      const audioHash = await stemsCacheService.generateAudioHash(audioBuffer);
+      const cached = await stemsCacheService.getCachedStems(trackId, audioHash);
+
+      if (cached) {
+        // Convert cached ArrayBuffers to AudioBuffers
+        const stemBuffers = {
+          vocals: createStemAudioBuffer(cached.stems.vocals, cached.sampleRate, ctx),
+          drums: createStemAudioBuffer(cached.stems.drums, cached.sampleRate, ctx),
+          bass: createStemAudioBuffer(cached.stems.bass, cached.sampleRate, ctx),
+          other: createStemAudioBuffer(cached.stems.other, cached.sampleRate, ctx),
+        };
+
+        store.setStemBuffers(deckId, stemBuffers);
+        console.log(`[DeckLoader] Loaded cached stems for track ${trackId}`);
+      }
+    }
+  } catch (error) {
+    console.warn(`[DeckLoader] Failed to load stems for track ${trackId}:`, error);
+  }
+}
+
+/**
+ * Helper to create AudioBuffer from stem ArrayBuffer.
+ */
+function createStemAudioBuffer(
+  data: ArrayBuffer,
+  sampleRate: number,
+  audioContext: AudioContext
+): AudioBuffer | null {
+  if (data.byteLength === 0) return null;
+  const float32 = new Float32Array(data);
+  const buffer = audioContext.createBuffer(1, float32.length, sampleRate);
+  buffer.copyToChannel(float32, 0);
+  return buffer;
+}
+
+/**
  * Load a track from the library into a deck using stored file handle.
  * Falls back to file picker if handle is unavailable or permission denied.
  */
@@ -182,9 +246,10 @@ export async function loadTrackFromLibrary(
       duration: track.duration,
     });
 
-    // Load beatgrid and cue/loop data from database if available
+    // Load beatgrid, cue/loop data, and cached stems from database if available
     await loadBeatgridForDeck(deckId, track.id);
     await loadCueLoopDataForDeck(deckId, track.id);
+    await loadStemsForDeck(deckId, track.id);
     return;
   }
 
@@ -213,9 +278,10 @@ export async function loadTrackFromLibrary(
       duration: track.duration,
     });
 
-    // Load beatgrid and cue/loop data from database if available
+    // Load beatgrid, cue/loop data, and cached stems from database if available
     await loadBeatgridForDeck(deckId, track.id);
     await loadCueLoopDataForDeck(deckId, track.id);
+    await loadStemsForDeck(deckId, track.id);
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
       return;

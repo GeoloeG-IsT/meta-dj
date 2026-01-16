@@ -611,7 +611,8 @@ export const useAudioStore = create<AudioState>()(
         set((state) => {
           const deck = state.decks[deckId];
           const currentMuted = deck.stems.muted[stemType];
-          // If soloing another stem, toggling mute should clear solo
+          // If toggling mute on the currently soloed stem, clear solo
+          // (muting a soloed stem should unsolo it)
           const newSolo = deck.stems.solo === stemType ? null : deck.stems.solo;
 
           return {

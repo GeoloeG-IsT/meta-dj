@@ -11,13 +11,23 @@ import { WaveformDetail } from './WaveformDetail';
 import { PerformancePads } from './PerformancePads';
 import { LoopControls } from './LoopControls';
 import { CueContextMenu } from './CueContextMenu';
-import { useAudioStore, selectDeck, selectColorMode } from '../store/audio.store';
+import { StemControls } from './StemControls';
+import {
+  useAudioStore,
+  selectDeck,
+  selectColorMode,
+  selectHasWebGPU,
+  selectWebGPUUnavailableReason,
+  selectDeckStems,
+} from '../store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '../services/deck-loader.service';
 import { analysisService } from '../services/analysis.service';
 import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '../types';
 import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
 import { DEFAULT_CUE_COLOR } from '../types/cue-loop';
+import type { StemType } from '../types/stems';
+import { stemsService } from '../services/stems.service';
 
 export interface DeckUIProps {
   /** Deck identifier */
@@ -49,6 +59,16 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   const setColorMode = useAudioStore((s) => s.setColorMode);
   const setPosition = useAudioStore((s) => s.setPosition);
   const setZoomLevel = useAudioStore((s) => s.setZoomLevel);
+
+  // Stem state and actions
+  const hasWebGPU = useAudioStore(selectHasWebGPU);
+  const webGPUUnavailableReason = useAudioStore(selectWebGPUUnavailableReason);
+  const stemState = useAudioStore(selectDeckStems(deckId));
+  const toggleStemMute = useAudioStore((s) => s.toggleStemMute);
+  const toggleStemSolo = useAudioStore((s) => s.toggleStemSolo);
+  const setStemAnalyzing = useAudioStore((s) => s.setStemAnalyzing);
+  const setStemProgress = useAudioStore((s) => s.setStemProgress);
+  const setStemBuffers = useAudioStore((s) => s.setStemBuffers);
 
   // Slip mode actions
   const startSlipMode = useAudioStore((s) => s.startSlipMode);
@@ -546,6 +566,79 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, playheadPosition, addLoop, setActiveLoop, removeLoop]
   );
 
+  // Stem control callbacks
+  const handleStemMuteToggle = useCallback(
+    (stemType: StemType) => {
+      toggleStemMute(deckId, stemType);
+    },
+    [deckId, toggleStemMute]
+  );
+
+  const handleStemSoloToggle = useCallback(
+    (stemType: StemType) => {
+      toggleStemSolo(deckId, stemType);
+    },
+    [deckId, toggleStemSolo]
+  );
+
+  const handleAnalyzeStems = useCallback(async () => {
+    if (!deck.trackId) return;
+
+    // Get the audio file to analyze
+    const file = await import('../../library/services/file-handle-store').then(
+      (m) => m.getFileWithPermission(deck.trackId!)
+    );
+
+    if (!file) {
+      toast.error('Cannot access audio file for stem analysis');
+      return;
+    }
+
+    // Decode audio
+    const arrayBuffer = await file.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    // Start analysis
+    setStemAnalyzing(deckId, true);
+
+    try {
+      await stemsService.analyzeStems(deck.trackId, audioBuffer, {
+        onProgress: (progress) => {
+          setStemProgress(deckId, progress.progress, progress.stage);
+        },
+        onComplete: (result) => {
+          // Convert ArrayBuffers to AudioBuffers
+          const stemBuffers = stemsService.constructor.prototype.constructor.createStemBuffers
+            ? (stemsService.constructor as typeof import('../services/stems.service').StemsService).createStemBuffers(result, audioContext)
+            : {
+                vocals: createAudioBufferFromArrayBuffer(result.stems.vocals, result.sampleRate, audioContext),
+                drums: createAudioBufferFromArrayBuffer(result.stems.drums, result.sampleRate, audioContext),
+                bass: createAudioBufferFromArrayBuffer(result.stems.bass, result.sampleRate, audioContext),
+                other: createAudioBufferFromArrayBuffer(result.stems.other, result.sampleRate, audioContext),
+              };
+          setStemBuffers(deckId, stemBuffers);
+          toast.success('Stem separation complete');
+        },
+        onError: (error) => {
+          setStemAnalyzing(deckId, false);
+          toast.error(`Stem analysis failed: ${error.message}`);
+        },
+      });
+    } catch (error) {
+      setStemAnalyzing(deckId, false);
+      toast.error('Failed to start stem analysis');
+      console.error('[DeckUI] Stem analysis error:', error);
+    }
+  }, [deckId, deck.trackId, setStemAnalyzing, setStemProgress, setStemBuffers]);
+
+  const handleCancelStemAnalysis = useCallback(() => {
+    if (deck.trackId) {
+      stemsService.cancelAnalysis(deck.trackId);
+      setStemAnalyzing(deckId, false);
+    }
+  }, [deckId, deck.trackId, setStemAnalyzing]);
+
   // Get active loop data
   const activeLoop = deck.activeLoopIndex >= 0
     ? deck.loops.find((l) => l.index === deck.activeLoopIndex) ?? null
@@ -733,6 +826,23 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
         </div>
       )}
 
+      {/* Stem Controls */}
+      {hasTrack && (
+        <div className="px-4 pb-4">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">STEMS</div>
+          <StemControls
+            stemState={stemState}
+            hasWebGPU={hasWebGPU}
+            webGPUUnavailableReason={webGPUUnavailableReason}
+            onToggleMute={handleStemMuteToggle}
+            onToggleSolo={handleStemSoloToggle}
+            onAnalyzeStems={handleAnalyzeStems}
+            onCancelAnalysis={handleCancelStemAnalysis}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
       {/* Context Menu for Cue/Loop Management */}
       <CueContextMenu
         isOpen={contextMenuState !== null}
@@ -754,4 +864,16 @@ function formatDuration(seconds: number): string {
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function createAudioBufferFromArrayBuffer(
+  data: ArrayBuffer,
+  sampleRate: number,
+  audioContext: AudioContext
+): AudioBuffer | null {
+  if (data.byteLength === 0) return null;
+  const float32 = new Float32Array(data);
+  const buffer = audioContext.createBuffer(1, float32.length, sampleRate);
+  buffer.copyToChannel(float32, 0);
+  return buffer;
 }
