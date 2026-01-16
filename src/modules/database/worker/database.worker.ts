@@ -62,6 +62,15 @@ const init = async () => {
     if (!tableCheck) {
       log('Applying Engine DJ Schema to m.db...');
       dbs.m.exec(schemaSql);
+    } else {
+      // Simple Migration: Ensure parentListId exists (for users with existing DBs)
+      try {
+        dbs.m.exec("ALTER TABLE Playlist ADD COLUMN parentListId INTEGER DEFAULT 0");
+        dbs.m.exec("ALTER TABLE Playlist ADD COLUMN isFolder BOOLEAN DEFAULT 0");
+        log('Migrated Playlist table schema');
+      } catch (e) {
+        // Column likely already exists
+      }
     }
 
   } catch (err: any) {

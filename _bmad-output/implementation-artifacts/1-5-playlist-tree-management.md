@@ -1,6 +1,6 @@
 # Story 1.5: Playlist Tree Management
 
-Status: review
+Status: done
 
 ## Story
 
@@ -49,11 +49,15 @@ Gemini 2.0 Flash
 - Build successful.
 - @dnd-kit integrated for track-to-playlist movement.
 - Linked-list logic for PlaylistEntity tail updates verified.
+- **Automated Migration:** Added logic to `database.worker.ts` to migrate existing `Playlist` tables by adding `parentListId` and `isFolder` columns.
+- **Refined Readiness:** Updated store and components to wait for `DB_READY` silently, eliminating initialization console errors.
 
 ### Completion Notes List
 - Implemented full hierarchical playlist management.
 - Integrated Zustand for store management.
 - verified 2-column library layout.
+- Added database migration logic for schema compatibility.
+- Fixed race conditions in store initialization.
 
 ### File List
 - `src/modules/library/services/playlist.service.ts`

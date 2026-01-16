@@ -1,15 +1,27 @@
 import React, { useEffect } from 'react';
+import { kernel } from '../../../shared/kernel/kernel-manager';
+import { EventType } from '../../../shared/types/messaging';
 import { useLibraryStore } from '../store/library.store';
 import { usePlaylists } from '../hooks/usePlaylists';
 import { PlaylistItem } from './PlaylistItem';
 
 export const PlaylistTree: React.FC = () => {
-  const { fetchPlaylists, createPlaylist, isLoading } = useLibraryStore();
+  const { fetchPlaylists, createPlaylist, isLoading, setDbReady } = useLibraryStore();
   const { tree } = usePlaylists();
 
   useEffect(() => {
     fetchPlaylists();
-  }, [fetchPlaylists]);
+
+    const unsubscribe = kernel.addHandler((msg) => {
+        if (msg.type === EventType.DB_READY) {
+            setDbReady(true);
+        }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, [fetchPlaylists, setDbReady]);
 
   const handleAddCrate = () => {
     const title = prompt('Crate Name:');

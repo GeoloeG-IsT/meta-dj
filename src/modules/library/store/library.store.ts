@@ -1,13 +1,17 @@
 import { create } from 'zustand';
+import { kernel } from '../../../shared/kernel/kernel-manager';
+import { EventType } from '../../../shared/types/messaging';
 import { playlistService, type DBPlaylist } from '../services/playlist.service';
 
 interface LibraryState {
   playlists: DBPlaylist[];
   selectedPlaylistId: number | null;
   isLoading: boolean;
+  isDbReady: boolean;
   
   // Actions
   fetchPlaylists: () => Promise<void>;
+  setDbReady: (ready: boolean) => void;
   setSelectedPlaylist: (id: number | null) => void;
   createPlaylist: (title: string, parentId?: number, isFolder?: boolean) => Promise<void>;
   deletePlaylist: (id: number) => Promise<void>;
@@ -18,8 +22,23 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   playlists: [],
   selectedPlaylistId: null,
   isLoading: false,
+  isDbReady: false,
 
   fetchPlaylists: async () => {
+    // Check readiness silently
+    if (!get().isDbReady) {
+        try {
+            const check = await kernel.send(EventType.DB_PING, {});
+            if (check?.ready) {
+                set({ isDbReady: true });
+            } else {
+                return; // Wait for event
+            }
+        } catch (e) {
+            return;
+        }
+    }
+
     set({ isLoading: true });
     try {
       const playlists = await playlistService.getHierarchy();
@@ -27,6 +46,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     } finally {
       set({ isLoading: false });
     }
+  },
+
+  setDbReady: (ready) => {
+    set({ isDbReady: ready });
+    if (ready) get().fetchPlaylists();
   },
 
   setSelectedPlaylist: (id) => set({ selectedPlaylistId: id }),
