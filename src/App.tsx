@@ -17,7 +17,7 @@ function App() {
     const unsubscribe = kernel.addHandler((msg) => {
       // Log everything for debug
       if (msg.type !== EventType.PONG && msg.type !== EventType.DB_QUERY_RESPONSE) {
-         setLogs(prev => [...prev, `[Worker Event] ${msg.type}: ${JSON.stringify(msg.payload || '')}`]);
+        setLogs(prev => [...prev, `[Worker Event] ${msg.type}: ${JSON.stringify(msg.payload || '')}`]);
       }
 
       if (msg.type === EventType.LOG) {
@@ -44,16 +44,16 @@ function App() {
       try {
         setLogs(prev => [...prev, '[UI] Waiting for Database Worker...']);
         await kernel.waitFor(EventType.DB_READY);
-        
+
         // Removed: Schema injection (now handled internally by worker)
-        
+
         setLogs(prev => [...prev, '[UI] Performing DB Health Check...']);
-        const versionResult = await kernel.send(EventType.DB_QUERY_REQUEST, { 
+        const versionResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
           sql: 'SELECT sqlite_version() as version',
           method: 'get',
           targetDb: 'm'
         });
-        
+
         setDbInfo(`SQLite Version: ${versionResult.version}`);
         setDbStatus('ready');
         setLogs(prev => [...prev, '[UI] Database Health Check PASSED']);
@@ -75,10 +75,6 @@ function App() {
     <div className="min-h-screen bg-[#000000] text-[#4DFA90] font-sans p-8 flex flex-col gap-8">
       <ModalProvider />
       <ToastContainer />
-      <header className="border-b border-[#4DFA90]/20 pb-4">
-        <h1 className="text-4xl font-bold tracking-tighter uppercase">Meta-DJ Kernel</h1>
-        <p className="text-[#4DFA90]/60 text-sm">Split-Brain Architecture Foundation</p>
-      </header>
 
       <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 min-h-0">
         <div className="lg:col-span-8 flex flex-col gap-8 min-h-0">
@@ -121,9 +117,9 @@ function App() {
             </div>
           </details>
         </div>
-                </main>
-          
-                <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
+      </main>
+
+      <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
       </footer>
     </div>
   );
