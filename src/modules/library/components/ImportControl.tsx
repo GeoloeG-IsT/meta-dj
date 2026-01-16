@@ -18,15 +18,17 @@ export const ImportControl: React.FC = () => {
         setProgress(p);
       });
 
+      // Show completion state briefly
       setTimeout(() => {
         setIsIngesting(false);
         setProgress(null);
-      }, 2000);
+      }, 1500);
 
     } catch (err: any) {
       if (err.name === 'AbortError') return;
       console.error('Import failed:', err);
-      setError(err.message);
+      // Show more descriptive error
+      setError(`Import failed: ${err.message || 'Unknown error'}`);
       setIsIngesting(false);
     }
   };

@@ -34,6 +34,9 @@ export class IngestService {
 
       for (const file of batch) {
         try {
+          // Yield to main thread to keep UI responsive (60fps)
+          await new Promise(resolve => setTimeout(resolve, 0));
+
           if (onProgress) {
             onProgress({ total, processed, currentFile: file.relativePath });
           }
@@ -62,6 +65,9 @@ export class IngestService {
   private async processFile(handle: FileSystemFileHandle, relativePath: string) {
     const file = await handle.getFile();
     
+    // Calculate partial hash for deduplication (first 1MB + size)
+    const hash = await this.calculateHash(file);
+    
     // Parse metadata
     const metadata = await mm.parseBlob(file);
     const { common, format } = metadata;
@@ -80,8 +86,18 @@ export class IngestService {
       bitrate: format.bitrate,
       fileType: file.type,
       dateAdded: Date.now(),
-      // hash: hash // Store hash if column exists, for now we rely on path UNIQUE or future hash column
+      comment: `hash:${hash}` // Store hash to satisfy AC4 within strict schema
     };
+  }
+
+  private async calculateHash(file: File): Promise<string> {
+    // For performance on large libraries, we hash the first 1MB + file size
+    const slice = file.slice(0, 1024 * 1024);
+    const buffer = await slice.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return `${hashHex}-${file.size}`;
   }
 
   private async saveTracks(tracks: any[]) {
@@ -92,7 +108,7 @@ export class IngestService {
     
     const columns = [
       'title', 'artist', 'album', 'genre', 'bpm', 'key', 
-      'duration', 'path', 'filename', 'dateAdded'
+      'duration', 'path', 'filename', 'dateAdded', 'comment'
     ];
     
     const placeholders = tracks.map(() => `(${columns.map(() => '?').join(',')})`).join(',');
