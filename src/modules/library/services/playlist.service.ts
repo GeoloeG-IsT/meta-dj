@@ -12,21 +12,52 @@ export class PlaylistService {
   private readonly DB = 'm';
 
   /**
+   * Validates that a parent is eligible to contain children (is a folder).
+   */
+  private async validateParent(parentId: number): Promise<void> {
+    if (parentId === 0) return;
+
+    const parent = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql: `SELECT isFolder FROM Playlist WHERE id = ?`,
+      params: [parentId],
+      method: 'get',
+      targetDb: this.DB
+    });
+
+    if (!parent) throw new Error('Parent not found');
+
+    if (parent.isFolder === 0) {
+      const error = new Error('Hierarchical Integrity Violation: Cannot create children inside a Playlist.');
+      (error as any).code = 409;
+      throw error;
+    }
+  }
+
+  /**
    * Fetches the entire playlist/crate hierarchy.
    */
   async getHierarchy(): Promise<DBPlaylist[]> {
-    const sql = `SELECT id, parentListId, title, isFolder FROM Playlist ORDER BY title ASC`;
-    return await kernel.send(EventType.DB_QUERY_REQUEST, {
-      sql,
-      method: 'all',
-      targetDb: this.DB
-    });
+    try {
+      const sql = `SELECT id, parentListId, title, isFolder FROM Playlist ORDER BY title ASC`;
+      const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
+        sql,
+        method: 'all',
+        targetDb: this.DB
+      });
+      // console.log('[PlaylistService] Hierarchy Results:', results);
+      return results || [];
+    } catch (e) {
+      console.error('[PlaylistService] Failed to get hierarchy:', e);
+      return [];
+    }
   }
 
   /**
    * Creates a new crate or playlist.
    */
   async createPlaylist(title: string, parentId: number = 0, isFolder: boolean = false): Promise<number> {
+    await this.validateParent(parentId);
+
     const sql = `INSERT INTO Playlist (title, parentListId, isFolder) VALUES (?, ?, ?)`;
     const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
       sql,
@@ -70,6 +101,8 @@ export class PlaylistService {
    * Moves an item in the hierarchy.
    */
   async move(id: number, newParentId: number): Promise<void> {
+    await this.validateParent(newParentId);
+
     const sql = `UPDATE Playlist SET parentListId = ? WHERE id = ?`;
     await kernel.send(EventType.DB_QUERY_REQUEST, {
       sql,
@@ -112,6 +145,31 @@ export class PlaylistService {
             targetDb: this.DB
         });
     }
+  }
+
+  /**
+   * Deletes a single track.
+   */
+  async deleteTrack(id: number): Promise<void> {
+    const sql = `DELETE FROM Track WHERE id = ?`;
+    await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      params: [id],
+      method: 'run',
+      targetDb: this.DB
+    });
+  }
+
+  /**
+   * Deletes all tracks from the library.
+   */
+  async deleteAllTracks(): Promise<void> {
+    const sql = `DELETE FROM Track`;
+    await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      method: 'run',
+      targetDb: this.DB
+    });
   }
 }
 

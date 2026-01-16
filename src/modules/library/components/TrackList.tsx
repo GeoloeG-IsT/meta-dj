@@ -2,51 +2,101 @@ import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
 import { useTracks, type SortField } from '../hooks/useTracks';
+import { useLibraryStore } from '../store/library.store';
 
-const formatDuration = (seconds: number) => {
+export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
 };
 
+interface TrackRowUIProps {
+    track: any;
+    isDragging?: boolean;
+    isVirtual?: boolean;
+    style?: React.CSSProperties;
+    onDelete?: () => void;
+    className?: string;
+}
+
+export const TrackRowUI: React.FC<TrackRowUIProps> = ({ 
+    track, 
+    isDragging, 
+    isVirtual, 
+    style, 
+    onDelete,
+    className 
+}) => {
+    return (
+        <div
+            className={`flex items-center border-b border-[#4DFA90]/5 hover:bg-[#0055FF]/20 group transition-colors tabular-nums
+                ${isVirtual ? 'absolute top-0 left-0 w-full' : 'w-full bg-[#121212] border border-[#4DFA90]/20 shadow-xl'}
+                ${isDragging ? 'opacity-40 cursor-grabbing' : 'cursor-grab'}
+                ${className || ''}
+            `}
+            style={style}
+        >
+            <div className="flex-[3] px-2 text-sm truncate text-[#4DFA90] group-hover:text-white">
+                {track.title}
+            </div>
+            <div className="flex-[2] px-2 text-xs truncate opacity-60">
+                {track.artist}
+            </div>
+            <div className="w-24 px-2 text-xs font-mono text-right tabular-nums">
+                {(track.bpm || 0).toFixed(1)}
+            </div>
+            <div className="w-20 px-2 text-xs font-mono text-center text-[#4DFA90]/80">
+                {track.key || '-'}
+            </div>
+            <div className="w-20 px-2 text-xs font-mono text-right opacity-60">
+                {formatDuration(track.duration || 0)}
+            </div>
+            <div className="w-12 flex justify-center">
+                {!isDragging && (
+                    <button 
+                        onPointerDown={(e) => e.stopPropagation()}
+                        onClick={onDelete}
+                        className="text-[8px] text-red-500/40 hover:text-red-500 transition-colors p-2"
+                    >
+                        ✕
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+};
+
 const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualItem }) => {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+  const { deleteTrack } = useLibraryStore();
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: track.id,
+    data: { track }
   });
 
-  const style = {
-    height: `${virtualItem.size}px`,
-    transform: transform 
-        ? `translate3d(${virtualItem.start + transform.x}px, ${transform.y}px, 0)` 
-        : `translateY(${virtualItem.start}px)`,
-    zIndex: isDragging ? 100 : 1,
-    opacity: isDragging ? 0.5 : 1,
+  const handleDelete = () => {
+    if (confirm('Delete track?')) {
+        deleteTrack(track.id);
+    }
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      {...listeners}
-      {...attributes}
-      className={`absolute top-0 left-0 w-full flex items-center border-b border-[#4DFA90]/5 hover:bg-[#0055FF]/20 group transition-colors tabular-nums cursor-grab active:cursor-grabbing
-        ${virtualItem.index % 2 === 0 ? 'bg-transparent' : 'bg-[#4DFA90]/5'}`}
-      style={style}
+    <div 
+        ref={setNodeRef} 
+        {...listeners} 
+        {...attributes}
+        className="absolute left-0 w-full"
+        style={{
+            height: `${virtualItem.size}px`,
+            top: `${virtualItem.start}px`,
+            zIndex: isDragging ? 0 : 1
+        }}
     >
-      <div className="flex-[3] px-2 text-sm truncate text-[#4DFA90] group-hover:text-white">
-        {track.title}
-      </div>
-      <div className="flex-[2] px-2 text-xs truncate opacity-60">
-        {track.artist}
-      </div>
-      <div className="w-24 px-2 text-xs font-mono text-right tabular-nums">
-        {(track.bpm || 0).toFixed(1)}
-      </div>
-      <div className="w-20 px-2 text-xs font-mono text-center text-[#4DFA90]/80">
-        {track.key || '-'}
-      </div>
-      <div className="w-20 px-2 text-xs font-mono text-right opacity-60">
-        {formatDuration(track.duration || 0)}
-      </div>
+        <TrackRowUI 
+            track={track}
+            isDragging={isDragging}
+            onDelete={handleDelete}
+            className={virtualItem.index % 2 === 0 ? 'bg-transparent' : 'bg-[#4DFA90]/5'}
+        />
     </div>
   );
 };
@@ -83,6 +133,7 @@ export const TrackList: React.FC = () => {
         {renderHeader('BPM', 'bpm', 'w-24')}
         {renderHeader('Key', 'key', 'w-20')}
         {renderHeader('Time', 'duration', 'w-20')}
+        <div className="w-12 border-b border-[#4DFA90]/20" />
       </div>
 
       {/* Virtualized Body */}
@@ -107,17 +158,22 @@ export const TrackList: React.FC = () => {
               position: 'relative',
             }}
           >
-            {rowVirtualizer.getVirtualItems().map((virtualItem) => (
-              <TrackRow 
-                key={virtualItem.key} 
-                track={tracks[virtualItem.index]} 
-                virtualItem={virtualItem} 
-              />
-            ))}
+            {rowVirtualizer.getVirtualItems().map((virtualItem) => {
+              const track = tracks[virtualItem.index];
+              if (!track) return null;
+              return (
+                <TrackRow 
+                  key={track.id} 
+                  track={track} 
+                  virtualItem={virtualItem} 
+                />
+              );
+            })}
           </div>
         )}
       </div>
     </div>
   );
 };
+
 

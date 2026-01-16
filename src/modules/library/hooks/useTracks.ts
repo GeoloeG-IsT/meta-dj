@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
+import { useLibraryStore } from '../store/library.store';
 
 const METADATA_DB = 'm';
 
@@ -26,23 +27,56 @@ export function useTracks() {
   const [isLoading, setIsLoading] = useState(false);
   const [sort, setSort] = useState<{ field: SortField; order: SortOrder }>({ field: 'title', order: 'ASC' });
   const [isDbReady, setIsDbReady] = useState(false);
+  
+  const selectedPlaylistId = useLibraryStore(state => state.selectedPlaylistId);
 
   const fetchTracks = useCallback(async () => {
     if (!isDbReady) return;
 
     setIsLoading(true);
     try {
+      let countSql = 'SELECT COUNT(*) as count FROM Track';
+      let dataSql = `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename FROM Track`;
+      let params: any[] = [];
+
+      if (selectedPlaylistId) {
+        countSql = `
+          WITH RECURSIVE descendants(id) AS (
+            SELECT id FROM Playlist WHERE id = ?
+            UNION ALL
+            SELECT p.id FROM Playlist p INNER JOIN descendants d ON p.parentListId = d.id
+          )
+          SELECT COUNT(DISTINCT pe.trackId) as count 
+          FROM PlaylistEntity pe 
+          WHERE pe.listId IN (SELECT id FROM descendants)
+        `;
+        dataSql = `
+          WITH RECURSIVE descendants(id) AS (
+            SELECT id FROM Playlist WHERE id = ?
+            UNION ALL
+            SELECT p.id FROM Playlist p INNER JOIN descendants d ON p.parentListId = d.id
+          )
+          SELECT DISTINCT t.id, t.title, t.artist, t.album, t.bpm, t.key, t.duration, t.genre, t.path, t.filename 
+          FROM Track t
+          INNER JOIN PlaylistEntity pe ON t.id = pe.trackId
+          WHERE pe.listId IN (SELECT id FROM descendants)
+        `;
+        params = [selectedPlaylistId];
+      }
+
+      // 1. Get total count
       const countResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
-        sql: 'SELECT COUNT(*) as count FROM Track',
+        sql: countSql,
+        params,
         method: 'get',
         targetDb: METADATA_DB
       });
-      setTotalCount(countResult.count);
+      setTotalCount(countResult?.count || 0);
 
+      // 2. Fetch tracks
       const queryResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
-        sql: `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename 
-              FROM Track 
-              ORDER BY ${sort.field} ${sort.order}`,
+        sql: `${dataSql} ORDER BY ${sort.field} ${sort.order}`,
+        params,
         method: 'all',
         targetDb: METADATA_DB
       });
@@ -53,26 +87,22 @@ export function useTracks() {
     } finally {
       setIsLoading(false);
     }
-  }, [sort, isDbReady]);
+  }, [sort, isDbReady, selectedPlaylistId]);
 
   useEffect(() => {
     let isMounted = true;
 
-    // Fetch immediately if ready
     if (isDbReady) {
       fetchTracks();
     }
 
-    // Initial check
     const checkReady = async () => {
         try {
             const result = await kernel.send(EventType.DB_PING, {});
             if (isMounted && result?.ready) {
               setIsDbReady(true);
             }
-        } catch (e) {
-            // Silently wait for DB_READY event
-        }
+        } catch (e) {}
     };
     checkReady();
 
@@ -82,7 +112,6 @@ export function useTracks() {
       if (msg.type === EventType.DB_READY) {
         setIsDbReady(true);
       } else if (msg.type === EventType.DB_QUERY_RESPONSE) {
-        // Safe check for successful write operations (ingest/persistence test)
         const payload = msg.payload as any;
         if (payload?.success || payload?.changes !== undefined) {
           fetchTracks();
@@ -94,7 +123,7 @@ export function useTracks() {
       isMounted = false;
       unsubscribe();
     };
-  }, [fetchTracks, isDbReady]); // fetchTracks includes sort and isDbReady dependencies
+  }, [fetchTracks, isDbReady]);
 
   const toggleSort = (field: SortField) => {
     setSort(prev => ({

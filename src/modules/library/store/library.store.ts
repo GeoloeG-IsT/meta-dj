@@ -14,8 +14,11 @@ interface LibraryState {
   setDbReady: (ready: boolean) => void;
   setSelectedPlaylist: (id: number | null) => void;
   createPlaylist: (title: string, parentId?: number, isFolder?: boolean) => Promise<void>;
+  renamePlaylist: (id: number, title: string) => Promise<void>;
   deletePlaylist: (id: number) => Promise<void>;
   movePlaylist: (id: number, newParentId: number) => Promise<void>;
+  deleteTrack: (id: number) => Promise<void>;
+  clearLibrary: () => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -25,14 +28,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   isDbReady: false,
 
   fetchPlaylists: async () => {
-    // Check readiness silently
+    // Initial silent check
     if (!get().isDbReady) {
         try {
             const check = await kernel.send(EventType.DB_PING, {});
             if (check?.ready) {
                 set({ isDbReady: true });
             } else {
-                return; // Wait for event
+                return;
             }
         } catch (e) {
             return;
@@ -43,6 +46,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     try {
       const playlists = await playlistService.getHierarchy();
       set({ playlists: playlists || [] });
+    } catch (e) {
+        console.error('Failed to fetch playlists:', e);
     } finally {
       set({ isLoading: false });
     }
@@ -60,6 +65,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     await get().fetchPlaylists();
   },
 
+  renamePlaylist: async (id, title) => {
+    await playlistService.rename(id, title);
+    await get().fetchPlaylists();
+  },
+
   deletePlaylist: async (id) => {
     await playlistService.delete(id);
     if (get().selectedPlaylistId === id) {
@@ -71,5 +81,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   movePlaylist: async (id, newParentId) => {
     await playlistService.move(id, newParentId);
     await get().fetchPlaylists();
+  },
+
+  deleteTrack: async (id) => {
+    await playlistService.deleteTrack(id);
+  },
+
+  clearLibrary: async () => {
+    await playlistService.deleteAllTracks();
   }
 }));

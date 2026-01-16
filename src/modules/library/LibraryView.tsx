@@ -1,38 +1,94 @@
-import React from 'react';
-import { DndContext, type DragEndEvent } from '@dnd-kit/core';
+import React, { useState } from 'react';
+import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { ImportControl } from './components/ImportControl';
-import { TrackList } from './components/TrackList';
+import { TrackList, TrackRowUI } from './components/TrackList';
 import { PlaylistTree } from './components/PlaylistTree';
 import { playlistService } from './services/playlist.service';
+import { useLibraryStore } from './store/library.store';
 
 export const LibraryView: React.FC = () => {
+  const { clearLibrary, fetchPlaylists, movePlaylist } = useLibraryStore();
+  const [activeTrack, setActiveTrack] = useState<any | null>(null);
+  const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    })
+  );
+
+  const handleClearLibrary = async () => {
+    if (confirm('Are you sure you want to delete ALL tracks from the library?')) {
+      await clearLibrary();
+    }
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    const { active } = event;
+    if (active.data.current?.type === 'playlist') {
+        setActivePlaylist(active.data.current);
+    } else {
+        setActiveTrack(active.data.current?.track || null);
+    }
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
+    setActiveTrack(null);
+    setActivePlaylist(null);
     
-    if (over && over.id.toString().startsWith('playlist-')) {
-      const playlistId = over.data.current?.playlistId;
-      const trackId = active.id as number;
-      const isFolder = over.data.current?.isFolder;
+    if (!over) return;
 
-      if (!isFolder && playlistId) {
-        console.log(`[DND] Adding track ${trackId} to playlist ${playlistId}`);
-        try {
-          await playlistService.addTrackToPlaylist(trackId, playlistId);
-          alert('Track added to playlist');
-        } catch (e) {
-          console.error('Failed to add track:', e);
+    const targetId = over.id.toString().replace('playlist-', '');
+    const playlistId = Number(targetId);
+
+    // CASE 1: Moving a Playlist/Crate into another Crate
+    if (active.data.current?.type === 'playlist') {
+        const movedId = active.data.current.playlistId;
+        if (movedId !== playlistId) {
+            console.log(`[DND] Moving playlist ${movedId} into ${playlistId}`);
+            try {
+                await movePlaylist(movedId, playlistId);
+            } catch (e: any) {
+                if (e.code === 409) alert(e.message);
+                else console.error('Failed to move playlist:', e);
+            }
         }
+        return;
+    }
+
+    // CASE 2: Adding a Track to a Playlist or Crate
+    if (over.id.toString().startsWith('playlist-')) {
+      const trackId = Number(active.id);
+      console.log(`[DND] Adding track ${trackId} to playlist/crate ${playlistId}`);
+      try {
+        await playlistService.addTrackToPlaylist(trackId, playlistId);
+        await fetchPlaylists(); 
+      } catch (e) {
+        console.error('Failed to add track:', e);
       }
     }
   };
 
   return (
-    <DndContext onDragEnd={handleDragEnd}>
+    <DndContext 
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+    >
       <div className="flex flex-col gap-6 h-full min-h-0">
         <header className="flex items-center justify-between">
           <h2 className="text-xl font-bold uppercase tracking-[0.2em] text-[#4DFA90]">
             Librarian <span className="opacity-40 text-sm font-normal tracking-normal">/ Collection</span>
           </h2>
+          <button 
+            onClick={handleClearLibrary}
+            className="text-[8px] border border-red-500/40 text-red-500/60 hover:bg-red-500/10 px-2 py-1 uppercase tracking-widest transition-all"
+          >
+            Clear Library
+          </button>
         </header>
 
         <main className="flex gap-0 flex-1 min-h-0 border border-[#4DFA90]/20 rounded-sm overflow-hidden bg-[#121212]">
@@ -56,7 +112,23 @@ export const LibraryView: React.FC = () => {
           </div>
         </main>
       </div>
+
+      <DragOverlay>
+        {activeTrack ? (
+          <div className="w-[400px] pointer-events-none">
+            <TrackRowUI 
+                track={activeTrack} 
+                isDragging 
+            />
+          </div>
+        ) : activePlaylist ? (
+            <div className="bg-[#4DFA90]/20 text-[#4DFA90] px-4 py-2 border border-[#4DFA90] font-mono text-[10px] uppercase pointer-events-none">
+                Moving Item...
+            </div>
+        ) : null}
+      </DragOverlay>
     </DndContext>
   );
 };
+
 

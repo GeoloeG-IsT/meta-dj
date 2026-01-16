@@ -20,10 +20,14 @@ export function usePlaylists() {
 
     // 2. Build tree
     playlists.forEach((p) => {
-      if (p.parentListId === 0) {
+      const parentId = p.parentListId || 0;
+      if (parentId === 0) {
         root.push(nodes[p.id]);
-      } else if (nodes[p.parentListId]) {
-        nodes[p.parentListId].children.push(nodes[p.id]);
+      } else if (nodes[parentId]) {
+        nodes[parentId].children.push(nodes[p.id]);
+      } else {
+        // Orphaned item, treat as root
+        root.push(nodes[p.id]);
       }
     });
 
