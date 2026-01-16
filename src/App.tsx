@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
-import { ImportControl } from './modules/library/components/ImportControl';
+import { LibraryView } from './modules/library/LibraryView';
 
 function App() {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -97,10 +97,12 @@ function App() {
         <p className="text-[#4DFA90]/60 text-sm">Split-Brain Architecture Foundation</p>
       </header>
 
-      <main className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="flex flex-col gap-8">
-          <ImportControl />
-          
+      <main className="grid grid-cols-1 lg:grid-cols-12 gap-8 flex-1 min-h-0">
+        <div className="lg:col-span-8 flex flex-col gap-8 min-h-0">
+          <LibraryView />
+        </div>
+
+        <div className="lg:col-span-4 flex flex-col gap-8">
           <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm shadow-[0_0_15px_rgba(77,250,144,0.1)]">
             <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">System Status</h2>
           
@@ -124,25 +126,24 @@ function App() {
                 {dbInfo || 'Initializing OPFS Database...'}
               </div>
             </div>
-          </div>
-        </section>
-      </div>
-
-        <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm">
-          <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">Worker Logs</h2>
-          <div className="bg-[#000000] p-4 border border-[#4DFA90]/10 rounded-sm font-mono text-xs h-[300px] overflow-y-auto flex flex-col gap-1">
-            {logs.map((log, i) => (
-              <div key={i} className="opacity-80 border-l-2 border-[#4DFA90]/40 pl-2">
-                {log}
-              </div>
-            ))}
-            {logs.length === 0 && <span className="opacity-30 italic">No logs yet...</span>}
-          </div>
-        </section>
-      </main>
-
-      <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">
-        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
+                      </div>
+                    </section>
+          
+                    <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm flex-1 min-h-0">
+                      <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">Worker Logs</h2>
+                      <div className="bg-[#000000] p-4 border border-[#4DFA90]/10 rounded-sm font-mono text-xs h-[300px] overflow-y-auto flex flex-col gap-1">
+                        {logs.map((log, i) => (
+                          <div key={i} className="opacity-80 border-l-2 border-[#4DFA90]/40 pl-2">
+                            {log}
+                          </div>
+                        ))}
+                        {logs.length === 0 && <span className="opacity-30 italic">No logs yet...</span>}
+                      </div>
+                    </section>
+                  </div>
+                </main>
+          
+                <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
       </footer>
     </div>
   );
