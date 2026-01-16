@@ -86,6 +86,12 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
    */
   analyzeTrack: async (trackId: number) => {
     const state = get();
+    console.log(`[AnalysisStore] analyzeTrack called for track ${trackId}`, {
+      isProcessing: state.isProcessing,
+      currentTrackId: state.currentTrackId,
+      isReady: state.isReady,
+      trackStatus: state.tracks[trackId]?.status,
+    });
 
     // Check if already analyzing this track
     if (state.tracks[trackId]?.status === 'analyzing') {
@@ -95,6 +101,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
 
     // Check if another track is being analyzed - add to queue instead
     if (state.isProcessing && state.currentTrackId !== trackId) {
+      console.log(`[AnalysisStore] Another track is processing, adding ${trackId} to queue`);
       if (!state.queue.includes(trackId)) {
         set((s) => ({ queue: [...s.queue, trackId] }));
       }
@@ -102,6 +109,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }
 
     // Initialize track state
+    console.log(`[AnalysisStore] Starting analysis for track ${trackId}`);
     set((s) => ({
       tracks: {
         ...s.tracks,
@@ -122,7 +130,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     try {
       // Initialize analyzer if not ready
       if (!get().isReady) {
+        console.log(`[AnalysisStore] Warming up essentia.js WASM...`);
         await warmupAnalyzer();
+        console.log(`[AnalysisStore] Essentia.js WASM ready`);
         set({ isReady: true });
       }
 
@@ -151,7 +161,9 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       };
 
       // Run analysis
+      console.log(`[AnalysisStore] Calling analyzeTrackFromLibrary for track ${trackId}...`);
       const result = await analyzeTrackFromLibrary(trackId, onProgress);
+      console.log(`[AnalysisStore] analyzeTrackFromLibrary returned:`, result ? 'success' : 'null');
 
       // Check if cancelled during analysis
       if (get().tracks[trackId]?.status !== 'analyzing') {
@@ -190,6 +202,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       }
     } catch (error) {
       // Handle error (only if not cancelled)
+      console.error(`[AnalysisStore] Analysis failed for track ${trackId}:`, error);
       if (get().tracks[trackId]?.status === 'analyzing') {
         const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
         set((s) => ({

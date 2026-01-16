@@ -164,8 +164,9 @@ const TrackRow: React.FC<{ track: TrackForDisplay; virtualItem: VirtualItem }> =
   };
 
   const handleAnalyze = useCallback(() => {
+    console.log(`[TrackList] Analyze button clicked for track ${track.id}: ${track.title}`);
     analyzeTrack(track.id);
-  }, [track.id, analyzeTrack]);
+  }, [track.id, track.title, analyzeTrack]);
 
   const style = {
     height: `${virtualItem.size}px`,

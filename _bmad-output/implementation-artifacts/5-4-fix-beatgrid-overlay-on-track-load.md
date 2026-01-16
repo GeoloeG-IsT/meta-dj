@@ -1,6 +1,6 @@
 # Story 5.4: Fix Beatgrid Overlay on Track Load
 
-Status: review
+Status: done
 
 ## Story
 
