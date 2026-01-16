@@ -1,16 +1,15 @@
 /// <reference lib="webworker" />
-// @ts-expect-error -- sqlite-wasm types are missing
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
 import type { WorkerMessage, WorkerResponse } from '../../../shared/types';
-import { DbAction } from '../../../shared/types/db-types';
+import { DbAction, type Track } from '../../../shared/types/db-types';
 import schemaSql from '../schema/engine-schema.sql?raw';
 
 declare const self: DedicatedWorkerGlobalScope;
 
 
 interface SQLiteDatabase {
-    exec(sql: string): void;
-    exec(options: { sql: string; bind?: unknown[] | Record<string, unknown>; returnValue?: string }): unknown[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    exec(arg: any, opts?: any): any;
 }
 
 let db: SQLiteDatabase | null = null;
@@ -84,7 +83,7 @@ self.onmessage = async (e: MessageEvent<WorkerMessage>) => {
                 // payload is typed as Track in message-bus, but comes as unknown in WorkerMessage
                 // Using Partial<Track> because metadata parsing might return partials, but DB requires key fields.
                 // Assuming validation happened before or defaults are applied.
-                const track = payload as import('../../../shared/types/db-types').Track;
+                const track = payload as Track;
 
                 // Using INSERT OR REPLACE to update metadata if file is re-scanned
                 // Using named parameters for clarity

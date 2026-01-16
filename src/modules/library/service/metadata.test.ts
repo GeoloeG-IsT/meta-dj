@@ -34,7 +34,7 @@ describe('Metadata Service', () => {
 
         const result = await parseTrackMetadata(file);
 
-        expect(result).toEqual({
+        expect(result.track).toEqual({
             title: 'Test Song',
             artist: 'Test Artist',
             album: 'Test Album',
@@ -44,6 +44,7 @@ describe('Metadata Service', () => {
             artwork: 'blob:test',
             dateAdded: expect.any(Number),
         });
+        expect(result.error).toBeUndefined();
     });
 
     it('should handle missing metadata gracefully', async () => {
@@ -57,7 +58,21 @@ describe('Metadata Service', () => {
 
         const result = await parseTrackMetadata(file);
 
-        expect(result.title).toBe('unknown'); // Fallback to filename without extension
-        expect(result.artist).toBeUndefined();
+        expect(result.track.title).toBe('unknown'); // Fallback to filename without extension
+        expect(result.track.artist).toBeUndefined();
+    });
+
+    it('should return error on parse failure', async () => {
+        const file = new File([''], 'corrupt.mp3', { type: 'audio/mpeg' });
+        const errorMsg = 'Parse failed';
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (mm.parseBlob as any).mockRejectedValue(new Error(errorMsg));
+
+        const result = await parseTrackMetadata(file);
+
+        expect(result.track.title).toBe('corrupt');
+        expect(result.error).toBe(errorMsg);
     });
 });
+

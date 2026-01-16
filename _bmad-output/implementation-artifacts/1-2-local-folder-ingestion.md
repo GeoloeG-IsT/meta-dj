@@ -165,6 +165,10 @@ Antigravity (Google Deepmind)
 - [x] [AI-Review][Critical] Fixed `ImportControl` to use correct `scannedFile.path` as unique key for DB, preventing collisions.
 - [x] [AI-Review][Medium] Fixed Type Safety: Removed `any` cast in `db.worker` `INGEST_TRACK` command.
 - [x] [AI-Review][Medium] Fixed `no-case-declarations` lint errors in worker.
+- [x] [AI-Review][Critical] Implemented Drag and Drop support in `ImportControl.tsx` (was missing despite being marked done).
+- [x] [AI-Review][Medium] Added error handling to `parseTrackMetadata` and `ImportControl` to report parse failures.
+- [x] [AI-Review][Low] Cleaned up imports in `db.worker.ts`.
+- [ ] [AI-Review][Medium] Optimization: Move metadata parsing to a dedicated Web Worker to avoid main-thread blocking on large imports.
 
 ### File List
 - src/modules/database/worker/db.worker.ts

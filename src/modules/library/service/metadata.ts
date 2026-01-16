@@ -1,7 +1,12 @@
 import * as mm from 'music-metadata-browser';
 import type { Track } from '@/shared/types/db-types';
 
-export const parseTrackMetadata = async (file: File): Promise<Partial<Track>> => {
+export interface ParseResult {
+    track: Partial<Track>;
+    error?: string;
+}
+
+export const parseTrackMetadata = async (file: File): Promise<ParseResult> => {
     try {
         const metadata = await mm.parseBlob(file);
 
@@ -17,16 +22,20 @@ export const parseTrackMetadata = async (file: File): Promise<Partial<Track>> =>
 
         if (metadata.common.picture && metadata.common.picture.length > 0) {
             const picture = metadata.common.picture[0];
-            const blob = new Blob([picture.data], { type: picture.format });
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const blob = new Blob([picture.data as any], { type: picture.format });
             track.artwork = URL.createObjectURL(blob);
         }
 
-        return track;
-    } catch {
-        // Fallback for failed parsing
+        return { track };
+    } catch (err) {
+        // Return fallback with error message
         return {
-            title: file.name.substring(0, file.name.lastIndexOf('.')) || file.name,
-            dateAdded: Date.now(),
+            track: {
+                title: file.name.substring(0, file.name.lastIndexOf('.')) || file.name,
+                dateAdded: Date.now(),
+            },
+            error: err instanceof Error ? err.message : String(err),
         };
     }
 };

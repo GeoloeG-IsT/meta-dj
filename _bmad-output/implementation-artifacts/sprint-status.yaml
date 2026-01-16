@@ -7,11 +7,11 @@ development_status:
   # Epic 1: Foundation & Data
   epic-1: in-progress
   1-1-architecture-database-initialization: done
-  1-2-local-folder-ingestion: review
+  1-2-local-folder-ingestion: done
   epic-1-retrospective: optional
 
   # Epic 2: Audio Analysis
-  epic-2: backlog
+  epic-2: in-progress
   2-1-audio-analysis-core-bpm-key: backlog
   2-2-stem-separation-pipeline-ai: backlog
   2-3-stems-persistence-management: backlog
