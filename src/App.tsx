@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
-import schemaSql from './modules/database/schema/engine-dj-schema.sql?raw';
 
 function App() {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -42,18 +41,40 @@ function App() {
         setLogs(prev => [...prev, '[UI] Waiting for Database Worker...']);
         await kernel.waitFor(EventType.DB_READY);
         
-        setLogs(prev => [...prev, '[UI] Initializing Database Schema...']);
-        await kernel.send(EventType.DB_EXEC_SCRIPT, { sql: schemaSql });
+        // Removed: Schema injection (now handled internally by worker)
         
         setLogs(prev => [...prev, '[UI] Performing DB Health Check...']);
         const versionResult = await kernel.send(EventType.DB_QUERY_REQUEST, { 
           sql: 'SELECT sqlite_version() as version',
-          method: 'get'
+          method: 'get',
+          targetDb: 'm'
         });
         
         setDbInfo(`SQLite Version: ${versionResult.version}`);
         setDbStatus('ready');
         setLogs(prev => [...prev, '[UI] Database Health Check PASSED']);
+
+        // 3. Persistence Verification (AC6)
+        setLogs(prev => [...prev, '[UI] Verifying Persistence...']);
+        const testPath = `/test-track-${Date.now()}.mp3`;
+        
+        // Insert dummy track
+        await kernel.send(EventType.DB_QUERY_REQUEST, {
+          sql: 'INSERT INTO Track (title, path, filename) VALUES (?, ?, ?)',
+          params: ['Persistence Test Track', testPath, 'test.mp3'],
+          method: 'run',
+          targetDb: 'm'
+        });
+
+        // Verify count
+        const countResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
+            sql: 'SELECT count(*) as count FROM Track',
+            method: 'get',
+            targetDb: 'm'
+        });
+        
+        setLogs(prev => [...prev, `[UI] Persistence Check: Track count is now ${countResult.count}. Refresh to verify it increases!`]);
+
       } catch (error: any) {
         console.error('Database Init Failed:', error);
         setDbStatus('error');

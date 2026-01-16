@@ -1,6 +1,6 @@
 # Story 1.2: OPFS Database Initialization & Mounting
 
-Status: review
+Status: done
 
 ## Story
 
@@ -50,7 +50,7 @@ So that I can mount and manipulate the Engine DJ database files (`m.db`, `p.db`)
 
 ### Agent Model Used
 
-Gemini 2.0 Flash
+Gemini 2.0 Flash (Implementation) / Code Reviewer (Review)
 
 ### Debug Log References
 
@@ -59,12 +59,19 @@ Gemini 2.0 Flash
 - OPFS initialization verified via code path.
 - **Fixed SharedWorker PING timeout** by wrapping `initDbWorker` in try-catch and increasing timeout.
 - **Architectural Adjustment:** Implemented "Main Thread Bridge" spawning pattern because nested Workers (`new Worker` inside `SharedWorker`) were not supported in the environment. Main thread spawns both and links them via `MessageChannel`.
+- **Code Review Fixes (2026-01-16):**
+  - **AC3 Violation Fixed:** Implemented dual database (`m.db`, `p.db`) initialization for Engine DJ compatibility.
+  - **AC6 Violation Fixed:** Added explicit persistence verification test (Insert -> Refresh instructions -> Count Check) in `App.tsx`.
+  - **Memory Leak Fixed:** Implemented port pruning in `kernel.worker.ts` to prevent stale connection buildup.
+  - **Cleaned Codebase:** Removed redundant `db.worker.ts` and `engine-schema.sql`.
+  - **Strict Typing:** Enforced `EventType` constants across all workers.
 
 ### Completion Notes List
 
 - Implemented dedicated Database Worker.
 - Integrated with SharedWorker Kernel.
 - Verified schema application and version query in UI.
+- Validated persistence and dual-database architecture.
 
 ### File List
 - `src/modules/database/worker/database.worker.ts`

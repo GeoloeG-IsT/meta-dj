@@ -1,23 +1,29 @@
+/// <reference lib="webworker" />
+
 import { EventType } from '../types/messaging';
 import type { WorkerMessage } from '../types/messaging';
 
 const workerStartTime = Date.now();
-const connections: MessagePort[] = [];
+let connections: MessagePort[] = [];
 
 /**
  * SharedWorker context
  */
-const ctx: SharedWorkerGlobalScope = self as any;
+declare const self: SharedWorkerGlobalScope;
+const ctx: SharedWorkerGlobalScope = self;
 
 // Database Port (from MessageChannel)
 let dbPort: MessagePort | null = null;
 
 const broadcast = (message: WorkerMessage) => {
-  connections.forEach(port => {
+  // Filter out closed connections lazily on send
+  connections = connections.filter(port => {
     try {
       port.postMessage(message);
+      return true;
     } catch (e) {
-      console.error('[Kernel Worker] Failed to broadcast to port:', e);
+      // console.warn('[Kernel Worker] Removing stale connection');
+      return false;
     }
   });
 };
@@ -61,7 +67,7 @@ ctx.onconnect = (event: MessageEvent) => {
     const { id, type, payload } = msgEvent.data;
     // console.log(`[Kernel Worker] Received from UI: ${type}`, payload);
 
-    if (type === 'CONNECT_DB' && msgEvent.ports[0]) {
+    if (type === EventType.CONNECT_DB && msgEvent.ports[0]) {
        console.log('[Kernel Worker] Received DB Port');
        setupDbPort(msgEvent.ports[0]);
        return;

@@ -1,13 +1,24 @@
+/// <reference lib="webworker" />
+
 import sqlite3InitModule from '@sqlite.org/sqlite-wasm';
+import { EventType } from '../../../shared/types/messaging';
+import schemaSql from '../schema/engine-dj-schema.sql?raw';
 
 /**
  * Database Worker
  * 
  * Handles all SQLite operations using OPFS backend.
- * Runs in a dedicated worker thread to prevent blocking the UI.
+ * Manages m.db (Metadata) and p.db (Performance data) for Engine DJ compatibility.
  */
 
-let db: any;
+declare const self: DedicatedWorkerGlobalScope;
+
+interface Dictionaries {
+  m: any; // Metadata DB
+  p: any; // Performance DB (future use)
+}
+
+let dbs: Dictionaries | null = null;
 let sqlite3: any;
 
 const log = (...args: any[]) => console.log('[DB Worker]', ...args);
@@ -16,35 +27,46 @@ const error = (...args: any[]) => console.error('[DB Worker]', ...args);
 log('Database Worker Script Loading...');
 
 const init = async () => {
-  if (db) return; // Already initialized
+  if (dbs) return; // Already initialized
 
   try {
-    // log('init() called - Starting SQLite WASM initialization');
-    
-    // Check for OPFS support
-    // log('Initializing SQLite WASM...');
     sqlite3 = await sqlite3InitModule({
       print: log,
       printErr: error,
     });
 
-    // log('SQLite WASM initialized. Opening database in OPFS...');
-    
-    if (sqlite3.opfs) {
-      db = new sqlite3.oo1.OpfsDb('/meta-dj.db', 'c');
-      log('OPFS database opened:', db.filename);
-    } else {
-      db = new sqlite3.oo1.DB('/meta-dj.db', 'c');
-      log('OPFS not available, using persistent fallback:', db.filename);
+    if (!sqlite3.opfs) {
+      throw new Error('OPFS is not available in this browser. Persistent database access required.');
     }
 
-    db.exec('PRAGMA journal_mode=WAL;');
-    db.exec('PRAGMA synchronous=NORMAL;');
-    log('Database configured (WAL mode)');
+    log('SQLite WASM initialized. Opening databases in OPFS...');
+
+    // AC3: Engine DJ Schema Mounting (m.db and p.db)
+    dbs = {
+      m: new sqlite3.oo1.OpfsDb('/m.db', 'c'),
+      p: new sqlite3.oo1.OpfsDb('/p.db', 'c')
+    };
+
+    // Configure WAL mode for both
+    dbs.m.exec('PRAGMA journal_mode=WAL;');
+    dbs.m.exec('PRAGMA synchronous=NORMAL;');
+    
+    dbs.p.exec('PRAGMA journal_mode=WAL;');
+    dbs.p.exec('PRAGMA synchronous=NORMAL;');
+
+    log('Databases opened: m.db, p.db (WAL mode)');
+
+    // Internal Schema Initialization
+    // Check if tables exist, if not apply schema to m.db
+    const tableCheck = dbs.m.selectObject("SELECT name FROM sqlite_master WHERE type='table' AND name='Track'");
+    if (!tableCheck) {
+      log('Applying Engine DJ Schema to m.db...');
+      dbs.m.exec(schemaSql);
+    }
 
   } catch (err: any) {
     error('Initialization failed:', err.name, err.message);
-    throw err; // Re-throw to be caught by caller
+    throw err;
   }
 };
 
@@ -62,56 +84,62 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
 
   try {
     switch (type) {
-      case 'DB_INIT':
+      case EventType.DB_INIT:
         await init();
-        source.postMessage({ type: 'DB_READY' });
+        source.postMessage({ type: EventType.DB_READY });
         break;
-// ...
 
-      case 'DB_QUERY_REQUEST':
-        const { sql, params, method } = payload;
-        log(`Executing ${method || 'all'}: ${sql.substring(0, 50)}...`);
+      case EventType.DB_QUERY_REQUEST: {
+        if (!dbs) throw new Error('Database not initialized');
+        const { sql, params, method, targetDb = 'm' } = payload;
+        const target = (dbs as any)[targetDb] || dbs.m;
+
+        // log(`Executing ${method || 'all'} on ${targetDb}.db: ${sql.substring(0, 50)}...`);
         
         let result;
         if (method === 'run') {
-            db.run(sql, params);
-            result = { changes: db.changes() };
+            target.run(sql, params);
+            result = { changes: target.changes() };
         } else if (method === 'get') {
-            result = db.selectObject(sql, params);
+            result = target.selectObject(sql, params);
         } else {
-            result = db.selectObjects(sql, params);
+            result = target.selectObjects(sql, params);
         }
 
         source.postMessage({
           id,
-          type: 'DB_QUERY_RESPONSE',
+          type: EventType.DB_QUERY_RESPONSE,
           payload: result,
           timestamp: Date.now()
         });
         break;
+      }
 
-      case 'DB_EXEC_SCRIPT':
-        db.exec(payload.sql);
+      case EventType.DB_EXEC_SCRIPT:
+        if (!dbs) throw new Error('Database not initialized');
+        dbs.m.exec(payload.sql); // Default to m.db for scripts
         source.postMessage({
           id,
-          type: 'DB_QUERY_RESPONSE',
+          type: EventType.DB_QUERY_RESPONSE,
           payload: { success: true },
           timestamp: Date.now()
         });
         break;
       
-      case 'LOG':
+      case EventType.LOG:
           log('Log received:', payload);
           break;
 
       default:
-        log('Unknown message type:', type);
+        // specific event types might be handled elsewhere or ignored
+        // log('Unknown message type:', type);
+        break;
     }
   } catch (err: any) {
     error('Query failed:', err.message);
     source.postMessage({
       id,
-      type: 'DB_ERROR',
+      type: EventType.DB_ERROR,
       payload: err.message,
       timestamp: Date.now()
     });
