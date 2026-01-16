@@ -1,6 +1,6 @@
 # Story 2.2: Automated Track Analysis (BPM/Key/Grid)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -310,6 +310,26 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
   - Created analysis service for database persistence
   - Added analysis store for state management
   - Updated TrackList UI with Analyze button and progress indicators
+
+- 2026-01-16: Code Review Fixes (Claude Opus 4.5)
+  - **Issue 1 (HIGH):** Documented main-thread deviation from Split-Brain pattern
+    - Analysis runs on main thread due to implementation constraints
+    - Added architecture notes in track-analyzer.ts and analysis.store.ts
+    - TODO: Move to dedicated AnalysisWorker in future story
+  - **Issue 2 (HIGH):** Documented unused event types in messaging.ts
+    - TRACK_ANALYSIS_* events reserved for future worker integration
+  - **Issue 3 (HIGH):** Added defensive error handling in analysis.service.ts
+    - Better error messages and logging for DB failures
+  - **Issue 4 (MEDIUM):** Fixed WASM memory cleanup on init failure
+    - Properly nulls references on partial initialization failure
+  - **Issue 5 (MEDIUM):** Improved cancellation handling in analysis.store.ts
+    - Tracks cancelled state; discards results if cancelled during analysis
+    - Note: Cannot abort in-progress WASM, but marks for discard
+  - **Issue 6 (MEDIUM):** Fixed race condition in queue processing
+    - Added centralized _processQueue() method
+    - Added currentTrackId tracking to prevent concurrent analysis
+  - **Issue 7 (MEDIUM):** Fixed BPM display to show integer
+    - Changed from toFixed(1) to Math.round() in TrackList.tsx
 
 ### File List
 

@@ -2,7 +2,10 @@
  * Analysis Store - Zustand state management for track analysis
  *
  * Manages track analysis state including progress, queue, and results.
- * Designed for main thread only - analysis runs in the main thread with essentia.js WASM.
+ *
+ * ARCHITECTURE NOTE (2026-01-16 Code Review):
+ * Analysis currently runs on main thread. This is a known deviation from
+ * the Split-Brain pattern. See track-analyzer.ts for details.
  */
 
 import { create } from 'zustand';
@@ -40,6 +43,8 @@ export interface AnalysisState {
   queue: number[];
   /** Whether the analyzer is currently processing */
   isProcessing: boolean;
+  /** ID of the track currently being analyzed */
+  currentTrackId: number | null;
   /** Whether essentia WASM is ready */
   isReady: boolean;
 
@@ -50,6 +55,8 @@ export interface AnalysisState {
   cancelAnalysis: (trackId: number) => void;
   cancelAllAnalysis: () => void;
   clearAnalysisState: (trackId: number) => void;
+  /** Internal: process next item in queue */
+  _processQueue: () => void;
 }
 
 /**
@@ -59,6 +66,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   tracks: {},
   queue: [],
   isProcessing: false,
+  currentTrackId: null,
   isReady: false,
 
   /**
@@ -85,6 +93,14 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       return;
     }
 
+    // Check if another track is being analyzed - add to queue instead
+    if (state.isProcessing && state.currentTrackId !== trackId) {
+      if (!state.queue.includes(trackId)) {
+        set((s) => ({ queue: [...s.queue, trackId] }));
+      }
+      return;
+    }
+
     // Initialize track state
     set((s) => ({
       tracks: {
@@ -100,6 +116,7 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         },
       },
       isProcessing: true,
+      currentTrackId: trackId,
     }));
 
     try {
@@ -109,22 +126,38 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         set({ isReady: true });
       }
 
+      // Check if cancelled before starting heavy work
+      if (get().tracks[trackId]?.status !== 'analyzing') {
+        get()._processQueue();
+        return;
+      }
+
       // Progress callback
       const onProgress = (progress: TrackAnalysisProgress) => {
-        set((s) => ({
-          tracks: {
-            ...s.tracks,
-            [trackId]: {
-              ...s.tracks[trackId],
-              progress: progress.progress,
-              stage: progress.stage,
+        // Check if still analyzing (not cancelled)
+        const currentState = get().tracks[trackId];
+        if (currentState?.status === 'analyzing') {
+          set((s) => ({
+            tracks: {
+              ...s.tracks,
+              [trackId]: {
+                ...s.tracks[trackId],
+                progress: progress.progress,
+                stage: progress.stage,
+              },
             },
-          },
-        }));
+          }));
+        }
       };
 
       // Run analysis
       const result = await analyzeTrackFromLibrary(trackId, onProgress);
+
+      // Check if cancelled during analysis
+      if (get().tracks[trackId]?.status !== 'analyzing') {
+        get()._processQueue();
+        return;
+      }
 
       if (result) {
         // Update with results
@@ -156,31 +189,25 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
         }));
       }
     } catch (error) {
-      // Handle error
-      const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
-      set((s) => ({
-        tracks: {
-          ...s.tracks,
-          [trackId]: {
-            ...s.tracks[trackId],
-            status: 'error',
-            error: errorMessage,
-            stage: null,
+      // Handle error (only if not cancelled)
+      if (get().tracks[trackId]?.status === 'analyzing') {
+        const errorMessage = error instanceof Error ? error.message : 'Analysis failed';
+        set((s) => ({
+          tracks: {
+            ...s.tracks,
+            [trackId]: {
+              ...s.tracks[trackId],
+              status: 'error',
+              error: errorMessage,
+              stage: null,
+            },
           },
-        },
-      }));
+        }));
+      }
     }
 
-    // Process next in queue
-    const nextQueue = get().queue.filter((id) => id !== trackId);
-    set({ queue: nextQueue });
-
-    if (nextQueue.length > 0) {
-      // Continue with next track
-      get().analyzeTrack(nextQueue[0]);
-    } else {
-      set({ isProcessing: false });
-    }
+    // Always process next in queue
+    get()._processQueue();
   },
 
   /**
@@ -201,16 +228,21 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       queue: [...s.queue, ...newTracks],
     }));
 
-    // Start processing if not already
-    if (!state.isProcessing && newTracks.length > 0) {
-      get().analyzeTrack(newTracks[0]);
+    // Start processing if not already (uses _processQueue to avoid race)
+    if (!state.isProcessing) {
+      get()._processQueue();
     }
   },
 
   /**
    * Cancel analysis for a specific track
+   * Note: Cannot abort in-progress WASM analysis, but marks as cancelled
+   * so results are discarded when analysis completes.
    */
   cancelAnalysis: (trackId: number) => {
+    const state = get();
+    const isCurrentTrack = state.currentTrackId === trackId;
+
     set((s) => ({
       queue: s.queue.filter((id) => id !== trackId),
       tracks: {
@@ -220,9 +252,18 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
           status: 'idle',
           progress: 0,
           stage: null,
+          error: isCurrentTrack ? 'Cancelled' : null,
         },
       },
+      // Clear current if cancelling current track
+      currentTrackId: isCurrentTrack ? null : s.currentTrackId,
     }));
+
+    // If we cancelled the current track, process next in queue
+    if (isCurrentTrack) {
+      // Use setTimeout to avoid potential recursion issues
+      setTimeout(() => get()._processQueue(), 0);
+    }
   },
 
   /**
@@ -258,6 +299,37 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
       const { [trackId]: _, ...rest } = s.tracks;
       return { tracks: rest };
     });
+  },
+
+  /**
+   * Internal: Process the next track in the queue
+   * Centralized queue processing to avoid race conditions.
+   */
+  _processQueue: () => {
+    const state = get();
+
+    // Remove current track from queue if present
+    const filteredQueue = state.queue.filter((id) => id !== state.currentTrackId);
+    if (filteredQueue.length !== state.queue.length) {
+      set({ queue: filteredQueue });
+    }
+
+    // If nothing in queue, mark as not processing
+    if (filteredQueue.length === 0) {
+      set({ isProcessing: false, currentTrackId: null });
+      return;
+    }
+
+    // Process next track
+    const nextTrackId = filteredQueue[0];
+    set({
+      queue: filteredQueue.slice(1),
+      currentTrackId: null, // Will be set by analyzeTrack
+      isProcessing: false, // Will be set by analyzeTrack
+    });
+
+    // Start next analysis
+    get().analyzeTrack(nextTrackId);
   },
 }));
 

@@ -26,6 +26,9 @@ export const EventType = {
   AUDIO_WAVEFORM_PROGRESS: 'AUDIO_WAVEFORM_PROGRESS',
 
   // Track Analysis Events (BPM/Key/Beatgrid)
+  // NOTE (2026-01-16): These event types are defined for future worker-based
+  // analysis. Currently analysis runs on main thread (see track-analyzer.ts).
+  // TODO: Use these when moving analysis to dedicated AnalysisWorker.
   TRACK_ANALYSIS_REQUEST: 'TRACK_ANALYSIS_REQUEST',
   TRACK_ANALYSIS_PROGRESS: 'TRACK_ANALYSIS_PROGRESS',
   TRACK_ANALYSIS_COMPLETE: 'TRACK_ANALYSIS_COMPLETE',

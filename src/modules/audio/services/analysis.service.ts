@@ -51,6 +51,7 @@ export class AnalysisService {
    * @param bpm - Detected BPM (integer)
    * @param key - Detected key in Camelot notation (e.g., "8A")
    * @param beatgridData - Serialized beatgrid data
+   * @throws Error if database operations fail
    */
   async storeAnalysisResults(
     trackId: number,
@@ -58,38 +59,48 @@ export class AnalysisService {
     key: string,
     beatgridData: Uint8Array
   ): Promise<void> {
-    // Update Track table with BPM and Key
-    await kernel.send(EventType.DB_QUERY_REQUEST, {
-      sql: `UPDATE Track SET bpm = ?, key = ?, isAnalyzed = 1 WHERE id = ?`,
-      params: [bpm, key, trackId],
-      method: 'run',
-      targetDb: this.DB,
-    });
-
-    // Check if beatgrid already exists
-    const existingBeatgrid = await kernel.send(EventType.DB_QUERY_REQUEST, {
-      sql: `SELECT id FROM PerformanceData WHERE trackId = ? AND type = ?`,
-      params: [trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
-      method: 'get',
-      targetDb: this.DB,
-    });
-
-    if (existingBeatgrid) {
-      // Update existing beatgrid
+    try {
+      // Update Track table with BPM and Key
       await kernel.send(EventType.DB_QUERY_REQUEST, {
-        sql: `UPDATE PerformanceData SET data = ? WHERE trackId = ? AND type = ?`,
-        params: [beatgridData, trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
+        sql: `UPDATE Track SET bpm = ?, key = ?, isAnalyzed = 1 WHERE id = ?`,
+        params: [bpm, key, trackId],
         method: 'run',
         targetDb: this.DB,
       });
-    } else {
-      // Insert new beatgrid
-      await kernel.send(EventType.DB_QUERY_REQUEST, {
-        sql: `INSERT INTO PerformanceData (trackId, type, position, data) VALUES (?, ?, 0, ?)`,
-        params: [trackId, PERFORMANCE_DATA_TYPE.BEATGRID, beatgridData],
-        method: 'run',
+    } catch (error) {
+      console.error(`[AnalysisService] Failed to update Track ${trackId}:`, error);
+      throw new Error(`Failed to store analysis results for track ${trackId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    try {
+      // Check if beatgrid already exists
+      const existingBeatgrid = await kernel.send(EventType.DB_QUERY_REQUEST, {
+        sql: `SELECT id FROM PerformanceData WHERE trackId = ? AND type = ?`,
+        params: [trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
+        method: 'get',
         targetDb: this.DB,
       });
+
+      if (existingBeatgrid) {
+        // Update existing beatgrid
+        await kernel.send(EventType.DB_QUERY_REQUEST, {
+          sql: `UPDATE PerformanceData SET data = ? WHERE trackId = ? AND type = ?`,
+          params: [beatgridData, trackId, PERFORMANCE_DATA_TYPE.BEATGRID],
+          method: 'run',
+          targetDb: this.DB,
+        });
+      } else {
+        // Insert new beatgrid
+        await kernel.send(EventType.DB_QUERY_REQUEST, {
+          sql: `INSERT INTO PerformanceData (trackId, type, position, data) VALUES (?, ?, 0, ?)`,
+          params: [trackId, PERFORMANCE_DATA_TYPE.BEATGRID, beatgridData],
+          method: 'run',
+          targetDb: this.DB,
+        });
+      }
+    } catch (error) {
+      console.error(`[AnalysisService] Failed to store beatgrid for track ${trackId}:`, error);
+      throw new Error(`Failed to store beatgrid for track ${trackId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

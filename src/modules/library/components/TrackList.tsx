@@ -63,7 +63,7 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
                 {isAnalyzing ? (
                     <AnalysisProgressInline trackId={track.id} compact />
                 ) : (
-                    (track.bpm || 0).toFixed(1)
+                    Math.round(track.bpm || 0) || '-'
                 )}
             </div>
             <div className="w-20 px-2 text-xs font-mono text-center text-[#4DFA90]/80">
