@@ -39,11 +39,11 @@ So that I can ensure 100% accurate sync for tracks with complex transients.
   - [x] Add visual indicator for "SLIP" mode active state
   - [x] Handle Shift key release to cancel slip without saving
 
-- [ ] **Task 3: Transient Detection for Snap** (AC: 2)
-  - [ ] Implement peak detection algorithm on waveform data
-  - [ ] Create `findNearestTransient(samplePosition, threshold)` utility
-  - [ ] Store transient positions for quick lookup during drag
-  - [ ] Configure snap threshold (default 10ms = ~441 samples at 44.1kHz)
+- [x] **Task 3: Transient Detection for Snap** (AC: 2)
+  - [x] Implement peak detection algorithm on waveform data
+  - [x] Create `findNearestTransient(samplePosition, threshold)` utility
+  - [x] Store transient positions for quick lookup during drag
+  - [x] Configure snap threshold (default 10ms = ~441 samples at 44.1kHz)
 
 - [ ] **Task 4: Magnetic Snap Feedback** (AC: 2)
   - [ ] Detect when dragged position aligns with a grid marker (within threshold)
@@ -275,15 +275,23 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 - **Task 1 (2026-01-16):** Implemented BeatgridOverlay component with `getVisibleBeats()` utility function for calculating beat positions within view range. Added beatgrid data to audio store (DeckState interface). Updated WaveformDetail to render beatgrid overlay. Modified deck-loader.service to load beatgrid from database when track is loaded. Added 11 unit tests for beat visibility and position calculations, all passing.
 
+- **Task 2 (2026-01-16):** Implemented slip mode interaction with Shift+Drag detection. Added SlipModeState interface and actions to audio store (startSlipMode, updateSlipOffset, cancelSlipMode, commitSlipMode). Updated WaveformDetail with slip mode event handlers, samples-per-pixel conversion for offset calculation, and SLIP mode indicator. Added Shift key release detection to cancel slip. Wired slip callbacks in DeckUI to connect to store.
+
+- **Task 3 (2026-01-16):** Implemented TransientDetector utility with peak detection algorithm. Created `detectTransients()` function that analyzes waveform peaks for local maxima above threshold. Created `findNearestTransient()` with O(log n) binary search lookup. Added TransientDetector class for cached transient analysis with configurable snap threshold (default 10ms = 441 samples). Added 22 unit tests, all passing.
+
 ### Change Log
 
 - 2026-01-16: Task 1 - Beatgrid Rendering on Waveform completed
+- 2026-01-16: Task 2 - Slip Mode Interaction completed
+- 2026-01-16: Task 3 - Transient Detection for Snap completed
 
 ### File List
 
 **Created:**
 - src/modules/audio/components/BeatgridOverlay.tsx
 - src/modules/audio/components/BeatgridOverlay.test.ts
+- src/modules/audio/utils/transient-detector.ts
+- src/modules/audio/utils/transient-detector.test.ts
 
 **Modified:**
 - src/modules/audio/components/WaveformDetail.tsx
