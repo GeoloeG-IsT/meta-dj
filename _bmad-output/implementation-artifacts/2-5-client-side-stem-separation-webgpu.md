@@ -43,13 +43,13 @@ So that I can create live remixes and mashups without specialized source files.
   - [x] Handle initialization errors gracefully with user feedback
   - [x] Register worker with kernel message bus (new EventTypes: STEMS_*)
 
-- [ ] **Task 3: Demucs Model Integration** (AC: 3)
-  - [ ] Research and select ONNX-compatible Demucs model (htdemucs_ft recommended)
-  - [ ] Create model download/caching mechanism (store in OPFS or IndexedDB)
-  - [ ] Implement audio preprocessing: convert AudioBuffer to model input tensor format
-  - [ ] Implement inference pipeline with chunked processing for long tracks
-  - [ ] Implement output post-processing: convert model output to 4 separate AudioBuffers
-  - [ ] Add progress reporting during inference (per-chunk updates)
+- [x] **Task 3: Demucs Model Integration** (AC: 3)
+  - [x] Research and select ONNX-compatible Demucs model (htdemucs_ft recommended)
+  - [x] Create model download/caching mechanism (store in OPFS or IndexedDB)
+  - [x] Implement audio preprocessing: convert AudioBuffer to model input tensor format
+  - [x] Implement inference pipeline with chunked processing for long tracks
+  - [x] Implement output post-processing: convert model output to 4 separate AudioBuffers
+  - [x] Add progress reporting during inference (per-chunk updates)
 
 - [ ] **Task 4: Stem Storage & Caching** (AC: 4)
   - [ ] Create `src/modules/audio/services/stems-cache.service.ts` for stem persistence

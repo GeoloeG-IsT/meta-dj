@@ -156,6 +156,11 @@ async function initializeONNX(): Promise<boolean> {
 // Stem Separation Logic
 // ============================================================
 
+// Chunk size in samples (10 seconds at 44.1kHz)
+// Demucs typically processes in chunks to manage memory
+const CHUNK_SIZE = 44100 * 10;
+const CHUNK_OVERLAP = 44100; // 1 second overlap for smooth transitions
+
 async function analyzeStems(request: StemAnalyzeRequest): Promise<void> {
   const { trackId, audioData, sampleRate, channels } = request;
 
@@ -182,35 +187,85 @@ async function analyzeStems(request: StemAnalyzeRequest): Promise<void> {
     }
 
     // Stage 2: Preprocess audio
-    reportProgress(trackId, 20, 'preprocessing');
+    reportProgress(trackId, 15, 'preprocessing');
 
     const audioFloat32 = new Float32Array(audioData);
     const numSamples = audioFloat32.length / channels;
 
-    log(`Processing ${numSamples} samples at ${sampleRate}Hz`);
+    log(`Processing ${numSamples} samples at ${sampleRate}Hz (${(numSamples / sampleRate).toFixed(1)}s)`);
 
-    // Convert to model input format
-    // Demucs expects [batch, channels, samples] tensor
-    // For simplicity in this implementation, we'll process mono/stereo
-    const inputTensor = preprocessAudio(audioFloat32, channels, numSamples);
+    // Convert interleaved to planar stereo
+    const stereoData = convertToStereo(audioFloat32, channels, numSamples);
 
     if (currentAnalysis?.cancelled) {
       reportError(trackId, 'CANCELLED', 'Analysis cancelled by user');
       return;
     }
 
-    // Stage 3: Run inference
-    reportProgress(trackId, 40, 'inference');
+    // Stage 3: Run chunked inference
+    reportProgress(trackId, 20, 'inference');
 
     if (!session) {
       reportError(trackId, 'MODEL_LOAD_FAILED', 'Model session not available');
       return;
     }
 
-    // Run the model
-    // Note: Actual model I/O depends on the specific ONNX model structure
-    const feeds = { audio: inputTensor };
-    const results = await session.run(feeds);
+    // Calculate chunks
+    const adjustedChunkSize = Math.round(CHUNK_SIZE * (sampleRate / 44100));
+    const adjustedOverlap = Math.round(CHUNK_OVERLAP * (sampleRate / 44100));
+    const numChunks = Math.ceil(numSamples / (adjustedChunkSize - adjustedOverlap));
+
+    log(`Processing ${numChunks} chunks (${adjustedChunkSize} samples each)`);
+
+    // Initialize output buffers
+    const outputStems = {
+      vocals: new Float32Array(numSamples),
+      drums: new Float32Array(numSamples),
+      bass: new Float32Array(numSamples),
+      other: new Float32Array(numSamples),
+    };
+
+    // Process each chunk
+    for (let chunkIdx = 0; chunkIdx < numChunks; chunkIdx++) {
+      if (currentAnalysis?.cancelled) {
+        reportError(trackId, 'CANCELLED', 'Analysis cancelled by user');
+        return;
+      }
+
+      const startSample = chunkIdx * (adjustedChunkSize - adjustedOverlap);
+      const endSample = Math.min(startSample + adjustedChunkSize, numSamples);
+      const chunkLength = endSample - startSample;
+
+      // Extract chunk (2 channels)
+      const chunkData = new Float32Array(chunkLength * 2);
+      for (let i = 0; i < chunkLength; i++) {
+        chunkData[i] = stereoData[startSample + i]; // Left
+        chunkData[chunkLength + i] = stereoData[numSamples + startSample + i]; // Right
+      }
+
+      // Create input tensor [1, 2, chunkLength]
+      const inputTensor = new ort.Tensor('float32', chunkData, [1, 2, chunkLength]);
+
+      // Run model on chunk
+      const feeds = { audio: inputTensor };
+      const results = await session.run(feeds);
+
+      // Extract chunk outputs and blend into output buffers
+      blendChunkOutputs(
+        results,
+        outputStems,
+        startSample,
+        chunkLength,
+        numSamples,
+        chunkIdx === 0,
+        chunkIdx === numChunks - 1,
+        adjustedOverlap
+      );
+
+      // Report progress (20-80% range for inference)
+      const chunkProgress = 20 + Math.round(60 * (chunkIdx + 1) / numChunks);
+      reportProgress(trackId, chunkProgress, 'inference');
+    }
 
     if (currentAnalysis?.cancelled) {
       reportError(trackId, 'CANCELLED', 'Analysis cancelled by user');
@@ -218,11 +273,15 @@ async function analyzeStems(request: StemAnalyzeRequest): Promise<void> {
     }
 
     // Stage 4: Post-process outputs
-    reportProgress(trackId, 80, 'postprocessing');
+    reportProgress(trackId, 85, 'postprocessing');
 
-    // Extract stem outputs from model results
-    // The exact output names depend on the model
-    const stemOutputs = postprocessStems(results, numSamples, sampleRate);
+    // Convert Float32Arrays to transferable ArrayBuffers
+    const stemOutputs = {
+      vocals: outputStems.vocals.buffer.slice(0) as ArrayBuffer,
+      drums: outputStems.drums.buffer.slice(0) as ArrayBuffer,
+      bass: outputStems.bass.buffer.slice(0) as ArrayBuffer,
+      other: outputStems.other.buffer.slice(0) as ArrayBuffer,
+    };
 
     reportProgress(trackId, 100, 'postprocessing');
 
@@ -270,92 +329,94 @@ async function analyzeStems(request: StemAnalyzeRequest): Promise<void> {
 }
 
 /**
- * Preprocess audio for model input.
- * Converts raw audio to ONNX tensor format.
+ * Convert interleaved audio to planar stereo format.
  */
-function preprocessAudio(
+function convertToStereo(
   audioData: Float32Array,
   channels: number,
   numSamples: number
-): ort.Tensor {
-  // Create tensor with shape [1, channels, samples] for batch processing
-  // If mono, duplicate to stereo for model compatibility
-  const targetChannels = 2;
-  const tensorData = new Float32Array(targetChannels * numSamples);
+): Float32Array {
+  // Output: [left channel samples][right channel samples]
+  const stereoData = new Float32Array(numSamples * 2);
 
   if (channels === 1) {
-    // Mono to stereo
+    // Mono to stereo (duplicate)
     for (let i = 0; i < numSamples; i++) {
-      tensorData[i] = audioData[i];
-      tensorData[numSamples + i] = audioData[i];
+      stereoData[i] = audioData[i];
+      stereoData[numSamples + i] = audioData[i];
     }
   } else if (channels === 2) {
-    // Interleaved stereo to planar
+    // Interleaved to planar
     for (let i = 0; i < numSamples; i++) {
-      tensorData[i] = audioData[i * 2];           // Left channel
-      tensorData[numSamples + i] = audioData[i * 2 + 1]; // Right channel
+      stereoData[i] = audioData[i * 2];
+      stereoData[numSamples + i] = audioData[i * 2 + 1];
     }
   } else {
-    // Take first two channels
+    // Multi-channel: take first two channels
     for (let i = 0; i < numSamples; i++) {
-      tensorData[i] = audioData[i * channels];
-      tensorData[numSamples + i] = audioData[i * channels + 1];
+      stereoData[i] = audioData[i * channels];
+      stereoData[numSamples + i] = audioData[i * channels + 1];
     }
   }
 
-  return new ort.Tensor('float32', tensorData, [1, targetChannels, numSamples]);
+  return stereoData;
 }
 
 /**
- * Post-process model outputs into stem ArrayBuffers.
- * Converts model output tensors to transferable buffers.
+ * Blend chunk outputs into the final output buffers with crossfade.
  */
-function postprocessStems(
+function blendChunkOutputs(
   results: ort.InferenceSession.OnnxValueMapType,
-  _numSamples: number,
-  _sampleRate: number
-): {
-  vocals: ArrayBuffer;
-  drums: ArrayBuffer;
-  bass: ArrayBuffer;
-  other: ArrayBuffer;
-} {
-  // Extract tensors from results
-  // Output names depend on model - typically 'vocals', 'drums', 'bass', 'other'
-  // or a single output with shape [batch, stems, channels, samples]
-
-  // For demonstration, extract from model outputs
-  // Real implementation depends on actual model structure
-  const getBufferFromTensor = (tensorName: string): ArrayBuffer => {
-    const tensor = results[tensorName];
-    if (tensor && tensor.data instanceof Float32Array) {
-      return tensor.data.buffer.slice(0);
-    }
-    // Return empty buffer if tensor not found (shouldn't happen with valid model)
-    return new Float32Array(0).buffer;
-  };
-
-  // Try both naming conventions
+  outputStems: Record<string, Float32Array>,
+  startSample: number,
+  chunkLength: number,
+  _totalSamples: number,
+  isFirstChunk: boolean,
+  isLastChunk: boolean,
+  overlapSize: number
+): void {
   const stemNames = ['vocals', 'drums', 'bass', 'other'];
-  const buffers: Record<string, ArrayBuffer> = {};
 
-  for (const name of stemNames) {
-    // Try direct name first
-    if (results[name]) {
-      buffers[name] = getBufferFromTensor(name);
-    } else {
-      // Placeholder - create empty buffer
-      buffers[name] = new Float32Array(0).buffer;
+  for (const stemName of stemNames) {
+    const tensor = results[stemName];
+    if (!tensor || !(tensor.data instanceof Float32Array)) {
+      // If stem not found, leave as zeros
+      continue;
+    }
+
+    const stemData = tensor.data as Float32Array;
+    const output = outputStems[stemName];
+
+    // Apply crossfade blending in overlap regions
+    for (let i = 0; i < chunkLength; i++) {
+      const outIdx = startSample + i;
+      if (outIdx >= output.length) break;
+
+      // Determine blend factor for crossfade
+      let blendFactor = 1.0;
+
+      if (!isFirstChunk && i < overlapSize) {
+        // Fade in at the beginning (except first chunk)
+        blendFactor = i / overlapSize;
+      }
+
+      if (!isLastChunk && i >= chunkLength - overlapSize) {
+        // Fade out at the end (except last chunk)
+        const fadePos = i - (chunkLength - overlapSize);
+        blendFactor = 1.0 - fadePos / overlapSize;
+      }
+
+      // Blend: add weighted sample to existing value
+      if (!isFirstChunk && i < overlapSize) {
+        // In overlap region, blend with previous chunk
+        output[outIdx] = output[outIdx] * (1 - blendFactor) + stemData[i] * blendFactor;
+      } else {
+        output[outIdx] = stemData[i] * blendFactor;
+      }
     }
   }
-
-  return {
-    vocals: buffers.vocals,
-    drums: buffers.drums,
-    bass: buffers.bass,
-    other: buffers.other,
-  };
 }
+
 
 // ============================================================
 // Message Handler
