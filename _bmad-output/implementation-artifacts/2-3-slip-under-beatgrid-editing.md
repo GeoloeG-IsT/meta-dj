@@ -58,18 +58,18 @@ So that I can ensure 100% accurate sync for tracks with complex transients.
   - [x] Call `analysisService.updateBeatgridOffset()` to persist
   - [x] Update local store state immediately (optimistic update)
 
-- [ ] **Task 6: Toast Notification System** (AC: 5)
-  - [ ] Create `Toast.tsx` component (non-blocking notification)
-  - [ ] Create `toast.store.ts` Zustand store for managing toast queue
-  - [ ] Style toast with "Saved" green confirmation variant
-  - [ ] Auto-dismiss after 2 seconds
-  - [ ] Position in footer area per UX spec
+- [x] **Task 6: Toast Notification System** (AC: 5)
+  - [x] Create `Toast.tsx` component (non-blocking notification)
+  - [x] Create `toast.store.ts` Zustand store for managing toast queue
+  - [x] Style toast with "Saved" green confirmation variant
+  - [x] Auto-dismiss after 2 seconds
+  - [x] Position in footer area per UX spec
 
-- [ ] **Task 7: Keyboard Nudge Support** (AC: 6)
-  - [ ] Listen for `Shift + Left/Right` arrow keys when waveform is focused
-  - [ ] Nudge beatgrid by 1ms (±44 samples at 44.1kHz) per keypress
-  - [ ] Debounce database writes during rapid key presses
-  - [ ] Show "Saved" toast after debounce period ends
+- [x] **Task 7: Keyboard Nudge Support** (AC: 6)
+  - [x] Listen for `Shift + Left/Right` arrow keys when waveform is focused
+  - [x] Nudge beatgrid by 1ms (±44 samples at 44.1kHz) per keypress
+  - [x] Debounce database writes during rapid key presses
+  - [x] Show "Saved" toast after debounce period ends
 
 - [ ] **Task 8: Integration & Testing** (AC: all)
   - [ ] Add unit tests for offset calculation and serialization

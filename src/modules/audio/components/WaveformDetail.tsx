@@ -55,6 +55,8 @@ export interface WaveformDetailProps {
   snappedBeatIndex?: number | null;
   /** Callback when snap state changes */
   onSnapChange?: (beatIndex: number | null, isSnapped: boolean) => void;
+  /** Callback for keyboard nudge (Shift+Arrow keys). Offset is sample delta (±44 for 1ms at 44.1kHz) */
+  onKeyboardNudge?: (sampleOffset: number) => void;
 }
 
 /** Calculate view range based on zoom level and center position */
@@ -130,6 +132,7 @@ export function WaveformDetail({
   onSlipCancel,
   snappedBeatIndex = null,
   onSnapChange,
+  onKeyboardNudge,
 }: WaveformDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -278,6 +281,28 @@ export function WaveformDetail({
     setIsDragging(false);
   }, [isSlipDragging, onSlipCommit]);
 
+  // Handle keyboard nudge (Shift+Arrow keys)
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent) => {
+      // Only handle Shift+Arrow for nudge when we have beatgrid data
+      if (!event.shiftKey || !beatgridData || !onKeyboardNudge) return;
+
+      // 1ms nudge = ~44 samples at 44.1kHz
+      const NUDGE_SAMPLES = Math.round(sampleRate / 1000); // 44 samples for 44.1kHz
+
+      if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        // Left arrow = move grid earlier = decrease first beat sample
+        onKeyboardNudge(-NUDGE_SAMPLES);
+      } else if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        // Right arrow = move grid later = increase first beat sample
+        onKeyboardNudge(NUDGE_SAMPLES);
+      }
+    },
+    [beatgridData, sampleRate, onKeyboardNudge]
+  );
+
   // Handle click to seek
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
@@ -319,13 +344,16 @@ export function WaveformDetail({
         borderRadius: '4px',
         overflow: 'hidden',
         cursor: getCursor(),
+        outline: 'none', // Hide focus outline (we have our own visual feedback)
       }}
+      tabIndex={0}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onClick={handleClick}
+      onKeyDown={handleKeyDown}
     >
       {/* Waveform Canvas */}
       <WaveformCanvas

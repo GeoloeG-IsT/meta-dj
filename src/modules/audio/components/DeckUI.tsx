@@ -5,12 +5,13 @@
  * Supports loading tracks and real-time playhead updates.
  */
 
-import { useCallback, useState, useRef } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { WaveformOverview } from './WaveformOverview';
 import { WaveformDetail } from './WaveformDetail';
 import { useAudioStore, selectDeck, selectColorMode } from '../store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '../services/deck-loader.service';
 import { analysisService } from '../services/analysis.service';
+import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '../types';
 
 export interface DeckUIProps {
@@ -53,6 +54,11 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
 
   // Local playhead for demo (will be replaced by SAB sync in real implementation)
   const [playheadPosition, setPlayheadPosition] = useState(0);
+
+  // Accumulator and debounce timer for keyboard nudge
+  const nudgeAccumulatorRef = useRef(0);
+  const nudgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const NUDGE_DEBOUNCE_MS = 300;
 
   const handleSeek = useCallback(
     (normalizedPosition: number) => {
@@ -113,9 +119,10 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     try {
       await analysisService.updateBeatgridOffset(currentDeck.trackId, newBeatgrid);
       console.log(`[DeckUI] Beatgrid saved for track ${currentDeck.trackId}`);
+      toast.success('Beatgrid saved');
     } catch (error) {
       console.error('[DeckUI] Failed to save beatgrid:', error);
-      // TODO: Show error toast and potentially revert optimistic update
+      toast.error('Failed to save beatgrid');
     }
   }, [deckId, commitSlipMode]);
 
@@ -125,6 +132,63 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     },
     [deckId, setSnappedBeat]
   );
+
+  // Keyboard nudge handler with debounced persistence
+  const handleKeyboardNudge = useCallback(
+    (sampleOffset: number) => {
+      const state = useAudioStore.getState();
+      const currentDeck = state.decks[deckId];
+
+      if (!currentDeck.beatgridData || !currentDeck.trackId) return;
+
+      // Accumulate the nudge
+      nudgeAccumulatorRef.current += sampleOffset;
+
+      // Apply accumulated offset to UI immediately (optimistic update)
+      const accumulatedOffset = nudgeAccumulatorRef.current;
+      const updatedBeatgrid = {
+        ...currentDeck.beatgridData,
+        firstBeatSample: currentDeck.beatgridData.firstBeatSample + sampleOffset,
+        anchors: currentDeck.beatgridData.anchors.map((a) => a + sampleOffset),
+      };
+      useAudioStore.getState().setBeatgridData(deckId, updatedBeatgrid);
+
+      // Clear existing timeout
+      if (nudgeTimeoutRef.current) {
+        clearTimeout(nudgeTimeoutRef.current);
+      }
+
+      // Debounce database write
+      nudgeTimeoutRef.current = setTimeout(async () => {
+        const finalState = useAudioStore.getState();
+        const finalDeck = finalState.decks[deckId];
+
+        if (!finalDeck.beatgridData || !finalDeck.trackId) return;
+
+        try {
+          await analysisService.updateBeatgridOffset(finalDeck.trackId, finalDeck.beatgridData);
+          console.log(`[DeckUI] Beatgrid nudge saved (${accumulatedOffset} samples)`);
+          toast.success('Beatgrid saved');
+        } catch (error) {
+          console.error('[DeckUI] Failed to save beatgrid nudge:', error);
+          toast.error('Failed to save beatgrid');
+        }
+
+        // Reset accumulator
+        nudgeAccumulatorRef.current = 0;
+      }, NUDGE_DEBOUNCE_MS);
+    },
+    [deckId]
+  );
+
+  // Cleanup nudge timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (nudgeTimeoutRef.current) {
+        clearTimeout(nudgeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const cycleColorMode = useCallback(() => {
     const currentIndex = COLOR_MODES.indexOf(colorMode);
@@ -251,6 +315,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           onSlipCancel={handleSlipCancel}
           snappedBeatIndex={deck.slipMode.snappedBeatIndex}
           onSnapChange={handleSnapChange}
+          onKeyboardNudge={handleKeyboardNudge}
         />
       </div>
     </div>

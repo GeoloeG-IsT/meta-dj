@@ -3,6 +3,7 @@ import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
 import { LibraryView } from './modules/library/LibraryView';
 import { ModalProvider } from './shared/components/modals/ModalProvider';
+import { ToastContainer } from './shared/components/Toast';
 import { DeckUI } from './modules/audio';
 
 function App() {
@@ -73,6 +74,7 @@ function App() {
   return (
     <div className="min-h-screen bg-[#000000] text-[#4DFA90] font-sans p-8 flex flex-col gap-8">
       <ModalProvider />
+      <ToastContainer />
       <header className="border-b border-[#4DFA90]/20 pb-4">
         <h1 className="text-4xl font-bold tracking-tighter uppercase">Meta-DJ Kernel</h1>
         <p className="text-[#4DFA90]/60 text-sm">Split-Brain Architecture Foundation</p>
