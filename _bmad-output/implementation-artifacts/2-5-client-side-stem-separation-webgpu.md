@@ -59,8 +59,8 @@ So that I can create live remixes and mashups without specialized source files.
   - [x] Add cache invalidation when track file changes
   - [x] Add "Clear Stems" action in track context menu
 
-- [ ] **Task 5: Stem State Management** (AC: 5, 6)
-  - [ ] Add stem state to `DeckState` in `audio.store.ts`:
+- [x] **Task 5: Stem State Management** (AC: 5, 6)
+  - [x] Add stem state to `DeckState` in `audio.store.ts`:
     ```typescript
     stems: {
       available: boolean;
@@ -71,9 +71,9 @@ So that I can create live remixes and mashups without specialized source files.
       solo: { vocals: boolean; drums: boolean; bass: boolean; other: boolean };
     }
     ```
-  - [ ] Add actions: `setStemBuffers`, `toggleStemMute`, `toggleStemSolo`, `setStemProgress`, `clearStems`
-  - [ ] Implement solo logic: when one stem is soloed, others are effectively muted
-  - [ ] Load stem data in `deck-loader.service.ts` if available
+  - [x] Add actions: `setStemBuffers`, `toggleStemMute`, `toggleStemSolo`, `setStemProgress`, `clearStems`
+  - [x] Implement solo logic: when one stem is soloed, others are effectively muted
+  - [x] Load stem data in `deck-loader.service.ts` if available
 
 - [ ] **Task 6: Stem Controls UI Component** (AC: 5, 7)
   - [ ] Create `src/modules/audio/components/StemControls.tsx`

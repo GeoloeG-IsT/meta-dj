@@ -12,6 +12,8 @@ import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
 import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
 import { createEmptyHotCues } from '../types/cue-loop';
+import type { StemState, StemType, StemBuffers, StemAnalysisStage } from '../types/stems';
+import { createInitialStemState } from '../types/stems';
 
 /** Slip mode state for beatgrid editing */
 export interface SlipModeState {
@@ -65,6 +67,8 @@ export interface DeckState {
   loops: LoopData[];
   /** Currently active loop index (-1 if no loop active) */
   activeLoopIndex: number;
+  /** Stem separation state */
+  stems: StemState;
 }
 
 /** Global audio settings */
@@ -119,6 +123,14 @@ export interface AudioState {
   removeLoop: (deckId: DeckId, loopIndex: number) => void;
   setActiveLoop: (deckId: DeckId, loopIndex: number) => void;
 
+  // Actions - Stems
+  setStemBuffers: (deckId: DeckId, buffers: StemBuffers) => void;
+  setStemProgress: (deckId: DeckId, progress: number, stage: StemAnalysisStage | null) => void;
+  setStemAnalyzing: (deckId: DeckId, analyzing: boolean) => void;
+  toggleStemMute: (deckId: DeckId, stemType: StemType) => void;
+  toggleStemSolo: (deckId: DeckId, stemType: StemType) => void;
+  clearStems: (deckId: DeckId) => void;
+
   // Actions - Settings
   setColorMode: (mode: WaveformColorMode) => void;
   setMasterVolume: (volume: number) => void;
@@ -155,6 +167,7 @@ const createInitialDeckState = (): DeckState => ({
   cuePoints: createEmptyHotCues(),
   loops: [],
   activeLoopIndex: -1,
+  stems: createInitialStemState(),
 });
 
 /** Create the audio store */
@@ -544,6 +557,116 @@ export const useAudioStore = create<AudioState>()(
           };
         }),
 
+      // Stem actions
+      setStemBuffers: (deckId, buffers) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              stems: {
+                ...state.decks[deckId].stems,
+                available: true,
+                analyzing: false,
+                progress: 100,
+                stage: null,
+                buffers,
+              },
+            },
+          },
+        })),
+
+      setStemProgress: (deckId, progress, stage) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              stems: {
+                ...state.decks[deckId].stems,
+                progress,
+                stage,
+              },
+            },
+          },
+        })),
+
+      setStemAnalyzing: (deckId, analyzing) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              stems: {
+                ...state.decks[deckId].stems,
+                analyzing,
+                progress: analyzing ? 0 : state.decks[deckId].stems.progress,
+                stage: analyzing ? 'loading_model' : null,
+              },
+            },
+          },
+        })),
+
+      toggleStemMute: (deckId, stemType) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const currentMuted = deck.stems.muted[stemType];
+          // If soloing another stem, toggling mute should clear solo
+          const newSolo = deck.stems.solo === stemType ? null : deck.stems.solo;
+
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                stems: {
+                  ...deck.stems,
+                  muted: {
+                    ...deck.stems.muted,
+                    [stemType]: !currentMuted,
+                  },
+                  solo: newSolo,
+                },
+              },
+            },
+          };
+        }),
+
+      toggleStemSolo: (deckId, stemType) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          // Toggle solo: if same stem, unsolo; if different, solo new one
+          const newSolo = deck.stems.solo === stemType ? null : stemType;
+
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                stems: {
+                  ...deck.stems,
+                  solo: newSolo,
+                  // When soloing, unmute the soloed stem
+                  muted: newSolo
+                    ? { ...deck.stems.muted, [newSolo]: false }
+                    : deck.stems.muted,
+                },
+              },
+            },
+          };
+        }),
+
+      clearStems: (deckId) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              stems: createInitialStemState(),
+            },
+          },
+        })),
+
       // Settings actions
       setColorMode: (mode) =>
         set((state) => ({
@@ -598,3 +721,11 @@ export const selectActiveDeck = (state: AudioState) => state.settings.activeDeck
 export const selectMasterVolume = (state: AudioState) => state.settings.masterVolume;
 export const selectHasWebGPU = (state: AudioState) => state.settings.hasWebGPU;
 export const selectWebGPUUnavailableReason = (state: AudioState) => state.settings.webGPUUnavailableReason;
+
+// Stem selectors
+export const selectDeckStems = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems;
+export const selectStemAvailable = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.available;
+export const selectStemAnalyzing = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.analyzing;
+export const selectStemProgress = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.progress;
+export const selectStemMuted = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.muted;
+export const selectStemSolo = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.solo;
