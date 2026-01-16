@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
 import { LibraryView } from './modules/library/LibraryView';
@@ -6,60 +6,39 @@ import { ModalProvider } from './shared/components/modals/ModalProvider';
 import { ToastContainer } from './shared/components/Toast';
 
 function App() {
-  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
-  const [dbStatus, setDbStatus] = useState<'initializing' | 'ready' | 'error'>('initializing');
-  const [heartbeat, setHeartbeat] = useState<string | null>(null);
-  const [dbInfo, setDbInfo] = useState<string | null>(null);
-  const [logs, setLogs] = useState<string[]>([]);
-
   useEffect(() => {
     const unsubscribe = kernel.addHandler((msg) => {
-      // Log everything for debug
+      // Log worker events for debugging (except high-frequency messages)
       if (msg.type !== EventType.PONG && msg.type !== EventType.DB_QUERY_RESPONSE) {
-        setLogs(prev => [...prev, `[Worker Event] ${msg.type}: ${JSON.stringify(msg.payload || '')}`]);
-      }
-
-      if (msg.type === EventType.LOG) {
-        // already handled above
-        setStatus('connected');
-      }
-      if (msg.type === EventType.DB_READY) {
-        // already handled above
+        console.debug(`[Worker Event] ${msg.type}:`, msg.payload || '');
       }
     });
 
     const init = async () => {
       // 1. Heartbeat test
       try {
+        console.debug('[UI] Testing kernel heartbeat...');
         const response = await kernel.send(EventType.PING, { message: 'Hello from UI' });
-        setHeartbeat(`Heartbeat Success: ${response.message} (Worker started at ${new Date(response.workerStartTime).toLocaleTimeString()})`);
+        console.debug('[UI] Heartbeat Success:', response.message, `(Worker started at ${new Date(response.workerStartTime).toLocaleTimeString()})`);
       } catch (error) {
-        console.error('Heartbeat Failed:', error);
-        setHeartbeat('Heartbeat Failed');
-        setStatus('error');
+        console.error('[UI] Heartbeat Failed:', error);
       }
 
       // 2. Database Initialization
       try {
-        setLogs(prev => [...prev, '[UI] Waiting for Database Worker...']);
+        console.debug('[UI] Waiting for Database Worker...');
         await kernel.waitFor(EventType.DB_READY);
 
-        // Removed: Schema injection (now handled internally by worker)
-
-        setLogs(prev => [...prev, '[UI] Performing DB Health Check...']);
+        console.debug('[UI] Performing DB Health Check...');
         const versionResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
           sql: 'SELECT sqlite_version() as version',
           method: 'get',
           targetDb: 'm'
         });
 
-        setDbInfo(`SQLite Version: ${versionResult.version}`);
-        setDbStatus('ready');
-        setLogs(prev => [...prev, '[UI] Database Health Check PASSED']);
+        console.debug('[UI] Database Health Check PASSED - SQLite Version:', versionResult.version);
       } catch (error: any) {
-        console.error('Database Init Failed:', error);
-        setDbStatus('error');
-        setLogs(prev => [...prev, `[UI] DB ERROR: ${error.message}`]);
+        console.error('[UI] Database Init Failed:', error);
       }
     };
 
