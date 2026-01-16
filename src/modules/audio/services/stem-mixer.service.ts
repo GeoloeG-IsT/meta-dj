@@ -35,6 +35,17 @@ export interface StemMixerState {
 }
 
 /**
+ * Loop boundary configuration for playback looping.
+ * When set, playback will jump from outPoint back to inPoint.
+ */
+export interface LoopBoundary {
+  /** Start position in seconds */
+  inPointSeconds: number;
+  /** End position in seconds */
+  outPointSeconds: number;
+}
+
+/**
  * Stem Mixer - manages real-time stem audio mixing.
  *
  * Usage:
@@ -74,6 +85,11 @@ export class StemMixer {
   private isPlaying = false;
   private startTime = 0;
   private startOffset = 0;
+
+  // Loop state
+  private loopBoundary: LoopBoundary | null = null;
+  private loopCheckInterval: ReturnType<typeof setInterval> | null = null;
+  private static readonly LOOP_CHECK_INTERVAL_MS = 10; // Check every 10ms for responsive looping
 
   constructor(config: StemMixerConfig) {
     this.audioContext = config.audioContext;
@@ -166,6 +182,11 @@ export class StemMixer {
       };
     }
 
+    // Start loop boundary checking if loop is active
+    if (this.loopBoundary) {
+      this.startLoopCheck();
+    }
+
     console.log(`[Stem Mixer] Started playback at ${offsetSeconds}s`);
   }
 
@@ -173,6 +194,9 @@ export class StemMixer {
    * Stop playback.
    */
   stop(): void {
+    // Stop loop boundary checking
+    this.stopLoopCheck();
+
     for (const stemType of STEM_TYPES) {
       const sourceNode = this.sourceNodes.get(stemType);
       if (sourceNode) {
@@ -309,10 +333,83 @@ export class StemMixer {
   }
 
   /**
+   * Set loop boundary for playback looping.
+   * When set, playback will jump from outPoint back to inPoint.
+   *
+   * @param boundary - Loop boundary in seconds, or null to disable looping
+   */
+  setLoop(boundary: LoopBoundary | null): void {
+    this.loopBoundary = boundary;
+
+    if (boundary) {
+      console.log(`[Stem Mixer] Loop set: ${boundary.inPointSeconds.toFixed(2)}s - ${boundary.outPointSeconds.toFixed(2)}s`);
+      // Start loop checking if currently playing
+      if (this.isPlaying) {
+        this.startLoopCheck();
+      }
+    } else {
+      console.log('[Stem Mixer] Loop cleared');
+      this.stopLoopCheck();
+    }
+  }
+
+  /**
+   * Get current loop boundary.
+   */
+  getLoop(): LoopBoundary | null {
+    return this.loopBoundary;
+  }
+
+  /**
+   * Check if a loop is currently active.
+   */
+  hasActiveLoop(): boolean {
+    return this.loopBoundary !== null;
+  }
+
+  /**
+   * Start the loop boundary checking interval.
+   */
+  private startLoopCheck(): void {
+    // Don't start if already running or no loop set
+    if (this.loopCheckInterval || !this.loopBoundary) return;
+
+    this.loopCheckInterval = setInterval(() => {
+      this.checkLoopBoundary();
+    }, StemMixer.LOOP_CHECK_INTERVAL_MS);
+  }
+
+  /**
+   * Stop the loop boundary checking interval.
+   */
+  private stopLoopCheck(): void {
+    if (this.loopCheckInterval) {
+      clearInterval(this.loopCheckInterval);
+      this.loopCheckInterval = null;
+    }
+  }
+
+  /**
+   * Check if current position has crossed loop boundary and seek if needed.
+   */
+  private checkLoopBoundary(): void {
+    if (!this.isPlaying || !this.loopBoundary) return;
+
+    const currentPosition = this.getCurrentPosition();
+
+    // Check if we've passed the out point
+    if (currentPosition >= this.loopBoundary.outPointSeconds) {
+      console.log(`[Stem Mixer] Loop boundary reached at ${currentPosition.toFixed(2)}s, jumping to ${this.loopBoundary.inPointSeconds.toFixed(2)}s`);
+      this.seek(this.loopBoundary.inPointSeconds);
+    }
+  }
+
+  /**
    * Disconnect and clean up.
    */
   dispose(): void {
     this.stop();
+    this.stopLoopCheck();
 
     // Disconnect gain nodes
     for (const stemType of STEM_TYPES) {
@@ -332,6 +429,9 @@ export class StemMixer {
       bass: null,
       other: null,
     };
+
+    // Clear loop state
+    this.loopBoundary = null;
 
     console.log('[Stem Mixer] Disposed');
   }
