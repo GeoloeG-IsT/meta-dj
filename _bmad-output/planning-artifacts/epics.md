@@ -439,3 +439,115 @@ So that I don't have to look at my laptop screen during a performance.
 **Then** the system must construct binary feature reports containing waveform peak data and album art bitmaps (JPEGs)
 **And** it must send these reports via WebHID to the hardware's display endpoint
 **And** the data must update in real-time (at least 20-30fps) to provide smooth visual feedback on the hardware screens.
+
+### Epic 5: Frontend Fixes and Refactor
+
+**Goal:** Streamline the UI by removing debug panels, relocating the waveform display, improving context menu navigation, and completing the loop management system.
+
+**Scope:** UI/UX cleanup, component relocation, bug fixes, and feature completion for loops.
+
+### Story 5.1: Remove Library Ingestion Panel & Add Context Menu Import
+
+As a user,
+I want to import folders via a context menu on "All Tracks" instead of a dedicated panel,
+So that the UI is cleaner and the import action is discoverable where I'm already browsing.
+
+**Acceptance Criteria:**
+
+**Given** the current LibraryView with the ImportControl panel above the track list
+**When** this story is complete
+**Then** the `<ImportControl />` component must be removed from `LibraryView.tsx`
+**And** the PlaylistTree must have a right-click context menu on the "All Tracks" node
+**And** the context menu must include an "Import Folder..." option that triggers the same folder selection logic
+**And** the import progress feedback must appear as a toast or modal rather than inline.
+
+### Story 5.2: Relocate Waveform UI Above Track List
+
+As a user,
+I want to see the waveform of the currently loaded track above my track list,
+So that I can visualize the playing track while browsing my library.
+
+**Acceptance Criteria:**
+
+**Given** the space vacated by the ImportControl panel in LibraryView
+**When** a track is loaded into Deck A
+**Then** the waveform component (from DeckUI) must render in that location
+**And** it must display the currently loaded track's waveform synchronized with playback
+**And** it must support the same interactions (needle drop, zoom) as the deck waveform
+**And** if no track is loaded, the area should display a minimal placeholder state.
+
+### Story 5.3: Remove Debug Panels from Right Sidebar
+
+As a user,
+I want a cleaner UI without System Status and Worker Logs visible,
+So that the interface focuses on DJ functionality rather than debug information.
+
+**Acceptance Criteria:**
+
+**Given** the current App.tsx with System Status and Worker Logs panels in the right column
+**When** this story is complete
+**Then** the System Status `<details>` block must be removed from the JSX
+**And** the Worker Logs `<details>` block must be removed from the JSX
+**And** all log messages currently going to `setLogs()` must be redirected to `console.debug()` or `console.log()`
+**And** the heartbeat and dbInfo status can optionally be logged to console on init
+**And** the right column layout must adjust to utilize the freed space (DeckUI can expand).
+
+### Story 5.4: Fix Beatgrid Overlay on Track Load
+
+As a user,
+I want to see the beatgrid overlay appear when I load a track,
+So that I can visually confirm beat alignment and prepare for mixing.
+
+**Acceptance Criteria:**
+
+**Given** a track with existing beatgrid analysis data in `p.db`
+**When** I load the track into a deck
+**Then** the beatgrid overlay must render on the waveform immediately after load
+**And** the grid lines must align with the stored beat anchors
+**And** if no beatgrid data exists, the overlay should not render (graceful fallback)
+**And** any errors in beatgrid loading must be logged to console for debugging.
+
+**Investigation Notes:**
+- Check if beatgrid data is being fetched on track load
+- Verify the waveform component receives and renders the beatgrid prop
+- Confirm the overlay z-index and visibility CSS
+
+### Story 5.5: Fix Loop Creation
+
+As a user,
+I want loop creation to work correctly when I set loop points,
+So that I can create and use loops during performance.
+
+**Acceptance Criteria:**
+
+**Given** a track loaded in a deck with the waveform visible
+**When** I create a loop (set in point and out point)
+**Then** the loop region must be stored correctly in the database
+**And** the loop must render visually on the waveform
+**And** playback must loop between the in/out points when the loop is active
+**And** the loop must persist after track reload.
+
+**Investigation Notes:**
+- Verify loop in/out points are being captured correctly
+- Check database writes to `p.db` loop table
+- Confirm loop rendering on waveform component
+- Test loop playback logic in AudioWorklet
+
+### Story 5.6: Implement 8-Loop System (Hot Loops + Saved Loops)
+
+As a user,
+I want to have 8 loop slots similar to hot cues, with the ability to toggle between hot loop and saved loop modes,
+So that I can prepare multiple loop points and choose my preferred workflow.
+
+**Acceptance Criteria:**
+
+**Given** the existing cue point system supporting 8 cues
+**When** this story is complete
+**Then** the UI must display 8 loop slots (Loop 1-8) similar to the cue pad layout
+**And** each slot must support two modes toggled by user preference:
+  - **Hot Loop Mode:** Press to activate loop at current position, release to exit loop
+  - **Saved Loop Mode:** Click to jump to and activate a pre-saved loop region
+**And** a toggle control must allow switching between Hot Loop and Saved Loop mode
+**And** saved loops must persist in `p.db` with position, length, and optional color/name
+**And** loop slots must be triggerable via MIDI (mapped to pads/buttons)
+**And** active loops must be visually indicated on both the loop pads and the waveform.

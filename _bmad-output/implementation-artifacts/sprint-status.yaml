@@ -77,3 +77,13 @@ development_status:
   4-4-webhid-denon-dj-prime-integration: backlog
   4-5-hardware-screen-painting-via-webhid: backlog
   epic-4-retrospective: optional
+
+  # Epic 5: Frontend Fixes and Refactor
+  epic-5: backlog
+  5-1-remove-library-ingestion-panel-add-context-menu-import: backlog
+  5-2-relocate-waveform-ui-above-track-list: backlog
+  5-3-remove-debug-panels-from-right-sidebar: backlog
+  5-4-fix-beatgrid-overlay-on-track-load: backlog
+  5-5-fix-loop-creation: backlog
+  5-6-implement-8-loop-system-hot-loops-saved-loops: backlog
+  epic-5-retrospective: optional
