@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useCallback } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
 import { Trash2, XCircle } from 'lucide-react';
@@ -6,6 +6,7 @@ import { useTracks, type SortField } from '../hooks/useTracks';
 import { useLibraryStore } from '../store/library.store';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { CSS } from '@dnd-kit/utilities';
+import { loadTrackToDeck } from '../../audio/services/deck-loader.service';
 
 export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -19,6 +20,7 @@ interface TrackRowUIProps {
     isVirtual?: boolean;
     style?: React.CSSProperties;
     onAction?: () => void;
+    onDoubleClick?: () => void;
     actionIcon: React.ReactNode;
     className?: string;
 }
@@ -29,6 +31,7 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
     isVirtual,
     style,
     onAction,
+    onDoubleClick,
     actionIcon,
     className
 }) => {
@@ -40,6 +43,7 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
                 ${className || ''}
             `}
             style={style}
+            onDoubleClick={onDoubleClick}
         >
             <div className="flex-[3] px-2 text-sm truncate text-[#4DFA90] group-hover:text-white py-2">
                 {track.title}
@@ -79,6 +83,40 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
     data: { track }
   });
 
+  const handleDoubleClick = useCallback(async () => {
+    try {
+      // Open file picker - user must select the file since we don't have direct access
+      const [fileHandle] = await window.showOpenFilePicker({
+        types: [
+          {
+            description: 'Audio Files',
+            accept: {
+              'audio/*': ['.mp3', '.wav', '.aiff', '.flac', '.m4a', '.ogg'],
+            },
+          },
+        ],
+        multiple: false,
+      });
+
+      const file = await fileHandle.getFile();
+
+      // Load with track metadata from library
+      await loadTrackToDeck('A', file, {
+        id: track.id,
+        title: track.title,
+        artist: track.artist,
+        bpm: track.bpm,
+        duration: track.duration,
+      });
+    } catch (error) {
+      // User cancelled the picker
+      if ((error as Error).name === 'AbortError') {
+        return;
+      }
+      console.error('Failed to load track to deck:', error);
+    }
+  }, [track]);
+
   const handleAction = () => {
     if (selectedPlaylistId) {
         showConfirm({
@@ -117,6 +155,7 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
             track={track}
             isDragging={isDragging}
             onAction={handleAction}
+            onDoubleClick={handleDoubleClick}
             actionIcon={selectedPlaylistId ? <XCircle size={14} /> : <Trash2 size={14} />}
             className={virtualItem.index % 2 === 0 ? 'bg-transparent' : 'bg-[#4DFA90]/5'}
         />

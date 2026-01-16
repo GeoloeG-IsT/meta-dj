@@ -10,6 +10,14 @@ export { WaveformCanvas } from './components/WaveformCanvas';
 export { WaveformOverview } from './components/WaveformOverview';
 export { WaveformDetail } from './components/WaveformDetail';
 export { WaveformRenderer } from './components/WaveformRenderer';
+export { DeckUI } from './components/DeckUI';
+
+// Services
+export {
+  loadTrackToDeck,
+  pickAndLoadTrack,
+  ejectTrack,
+} from './services/deck-loader.service';
 
 // Analysis
 export {

@@ -3,6 +3,7 @@ import { kernel } from './shared/kernel/kernel-manager';
 import { EventType } from './shared/types/messaging';
 import { LibraryView } from './modules/library/LibraryView';
 import { ModalProvider } from './shared/components/modals/ModalProvider';
+import { DeckUI } from './modules/audio';
 
 function App() {
   const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
@@ -82,45 +83,42 @@ function App() {
           <LibraryView />
         </div>
 
-        <div className="lg:col-span-4 flex flex-col gap-8">
-          <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm shadow-[0_0_15px_rgba(77,250,144,0.1)]">
-            <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">System Status</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`w-3 h-3 rounded-full ${status === 'connected' ? 'bg-[#4DFA90] animate-pulse' : 'bg-red-500'}`} />
-                <span className="uppercase text-sm font-mono">Kernel: {status}</span>
-              </div>
-              <div className="bg-[#000000] p-4 border border-[#4DFA90]/10 rounded-sm font-mono text-sm min-h-[60px]">
-                {heartbeat || 'Performing heartbeat...'}
-              </div>
-            </div>
+        <div className="lg:col-span-4 flex flex-col gap-4">
+          {/* Deck A */}
+          <DeckUI deckId="A" />
 
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className={`w-3 h-3 rounded-full ${dbStatus === 'ready' ? 'bg-[#4DFA90] animate-pulse' : dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`} />
-                <span className="uppercase text-sm font-mono">Database: {dbStatus}</span>
-              </div>
-              <div className="bg-[#000000] p-4 border border-[#4DFA90]/10 rounded-sm font-mono text-sm min-h-[60px]">
-                {dbInfo || 'Initializing OPFS Database...'}
+          {/* System Status (collapsed) */}
+          <details className="bg-[#121212] border border-[#4DFA90]/30 rounded-sm">
+            <summary className="px-4 py-2 cursor-pointer text-sm font-mono uppercase text-[#4DFA90]/60 hover:text-[#4DFA90]">
+              System Status
+              <span className="ml-2">
+                <span className={`inline-block w-2 h-2 rounded-full ${status === 'connected' ? 'bg-[#4DFA90]' : 'bg-red-500'}`} />
+                <span className={`inline-block w-2 h-2 rounded-full ml-1 ${dbStatus === 'ready' ? 'bg-[#4DFA90]' : dbStatus === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+              </span>
+            </summary>
+            <div className="px-4 pb-4 space-y-2 text-xs font-mono">
+              <div className="text-[#4DFA90]/80">{heartbeat || 'Connecting...'}</div>
+              <div className="text-[#4DFA90]/80">{dbInfo || 'Initializing...'}</div>
+            </div>
+          </details>
+
+          {/* Worker Logs (collapsed) */}
+          <details className="bg-[#121212] border border-[#4DFA90]/30 rounded-sm flex-1 min-h-0">
+            <summary className="px-4 py-2 cursor-pointer text-sm font-mono uppercase text-[#4DFA90]/60 hover:text-[#4DFA90]">
+              Worker Logs ({logs.length})
+            </summary>
+            <div className="px-4 pb-4">
+              <div className="bg-[#000000] p-2 border border-[#4DFA90]/10 rounded-sm font-mono text-xs max-h-[200px] overflow-y-auto flex flex-col gap-1">
+                {logs.slice(-20).map((log, i) => (
+                  <div key={i} className="opacity-80 border-l-2 border-[#4DFA90]/40 pl-2 truncate">
+                    {log}
+                  </div>
+                ))}
+                {logs.length === 0 && <span className="opacity-30 italic">No logs yet...</span>}
               </div>
             </div>
-                      </div>
-                    </section>
-          
-                    <section className="bg-[#121212] border border-[#4DFA90]/30 p-6 rounded-sm flex-1 min-h-0">
-                      <h2 className="text-xl font-bold mb-4 uppercase tracking-widest">Worker Logs</h2>
-                      <div className="bg-[#000000] p-4 border border-[#4DFA90]/10 rounded-sm font-mono text-xs h-[300px] overflow-y-auto flex flex-col gap-1">
-                        {logs.map((log, i) => (
-                          <div key={i} className="opacity-80 border-l-2 border-[#4DFA90]/40 pl-2">
-                            {log}
-                          </div>
-                        ))}
-                        {logs.length === 0 && <span className="opacity-30 italic">No logs yet...</span>}
-                      </div>
-                    </section>
-                  </div>
+          </details>
+        </div>
                 </main>
           
                 <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
