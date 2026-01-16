@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
 import { useTracks, type SortField } from '../hooks/useTracks';
 import { useLibraryStore } from '../store/library.store';
+import { useModalStore } from '../../../shared/components/modals/modal.store';
 
 export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -68,15 +69,20 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
 
 const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualItem }) => {
   const { deleteTrack } = useLibraryStore();
+  const { showConfirm } = useModalStore();
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: track.id,
     data: { track }
   });
 
   const handleDelete = () => {
-    if (confirm('Delete track?')) {
-        deleteTrack(track.id);
-    }
+    showConfirm({
+        title: 'Delete Track',
+        message: `Are you sure you want to delete "${track.title}" from the library?`,
+        confirmLabel: 'Delete',
+        isDanger: true,
+        onConfirm: () => deleteTrack(track.id)
+    });
   };
 
   return (

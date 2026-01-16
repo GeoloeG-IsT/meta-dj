@@ -4,10 +4,12 @@ import { EventType } from '../../../shared/types/messaging';
 import { useLibraryStore } from '../store/library.store';
 import { usePlaylists } from '../hooks/usePlaylists';
 import { PlaylistItem } from './PlaylistItem';
+import { useModalStore } from '../../../shared/components/modals/modal.store';
 
 export const PlaylistTree: React.FC = () => {
   const { fetchPlaylists, createPlaylist, isLoading, setDbReady, selectedPlaylistId, setSelectedPlaylist } = useLibraryStore();
   const { tree } = usePlaylists();
+  const { showPrompt } = useModalStore();
 
   useEffect(() => {
     fetchPlaylists();
@@ -24,13 +26,23 @@ export const PlaylistTree: React.FC = () => {
   }, [fetchPlaylists, setDbReady]);
 
   const handleAddCrate = () => {
-    const title = prompt('Crate Name:');
-    if (title) createPlaylist(title, 0, true);
+    showPrompt({
+        title: 'New Crate',
+        placeholder: 'Enter crate name',
+        onConfirm: (name) => {
+            if (name) createPlaylist(name, 0, true);
+        }
+    });
   };
 
   const handleAddPlaylist = () => {
-    const title = prompt('Playlist Name:');
-    if (title) createPlaylist(title, 0, false);
+    showPrompt({
+        title: 'New Playlist',
+        placeholder: 'Enter playlist name',
+        onConfirm: (name) => {
+            if (name) createPlaylist(name, 0, false);
+        }
+    });
   };
 
   return (

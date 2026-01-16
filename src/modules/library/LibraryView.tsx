@@ -5,9 +5,11 @@ import { TrackList, TrackRowUI } from './components/TrackList';
 import { PlaylistTree } from './components/PlaylistTree';
 import { playlistService } from './services/playlist.service';
 import { useLibraryStore } from './store/library.store';
+import { useModalStore } from '../../shared/components/modals/modal.store';
 
 export const LibraryView: React.FC = () => {
   const { clearLibrary, fetchPlaylists, movePlaylist } = useLibraryStore();
+  const { showConfirm } = useModalStore();
   const [activeTrack, setActiveTrack] = useState<any | null>(null);
   const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
 
@@ -20,9 +22,15 @@ export const LibraryView: React.FC = () => {
   );
 
   const handleClearLibrary = async () => {
-    if (confirm('Are you sure you want to delete ALL tracks from the library?')) {
-      await clearLibrary();
-    }
+    showConfirm({
+        title: 'Clear Library',
+        message: 'Are you sure you want to delete ALL tracks from the library? This action cannot be reversed.',
+        confirmLabel: 'Clear All',
+        isDanger: true,
+        onConfirm: async () => {
+            await clearLibrary();
+        }
+    });
   };
 
   const handleDragStart = (event: DragStartEvent) => {

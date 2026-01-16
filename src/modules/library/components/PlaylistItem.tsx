@@ -3,6 +3,7 @@ import { useLibraryStore } from '../store/library.store';
 import { type PlaylistNode } from '../hooks/usePlaylists';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { ContextMenu } from './ContextMenu';
+import { useModalStore } from '../../../shared/components/modals/modal.store';
 
 interface PlaylistItemProps {
   node: PlaylistNode;
@@ -13,6 +14,7 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
   const [isExpanded, setIsExpanded] = useState(true);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const { selectedPlaylistId, setSelectedPlaylist, deletePlaylist, createPlaylist, renamePlaylist } = useLibraryStore();
+  const { showPrompt, showConfirm } = useModalStore();
   
   const { isOver, setNodeRef: setDropRef } = useDroppable({
     id: `playlist-${node.id}`,
@@ -40,39 +42,44 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
     { 
         label: 'Sub-Crate', 
         icon: '📁', 
-        onClick: async () => {
-            const name = prompt('New Crate Name:');
-            if (name) {
-                try {
-                    await createPlaylist(name, node.id, true);
-                } catch (e: any) {
-                    if (e.code === 409) alert(e.message);
-                    else console.error(e);
+        onClick: () => {
+            showPrompt({
+                title: 'Create Sub-Crate',
+                placeholder: 'Enter crate name',
+                onConfirm: (name) => {
+                    if (name) createPlaylist(name, node.id, true).catch(e => {
+                        if (e.code === 409) alert(e.message);
+                    });
                 }
-            }
+            });
         }
     },
     { 
         label: 'Sub-Playlist', 
         icon: '📑', 
-        onClick: async () => {
-            const name = prompt('New Playlist Name:');
-            if (name) {
-                try {
-                    await createPlaylist(name, node.id, false);
-                } catch (e: any) {
-                    if (e.code === 409) alert(e.message);
-                    else console.error(e);
+        onClick: () => {
+            showPrompt({
+                title: 'Create Sub-Playlist',
+                placeholder: 'Enter playlist name',
+                onConfirm: (name) => {
+                    if (name) createPlaylist(name, node.id, false).catch(e => {
+                        if (e.code === 409) alert(e.message);
+                    });
                 }
-            }
+            });
         }
     },
     { 
         label: 'Rename', 
         icon: '✏️', 
         onClick: () => {
-            const name = prompt('Rename to:', node.title);
-            if (name) renamePlaylist(node.id, name);
+            showPrompt({
+                title: 'Rename Item',
+                defaultValue: node.title,
+                onConfirm: (name) => {
+                    if (name) renamePlaylist(node.id, name);
+                }
+            });
         }
     },
     { 
@@ -80,7 +87,13 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
         icon: '✕', 
         danger: true,
         onClick: () => {
-            if (confirm(`Delete ${node.title}?`)) deletePlaylist(node.id);
+            showConfirm({
+                title: 'Delete Item',
+                message: `Are you sure you want to delete "${node.title}"? This cannot be undone.`,
+                confirmLabel: 'Delete',
+                isDanger: true,
+                onConfirm: () => deletePlaylist(node.id)
+            });
         }
     },
   ];
