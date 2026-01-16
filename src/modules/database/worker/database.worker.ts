@@ -118,6 +118,7 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
                 returnValue: 'resultRows', 
                 rowMode: 'object' 
             });
+            // log(`Query result: ${result?.length || 0} rows`);
         }
 
         source.postMessage({

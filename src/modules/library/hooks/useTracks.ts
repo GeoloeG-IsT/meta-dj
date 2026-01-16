@@ -58,11 +58,18 @@ export function useTracks() {
   useEffect(() => {
     let isMounted = true;
 
+    // Fetch immediately if ready
+    if (isDbReady) {
+      fetchTracks();
+    }
+
     // Initial check
     const checkReady = async () => {
         try {
             const result = await kernel.send(EventType.DB_PING, {});
-            if (isMounted && result?.ready) setIsDbReady(true);
+            if (isMounted && result?.ready) {
+              setIsDbReady(true);
+            }
         } catch (e) {
             // Silently wait for DB_READY event
         }
@@ -75,10 +82,9 @@ export function useTracks() {
       if (msg.type === EventType.DB_READY) {
         setIsDbReady(true);
       } else if (msg.type === EventType.DB_QUERY_RESPONSE) {
-        // Safe check for successful write operations which might require a refresh
-        // Assuming payload structure { success: boolean } for non-select queries
-        const payload = msg.payload as { success?: boolean };
-        if (payload?.success) {
+        // Safe check for successful write operations (ingest/persistence test)
+        const payload = msg.payload as any;
+        if (payload?.success || payload?.changes !== undefined) {
           fetchTracks();
         }
       }
@@ -88,7 +94,7 @@ export function useTracks() {
       isMounted = false;
       unsubscribe();
     };
-  }, [fetchTracks]); // fetchTracks includes sort and isDbReady dependencies
+  }, [fetchTracks, isDbReady]); // fetchTracks includes sort and isDbReady dependencies
 
   const toggleSort = (field: SortField) => {
     setSort(prev => ({
