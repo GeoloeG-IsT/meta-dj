@@ -24,33 +24,33 @@ So that the interface focuses on DJ functionality rather than debug information.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Remove Unused State Variables** (AC: 5)
-  - [ ] Remove `const [status, setStatus]` - not rendered anywhere
-  - [ ] Remove `const [dbStatus, setDbStatus]` - not rendered anywhere
-  - [ ] Remove `const [heartbeat, setHeartbeat]` - not rendered anywhere
-  - [ ] Remove `const [dbInfo, setDbInfo]` - not rendered anywhere
-  - [ ] Remove `const [logs, setLogs]` - not rendered anywhere
+- [x] **Task 1: Remove Unused State Variables** (AC: 5)
+  - [x] Remove `const [status, setStatus]` - not rendered anywhere
+  - [x] Remove `const [dbStatus, setDbStatus]` - not rendered anywhere
+  - [x] Remove `const [heartbeat, setHeartbeat]` - not rendered anywhere
+  - [x] Remove `const [dbInfo, setDbInfo]` - not rendered anywhere
+  - [x] Remove `const [logs, setLogs]` - not rendered anywhere
 
-- [ ] **Task 2: Replace setLogs with console.debug** (AC: 3, 4)
-  - [ ] In kernel handler: replace `setLogs(prev => [...prev, ...])`  with `console.debug(...)`
-  - [ ] In init function: replace all `setLogs()` calls with `console.debug()`
-  - [ ] Log heartbeat result to console: `console.debug('Heartbeat:', heartbeatMessage)`
-  - [ ] Log dbInfo to console: `console.debug('Database:', dbInfoMessage)`
+- [x] **Task 2: Replace setLogs with console.debug** (AC: 3, 4)
+  - [x] In kernel handler: replace `setLogs(prev => [...prev, ...])`  with `console.debug(...)`
+  - [x] In init function: replace all `setLogs()` calls with `console.debug()`
+  - [x] Log heartbeat result to console: `console.debug('Heartbeat:', heartbeatMessage)`
+  - [x] Log dbInfo to console: `console.debug('Database:', dbInfoMessage)`
 
-- [ ] **Task 3: Simplify Init Logic** (AC: 3, 4)
-  - [ ] Remove status state tracking (not displayed)
-  - [ ] Keep error logging to `console.error()` for actual errors
-  - [ ] Simplify success paths to just console logging
+- [x] **Task 3: Simplify Init Logic** (AC: 3, 4)
+  - [x] Remove status state tracking (not displayed)
+  - [x] Keep error logging to `console.error()` for actual errors
+  - [x] Simplify success paths to just console logging
 
-- [ ] **Task 4: Verify Layout** (AC: 6)
-  - [ ] Confirm LibraryView uses full available space
-  - [ ] No visual regressions after cleanup
+- [x] **Task 4: Verify Layout** (AC: 6)
+  - [x] Confirm LibraryView uses full available space
+  - [x] No visual regressions after cleanup
 
-- [ ] **Task 5: Testing** (AC: all)
-  - [ ] Verify app loads correctly without console errors
-  - [ ] Verify kernel initialization still works
-  - [ ] Verify database health check still passes
-  - [ ] Check browser console shows debug messages on init
+- [x] **Task 5: Testing** (AC: all)
+  - [x] Verify app loads correctly without console errors
+  - [x] Verify kernel initialization still works
+  - [x] Verify database health check still passes
+  - [x] Check browser console shows debug messages on init
 
 ## Dev Notes
 
