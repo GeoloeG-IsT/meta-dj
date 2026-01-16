@@ -57,5 +57,6 @@ declare module 'essentia.js' {
   // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   export interface EssentiaVector extends Record<string, unknown> {}
 
+  // EssentiaWASM is a factory function that returns a promise resolving to the initialized WASM module
   export function EssentiaWASM(): Promise<EssentiaWASMModule>;
 }

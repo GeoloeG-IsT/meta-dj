@@ -86,18 +86,18 @@ const MAX_BPM = 200;
 export async function initEssentia(): Promise<void> {
   if (essentia) return;
 
-  let loadedModule: EssentiaWASMModule | null = null;
   try {
-    // Dynamic import for worker context
+    // Dynamic import for browser context
+    // EssentiaWASM is a factory function that needs to be called to initialize the WASM module
     const { Essentia, EssentiaWASM } = await import('essentia.js');
-    loadedModule = await EssentiaWASM();
-    const loadedEssentia = new Essentia(loadedModule);
+    // Call EssentiaWASM as factory function to get the initialized module
+    const wasmModule = await EssentiaWASM();
+    const loadedEssentia = new Essentia(wasmModule);
     // Only assign to globals after both succeed
-    essentiaModule = loadedModule;
+    essentiaModule = wasmModule;
     essentia = loadedEssentia;
   } catch (err) {
     // Clean up partially loaded module on failure
-    loadedModule = null;
     essentiaModule = null;
     essentia = null;
     const error: AnalysisError = {
