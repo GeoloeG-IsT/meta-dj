@@ -51,13 +51,13 @@ So that I can create live remixes and mashups without specialized source files.
   - [x] Implement output post-processing: convert model output to 4 separate AudioBuffers
   - [x] Add progress reporting during inference (per-chunk updates)
 
-- [ ] **Task 4: Stem Storage & Caching** (AC: 4)
-  - [ ] Create `src/modules/audio/services/stems-cache.service.ts` for stem persistence
-  - [ ] Store stems in IndexedDB keyed by track ID + hash
-  - [ ] Add `hasStemData` flag to track metadata (check on track load)
-  - [ ] Implement stem retrieval on track load (skip analysis if cached)
-  - [ ] Add cache invalidation when track file changes
-  - [ ] Add "Clear Stems" action in track context menu
+- [x] **Task 4: Stem Storage & Caching** (AC: 4)
+  - [x] Create `src/modules/audio/services/stems-cache.service.ts` for stem persistence
+  - [x] Store stems in IndexedDB keyed by track ID + hash
+  - [x] Add `hasStemData` flag to track metadata (check on track load)
+  - [x] Implement stem retrieval on track load (skip analysis if cached)
+  - [x] Add cache invalidation when track file changes
+  - [x] Add "Clear Stems" action in track context menu
 
 - [ ] **Task 5: Stem State Management** (AC: 5, 6)
   - [ ] Add stem state to `DeckState` in `audio.store.ts`:
