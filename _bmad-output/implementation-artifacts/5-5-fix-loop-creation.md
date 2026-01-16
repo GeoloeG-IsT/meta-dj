@@ -1,6 +1,6 @@
 # Story 5.5: Fix Loop Creation
 
-Status: review
+Status: done
 
 ## Story
 
@@ -105,6 +105,15 @@ This means:
   - [x] Manual test: Deactivate loop, verify playback continues past out-point
   - [x] Manual test: Reload track, verify loops persist
   - [x] Run unit tests: `npm run test:unit`
+
+### Review Follow-ups (AI)
+
+- [x] [AI-Review][HIGH] Add validation in setLoop() to prevent invalid boundaries [stem-mixer.service.ts:352-357] - FIXED
+- [x] [AI-Review][HIGH] Add loopBoundaryFromSamples() utility for sample-to-seconds conversion [stem-mixer.service.ts:488-497] - FIXED
+- [x] [AI-Review][MEDIUM] Change console.log to console.debug per codebase pattern [stem-mixer.service.ts] - FIXED
+- [x] [AI-Review][MEDIUM] Add proper tests for validation and conversion utility - FIXED (6 new tests)
+- [x] [AI-Review][LOW] Document LOOP_CHECK_INTERVAL_MS timing choice [stem-mixer.service.ts:92-98] - FIXED
+- [ ] [AI-Review][INFO] UI Integration pending: When stem playback is enabled (Epic 3), use `loopBoundaryFromSamples()` to sync store's activeLoop with StemMixer.setLoop()
 
 ## Dev Notes
 
@@ -288,4 +297,5 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 ### Change Log
 
 - 2026-01-16: Implemented Story 5.5 - Added loop playback boundary enforcement to StemMixer with polling mechanism. Verified existing loop creation, persistence, and rendering code is working correctly. Confirmed isActive state should not persist (correct DJ workflow).
+- 2026-01-16: Code Review Fixes - Added setLoop() validation to reject invalid boundaries (outPoint <= inPoint). Added loopBoundaryFromSamples() utility for sample-to-seconds conversion. Changed console.log to console.debug per codebase pattern. Added documentation for LOOP_CHECK_INTERVAL_MS timing choice. Added 6 new tests for validation and conversion utility (total: 14 tests).
 

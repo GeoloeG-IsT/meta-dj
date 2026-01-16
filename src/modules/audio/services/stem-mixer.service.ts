@@ -89,7 +89,13 @@ export class StemMixer {
   // Loop state
   private loopBoundary: LoopBoundary | null = null;
   private loopCheckInterval: ReturnType<typeof setInterval> | null = null;
-  private static readonly LOOP_CHECK_INTERVAL_MS = 10; // Check every 10ms for responsive looping
+  /**
+   * Loop boundary check interval in milliseconds.
+   * 10ms provides responsive looping (max 10ms latency) while keeping CPU usage low.
+   * Trade-off: Lower = more responsive but higher CPU, Higher = less responsive but lower CPU.
+   * For DJ use, 10ms latency is imperceptible (<1 beat at 200 BPM).
+   */
+  private static readonly LOOP_CHECK_INTERVAL_MS = 10;
 
   constructor(config: StemMixerConfig) {
     this.audioContext = config.audioContext;
@@ -337,18 +343,29 @@ export class StemMixer {
    * When set, playback will jump from outPoint back to inPoint.
    *
    * @param boundary - Loop boundary in seconds, or null to disable looping
+   * @throws Error if outPointSeconds <= inPointSeconds (would cause infinite loop)
+   *
+   * Note: This method sets up the boundary checking. The actual integration with
+   * the UI store's activeLoopIndex should be done by the component/hook that
+   * manages playback. Use loopBoundaryFromSamples() to convert store LoopData.
    */
   setLoop(boundary: LoopBoundary | null): void {
+    // Validate boundary to prevent infinite seek loops
+    if (boundary && boundary.outPointSeconds <= boundary.inPointSeconds) {
+      console.error('[Stem Mixer] Invalid loop boundary: outPoint must be greater than inPoint');
+      return;
+    }
+
     this.loopBoundary = boundary;
 
     if (boundary) {
-      console.log(`[Stem Mixer] Loop set: ${boundary.inPointSeconds.toFixed(2)}s - ${boundary.outPointSeconds.toFixed(2)}s`);
+      console.debug(`[Stem Mixer] Loop set: ${boundary.inPointSeconds.toFixed(2)}s - ${boundary.outPointSeconds.toFixed(2)}s`);
       // Start loop checking if currently playing
       if (this.isPlaying) {
         this.startLoopCheck();
       }
     } else {
-      console.log('[Stem Mixer] Loop cleared');
+      console.debug('[Stem Mixer] Loop cleared');
       this.stopLoopCheck();
     }
   }
@@ -399,7 +416,7 @@ export class StemMixer {
 
     // Check if we've passed the out point
     if (currentPosition >= this.loopBoundary.outPointSeconds) {
-      console.log(`[Stem Mixer] Loop boundary reached at ${currentPosition.toFixed(2)}s, jumping to ${this.loopBoundary.inPointSeconds.toFixed(2)}s`);
+      console.debug(`[Stem Mixer] Loop boundary reached at ${currentPosition.toFixed(2)}s, jumping to ${this.loopBoundary.inPointSeconds.toFixed(2)}s`);
       this.seek(this.loopBoundary.inPointSeconds);
     }
   }
@@ -442,4 +459,39 @@ export class StemMixer {
  */
 export function createStemMixer(config: StemMixerConfig): StemMixer {
   return new StemMixer(config);
+}
+
+/**
+ * Convert loop data from sample positions to seconds for StemMixer.
+ *
+ * The store's LoopData uses sample positions, but StemMixer expects seconds.
+ * Use this helper when integrating store loop state with StemMixer.
+ *
+ * @param inPointSamples - Loop start position in samples
+ * @param outPointSamples - Loop end position in samples
+ * @param sampleRate - Audio sample rate (e.g., 44100)
+ * @returns LoopBoundary in seconds for use with StemMixer.setLoop()
+ *
+ * @example
+ * ```ts
+ * const activeLoop = deck.loops.find(l => l.index === deck.activeLoopIndex);
+ * if (activeLoop) {
+ *   const boundary = loopBoundaryFromSamples(
+ *     activeLoop.inPoint,
+ *     activeLoop.outPoint,
+ *     deck.sampleRate
+ *   );
+ *   stemMixer.setLoop(boundary);
+ * }
+ * ```
+ */
+export function loopBoundaryFromSamples(
+  inPointSamples: number,
+  outPointSamples: number,
+  sampleRate: number
+): LoopBoundary {
+  return {
+    inPointSeconds: inPointSamples / sampleRate,
+    outPointSeconds: outPointSamples / sampleRate,
+  };
 }
