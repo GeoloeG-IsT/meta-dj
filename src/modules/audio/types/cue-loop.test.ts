@@ -191,8 +191,9 @@ describe('Loop Serialization', () => {
 });
 
 describe('Color Constants', () => {
-  it('should have 8 colors in CUE_COLOR_INDEX', () => {
-    expect(Object.keys(CUE_COLOR_INDEX)).toHaveLength(8);
+  it('should have 16 colors in CUE_COLOR_INDEX', () => {
+    // Extended palette: 16 colors for 8 cue pads + 8 loop pads
+    expect(Object.keys(CUE_COLOR_INDEX)).toHaveLength(16);
   });
 
   it('should have matching forward and reverse color mappings', () => {

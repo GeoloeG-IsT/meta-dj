@@ -1,6 +1,6 @@
 # Story 5.6: Implement 8-Loop System (Hot Loops + Saved Loops)
 
-Status: review
+Status: done
 
 ## Story
 
@@ -267,6 +267,7 @@ N/A - No significant debugging required.
 - Implemented `handleLoopPadClick` for both saved and hot loop modes
 - Implemented `handleLoopPadRelease` for hot loop mode deactivation
 - Created 8 unit tests for loop mode state management
+- Updated cue-loop.test.ts color count assertion for expanded 16-color palette
 - All 292 tests pass (8 new tests added)
 - TypeScript compiles without errors
 
@@ -278,10 +279,15 @@ N/A - No significant debugging required.
 - `src/modules/audio/store/loop-mode.store.test.ts`
 
 **Modified Files:**
-- `src/modules/audio/types/cue-loop.ts` (added LoopMode type)
+- `src/modules/audio/types/cue-loop.ts` (added LoopMode type, extended color palette to 16 colors)
+- `src/modules/audio/types/cue-loop.test.ts` (updated color count test for 16-color palette)
 - `src/modules/audio/store/audio.store.ts` (added loopMode state, setLoopMode action, selectors)
+- `src/modules/audio/components/LoopControls.tsx` (added loop resizing with color support)
+- `src/modules/audio/components/WaveformDetail.tsx` (loop pad integration)
+- `src/modules/audio/components/WaveformOverview.tsx` (loop pad integration)
 - `src/modules/library/components/LibraryWaveform.tsx` (integrated LoopPads and LoopModeToggle)
 
 ## Change Log
 
 - 2026-01-16: Implemented 8-loop pad system with hot/saved modes, mode toggle, and LibraryWaveform integration
+- 2026-01-16: Code review fixes - updated color test for 16-color palette, corrected File List documentation
