@@ -24,6 +24,7 @@
     "framer-motion": "^12.26.2",
     "lucide-react": "^0.562.0",
     "music-metadata-browser": "^2.5.11",
+    "onnxruntime-web": "^1.23.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "tailwind-merge": "^3.4.0",

@@ -35,13 +35,13 @@ So that I can create live remixes and mashups without specialized source files.
   - [x] Add feature flag check before showing stem UI controls
   - [x] Write unit tests for detection logic
 
-- [ ] **Task 2: ONNX Runtime Web Setup** (AC: 2, 8)
-  - [ ] Add `onnxruntime-web` package to dependencies
-  - [ ] Create `src/modules/audio/workers/stems.worker.ts` dedicated stem worker
-  - [ ] Implement ONNX session initialization with WebGPU backend
-  - [ ] Add model loading with progress reporting via postMessage
-  - [ ] Handle initialization errors gracefully with user feedback
-  - [ ] Register worker with kernel message bus (new EventTypes: STEMS_*)
+- [x] **Task 2: ONNX Runtime Web Setup** (AC: 2, 8)
+  - [x] Add `onnxruntime-web` package to dependencies
+  - [x] Create `src/modules/audio/workers/stems.worker.ts` dedicated stem worker
+  - [x] Implement ONNX session initialization with WebGPU backend
+  - [x] Add model loading with progress reporting via postMessage
+  - [x] Handle initialization errors gracefully with user feedback
+  - [x] Register worker with kernel message bus (new EventTypes: STEMS_*)
 
 - [ ] **Task 3: Demucs Model Integration** (AC: 3)
   - [ ] Research and select ONNX-compatible Demucs model (htdemucs_ft recommended)
