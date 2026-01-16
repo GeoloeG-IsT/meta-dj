@@ -10,7 +10,6 @@ export { WaveformCanvas } from './components/WaveformCanvas';
 export { WaveformOverview } from './components/WaveformOverview';
 export { WaveformDetail } from './components/WaveformDetail';
 export { WaveformRenderer } from './components/WaveformRenderer';
-export { DeckUI } from './components/DeckUI';
 export {
   AnalysisProgressInline,
   AnalysisProgressFull,

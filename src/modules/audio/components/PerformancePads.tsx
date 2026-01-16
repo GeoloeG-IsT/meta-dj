@@ -114,7 +114,7 @@ export function PerformancePads({
   return (
     <div
       ref={containerRef}
-      className={`performance-pads grid grid-cols-4 gap-1 ${className}`}
+      className={`performance-pads grid grid-cols-8 gap-1 ${className}`}
       tabIndex={autoFocus ? 0 : -1}
       role="group"
       aria-label="Hot cue performance pads"

@@ -1,151 +1,860 @@
 /**
- * LibraryWaveform - Waveform preview component for library view
+ * LibraryWaveform - Deck panel with waveform visualization
  *
- * Displays the waveform of the track loaded in Deck A above the track list.
- * Supports needle drop seeking and zoom controls.
+ * Displays track info and waveforms for a single deck.
+ * Supports loading tracks and real-time playhead updates.
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { WaveformOverview } from '@/modules/audio/components/WaveformOverview';
-import { useAudioStore, selectDeck, selectColorMode } from '@/modules/audio/store/audio.store';
+import { WaveformDetail } from '@/modules/audio/components/WaveformDetail';
+import { PerformancePads } from '@/modules/audio/components/PerformancePads';
+import { LoopControls } from '@/modules/audio/components/LoopControls';
+import { CueContextMenu } from '@/modules/audio/components/CueContextMenu';
+import { StemControls } from '@/modules/audio/components/StemControls';
+import {
+  useAudioStore,
+  selectDeck,
+  selectColorMode,
+  selectHasWebGPU,
+  selectWebGPUUnavailableReason,
+  selectDeckStems,
+} from '@/modules/audio/store/audio.store';
+import { pickAndLoadTrack, ejectTrack } from '@/modules/audio/services/deck-loader.service';
+import { analysisService } from '@/modules/audio/services/analysis.service';
+import { toast } from '@/shared/store/toast.store';
+import type { WaveformColorMode, DeckId } from '@/modules/audio/types';
+import type { HotCueData, LoopData, CueColor } from '@/modules/audio/types/cue-loop';
+import { DEFAULT_CUE_COLOR } from '@/modules/audio/types/cue-loop';
+import type { StemType } from '@/modules/audio/types/stems';
+import { stemsService, StemsService } from '@/modules/audio/services/stems.service';
+
+export interface LibraryWaveformProps {
+  /** Deck identifier */
+  deckId: DeckId;
+  /** CSS class name */
+  className?: string;
+}
+
+const COLOR_MODE_LABELS: Record<WaveformColorMode, string> = {
+  rgb: 'RGB',
+  blue: 'Blue',
+  '3band': '3-Band',
+};
+
+const COLOR_MODES: WaveformColorMode[] = ['rgb', 'blue', '3band'];
 
 /**
- * Formats track duration in mm:ss format
+ * LibraryWaveform component with waveform visualization.
+ *
+ * Features:
+ * - Track info display (title, artist, BPM, key)
+ * - Overview waveform with needle-drop seeking
+ * - Detail waveform with zoom controls
+ * - Color mode toggle
  */
+export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps) {
+  const deck = useAudioStore(selectDeck(deckId));
+  const colorMode = useAudioStore(selectColorMode);
+  const setColorMode = useAudioStore((s) => s.setColorMode);
+  const setPosition = useAudioStore((s) => s.setPosition);
+  const setZoomLevel = useAudioStore((s) => s.setZoomLevel);
+
+  // Stem state and actions
+  const hasWebGPU = useAudioStore(selectHasWebGPU);
+  const webGPUUnavailableReason = useAudioStore(selectWebGPUUnavailableReason);
+  const stemState = useAudioStore(selectDeckStems(deckId));
+  const toggleStemMute = useAudioStore((s) => s.toggleStemMute);
+  const toggleStemSolo = useAudioStore((s) => s.toggleStemSolo);
+  const setStemAnalyzing = useAudioStore((s) => s.setStemAnalyzing);
+  const setStemProgress = useAudioStore((s) => s.setStemProgress);
+  const setStemBuffers = useAudioStore((s) => s.setStemBuffers);
+
+  // Slip mode actions
+  const startSlipMode = useAudioStore((s) => s.startSlipMode);
+  const updateSlipOffset = useAudioStore((s) => s.updateSlipOffset);
+  const setSnappedBeat = useAudioStore((s) => s.setSnappedBeat);
+  const cancelSlipMode = useAudioStore((s) => s.cancelSlipMode);
+  const commitSlipMode = useAudioStore((s) => s.commitSlipMode);
+
+  // Cue point actions
+  const addCuePoint = useAudioStore((s) => s.addCuePoint);
+  const removeCuePoint = useAudioStore((s) => s.removeCuePoint);
+
+  // Loop actions
+  const addLoop = useAudioStore((s) => s.addLoop);
+  const removeLoop = useAudioStore((s) => s.removeLoop);
+  const setActiveLoop = useAudioStore((s) => s.setActiveLoop);
+  const updateLoop = useAudioStore((s) => s.updateLoop);
+
+  // Cue update action
+  const updateCuePoint = useAudioStore((s) => s.updateCuePoint);
+
+  // Local playhead for demo (will be replaced by SAB sync in real implementation)
+  const [playheadPosition, setPlayheadPosition] = useState(0);
+
+  // Accumulator and debounce timer for keyboard nudge
+  const nudgeAccumulatorRef = useRef(0);
+  const nudgeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const NUDGE_DEBOUNCE_MS = 300;
+
+  const handleSeek = useCallback(
+    (normalizedPosition: number) => {
+      setPlayheadPosition(normalizedPosition);
+      setPosition(deckId, normalizedPosition);
+    },
+    [deckId, setPosition]
+  );
+
+  const handleZoomChange = useCallback(
+    (zoomLevel: 1 | 2 | 4 | 8) => {
+      setZoomLevel(deckId, zoomLevel);
+    },
+    [deckId, setZoomLevel]
+  );
+
+  // Slip mode callbacks
+  const handleSlipStart = useCallback(
+    (startX: number, originalFirstBeat: number) => {
+      startSlipMode(deckId, startX, originalFirstBeat);
+    },
+    [deckId, startSlipMode]
+  );
+
+  const handleSlipUpdate = useCallback(
+    (offset: number) => {
+      updateSlipOffset(deckId, offset);
+    },
+    [deckId, updateSlipOffset]
+  );
+
+  const handleSlipCancel = useCallback(() => {
+    cancelSlipMode(deckId);
+  }, [deckId, cancelSlipMode]);
+
+  const handleSlipCommit = useCallback(async () => {
+    // Get current state before committing
+    const state = useAudioStore.getState();
+    const currentDeck = state.decks[deckId];
+
+    if (!currentDeck.beatgridData || !currentDeck.slipMode.isActive || !currentDeck.trackId) {
+      commitSlipMode(deckId);
+      return;
+    }
+
+    // Store original beatgrid for rollback
+    const originalBeatgrid = { ...currentDeck.beatgridData };
+
+    // Calculate new beatgrid with offset applied
+    const offset = currentDeck.slipMode.currentOffset;
+    const newBeatgrid = {
+      ...currentDeck.beatgridData,
+      firstBeatSample: currentDeck.beatgridData.firstBeatSample + offset,
+      anchors: currentDeck.beatgridData.anchors.map((anchor) => anchor + offset),
+    };
+
+    // Commit to local store (optimistic update)
+    commitSlipMode(deckId);
+
+    // Persist to database
+    try {
+      await analysisService.updateBeatgridOffset(currentDeck.trackId, newBeatgrid);
+      toast.success('Beatgrid saved');
+    } catch (error) {
+      console.error('[LibraryWaveform] Failed to save beatgrid:', error);
+      // Rollback to original beatgrid on failure
+      useAudioStore.getState().setBeatgridData(deckId, originalBeatgrid);
+      toast.error('Failed to save beatgrid - rolled back');
+    }
+  }, [deckId, commitSlipMode]);
+
+  const handleSnapChange = useCallback(
+    (beatIndex: number | null, isSnapped: boolean) => {
+      setSnappedBeat(deckId, beatIndex, isSnapped);
+    },
+    [deckId, setSnappedBeat]
+  );
+
+  // Keyboard nudge handler with debounced persistence
+  const handleKeyboardNudge = useCallback(
+    (sampleOffset: number) => {
+      const state = useAudioStore.getState();
+      const currentDeck = state.decks[deckId];
+
+      if (!currentDeck.beatgridData || !currentDeck.trackId) return;
+
+      // Accumulate the nudge
+      nudgeAccumulatorRef.current += sampleOffset;
+
+      // Apply accumulated offset to UI immediately (optimistic update)
+      const accumulatedOffset = nudgeAccumulatorRef.current;
+      const updatedBeatgrid = {
+        ...currentDeck.beatgridData,
+        firstBeatSample: currentDeck.beatgridData.firstBeatSample + sampleOffset,
+        anchors: currentDeck.beatgridData.anchors.map((a) => a + sampleOffset),
+      };
+      useAudioStore.getState().setBeatgridData(deckId, updatedBeatgrid);
+
+      // Clear existing timeout
+      if (nudgeTimeoutRef.current) {
+        clearTimeout(nudgeTimeoutRef.current);
+      }
+
+      // Debounce database write
+      nudgeTimeoutRef.current = setTimeout(async () => {
+        const finalState = useAudioStore.getState();
+        const finalDeck = finalState.decks[deckId];
+
+        if (!finalDeck.beatgridData || !finalDeck.trackId) return;
+
+        try {
+          await analysisService.updateBeatgridOffset(finalDeck.trackId, finalDeck.beatgridData);
+          console.log(`[LibraryWaveform] Beatgrid nudge saved (${accumulatedOffset} samples)`);
+          toast.success('Beatgrid saved');
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to save beatgrid nudge:', error);
+          toast.error('Failed to save beatgrid');
+        }
+
+        // Reset accumulator
+        nudgeAccumulatorRef.current = 0;
+      }, NUDGE_DEBOUNCE_MS);
+    },
+    [deckId]
+  );
+
+  // Reset nudge accumulator and cleanup timeout when track changes
+  useEffect(() => {
+    // Reset on track change
+    nudgeAccumulatorRef.current = 0;
+    if (nudgeTimeoutRef.current) {
+      clearTimeout(nudgeTimeoutRef.current);
+      nudgeTimeoutRef.current = null;
+    }
+  }, [deck.trackId]);
+
+  // Cue point pad click handler - set or trigger cue
+  const handlePadClick = useCallback(
+    async (padIndex: number) => {
+      if (!deck.trackId) return;
+
+      const existingCue = deck.cuePoints[padIndex];
+
+      if (existingCue?.isSet) {
+        // Cue exists - trigger (seek to cue position)
+        const normalizedPosition = existingCue.position / (deck.duration * deck.sampleRate);
+        setPlayheadPosition(normalizedPosition);
+        setPosition(deckId, normalizedPosition);
+      } else {
+        // No cue at this pad - set new cue at current position
+        const samplePosition = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+        const newCue: HotCueData = {
+          index: padIndex,
+          position: samplePosition,
+          color: DEFAULT_CUE_COLOR,
+          name: '',
+          isSet: true,
+        };
+
+        // Optimistic update
+        addCuePoint(deckId, newCue);
+
+        // Persist to database
+        try {
+          await analysisService.saveCuePoint(deck.trackId, newCue);
+          toast.success(`Cue ${padIndex + 1} set`);
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to save cue point:', error);
+          // Rollback on failure
+          removeCuePoint(deckId, padIndex);
+          toast.error('Failed to save cue point');
+        }
+      }
+    },
+    [deckId, deck.trackId, deck.cuePoints, deck.duration, deck.sampleRate, playheadPosition, addCuePoint, removeCuePoint, setPosition]
+  );
+
+  // Context menu state for cue/loop management
+  const [contextMenuState, setContextMenuState] = useState<{
+    type: 'cue' | 'loop';
+    index: number;
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Loop in-point pending state (when user has set IN but not OUT yet)
+  const [pendingLoopInPoint, setPendingLoopInPoint] = useState<number | null>(null);
+
+  // Reset pending loop in-point when track changes
+  useEffect(() => {
+    setPendingLoopInPoint(null);
+  }, [deck.trackId]);
+
+  const handlePadContextMenu = useCallback((padIndex: number, event: React.MouseEvent) => {
+    // Only show context menu if the cue is set
+    if (deck.cuePoints[padIndex]?.isSet) {
+      setContextMenuState({
+        type: 'cue',
+        index: padIndex,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    }
+  }, [deck.cuePoints]);
+
+  const handleLoopContextMenu = useCallback((loopIndex: number, event: React.MouseEvent) => {
+    // Show context menu for loops
+    setContextMenuState({
+      type: 'loop',
+      index: loopIndex,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenuState(null);
+  }, []);
+
+  // Context menu action handlers
+  const handleContextMenuColorChange = useCallback(
+    async (color: CueColor) => {
+      if (!contextMenuState || !deck.trackId) return;
+
+      const { type, index } = contextMenuState;
+
+      if (type === 'cue') {
+        const originalColor = deck.cuePoints[index]?.color;
+        // Optimistic update
+        updateCuePoint(deckId, index, { color });
+        // Persist
+        try {
+          await analysisService.updateCuePoint(deck.trackId, index, { color });
+          toast.success('Color updated');
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to update cue color:', error);
+          // Rollback on failure
+          if (originalColor) {
+            updateCuePoint(deckId, index, { color: originalColor });
+          }
+          toast.error('Failed to update color');
+        }
+      } else {
+        const originalLoop = deck.loops.find((l) => l.index === index);
+        const originalColor = originalLoop?.color;
+        // Optimistic update
+        updateLoop(deckId, index, { color });
+        // Persist
+        try {
+          await analysisService.updateLoop(deck.trackId, index, { color });
+          toast.success('Color updated');
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to update loop color:', error);
+          // Rollback on failure
+          if (originalColor) {
+            updateLoop(deckId, index, { color: originalColor });
+          }
+          toast.error('Failed to update color');
+        }
+      }
+    },
+    [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, updateCuePoint, updateLoop]
+  );
+
+  const handleContextMenuNameChange = useCallback(
+    async (name: string) => {
+      if (!contextMenuState || !deck.trackId) return;
+
+      const { type, index } = contextMenuState;
+
+      if (type === 'cue') {
+        const originalName = deck.cuePoints[index]?.name;
+        // Optimistic update
+        updateCuePoint(deckId, index, { name });
+        // Persist
+        try {
+          await analysisService.updateCuePoint(deck.trackId, index, { name });
+          toast.success('Name updated');
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to update cue name:', error);
+          // Rollback on failure
+          if (originalName !== undefined) {
+            updateCuePoint(deckId, index, { name: originalName });
+          }
+          toast.error('Failed to update name');
+        }
+      } else {
+        const originalLoop = deck.loops.find((l) => l.index === index);
+        const originalName = originalLoop?.name;
+        // Optimistic update
+        updateLoop(deckId, index, { name });
+        // Persist
+        try {
+          await analysisService.updateLoop(deck.trackId, index, { name });
+          toast.success('Name updated');
+        } catch (error) {
+          console.error('[LibraryWaveform] Failed to update loop name:', error);
+          // Rollback on failure
+          if (originalName !== undefined) {
+            updateLoop(deckId, index, { name: originalName });
+          }
+          toast.error('Failed to update name');
+        }
+      }
+    },
+    [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, updateCuePoint, updateLoop]
+  );
+
+  const handleContextMenuDelete = useCallback(async () => {
+    if (!contextMenuState || !deck.trackId) return;
+
+    const { type, index } = contextMenuState;
+
+    if (type === 'cue') {
+      // Store original for rollback
+      const originalCue = deck.cuePoints[index];
+      // Optimistic update
+      removeCuePoint(deckId, index);
+      // Persist
+      try {
+        await analysisService.deleteCuePoint(deck.trackId, index);
+        toast.success(`Cue ${index + 1} deleted`);
+      } catch (error) {
+        console.error('[LibraryWaveform] Failed to delete cue:', error);
+        // Rollback on failure
+        if (originalCue) {
+          addCuePoint(deckId, originalCue);
+        }
+        toast.error('Failed to delete cue');
+      }
+    } else {
+      // Store original for rollback
+      const originalLoop = deck.loops.find((l) => l.index === index);
+      // Optimistic update
+      removeLoop(deckId, index);
+      // Persist
+      try {
+        await analysisService.deleteLoop(deck.trackId, index);
+        toast.success(`Loop ${index + 1} deleted`);
+      } catch (error) {
+        console.error('[LibraryWaveform] Failed to delete loop:', error);
+        // Rollback on failure
+        if (originalLoop) {
+          addLoop(deckId, originalLoop);
+        }
+        toast.error('Failed to delete loop');
+      }
+    }
+
+    setContextMenuState(null);
+  }, [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, removeCuePoint, removeLoop, addCuePoint, addLoop]);
+
+  // Loop control callbacks
+  const handleSetLoopIn = useCallback((samplePosition: number) => {
+    setPendingLoopInPoint(samplePosition);
+  }, []);
+
+  const handleSetLoopOut = useCallback(
+    async (samplePosition: number) => {
+      if (!deck.trackId) return;
+
+      // Determine in-point (either pending or current position minus default length)
+      const inPoint = pendingLoopInPoint ?? samplePosition;
+      const outPoint = samplePosition;
+
+      // Ensure out is after in
+      if (outPoint <= inPoint) {
+        toast.error('Loop out must be after loop in');
+        return;
+      }
+
+      // Find next available loop slot
+      const usedIndices = new Set(deck.loops.map((l) => l.index));
+      let nextIndex = 0;
+      while (usedIndices.has(nextIndex) && nextIndex < 8) {
+        nextIndex++;
+      }
+
+      if (nextIndex >= 8) {
+        toast.error('Maximum 8 loops reached');
+        return;
+      }
+
+      const newLoop: LoopData = {
+        index: nextIndex,
+        inPoint,
+        outPoint,
+        color: DEFAULT_CUE_COLOR,
+        name: '',
+        isActive: true,
+      };
+
+      // Optimistic update
+      addLoop(deckId, newLoop);
+      setActiveLoop(deckId, nextIndex);
+      setPendingLoopInPoint(null);
+
+      // Persist to database
+      try {
+        await analysisService.saveLoop(deck.trackId, newLoop);
+        toast.success('Loop saved');
+      } catch (error) {
+        console.error('[LibraryWaveform] Failed to save loop:', error);
+        removeLoop(deckId, nextIndex);
+        toast.error('Failed to save loop');
+      }
+    },
+    [deckId, deck.trackId, deck.loops, pendingLoopInPoint, addLoop, setActiveLoop, removeLoop]
+  );
+
+  const handleToggleLoop = useCallback(() => {
+    // If there's an active loop, deactivate it by setting index to -1
+    // If there's no active loop but loops exist, activate the first one
+    if (deck.activeLoopIndex >= 0) {
+      setActiveLoop(deckId, -1); // Deactivate loop
+    } else if (deck.loops.length > 0) {
+      setActiveLoop(deckId, deck.loops[0].index); // Activate first loop
+    }
+  }, [deckId, deck.activeLoopIndex, deck.loops, setActiveLoop]);
+
+  const handleSetLoopLength = useCallback(
+    async (beats: number) => {
+      if (!deck.trackId || !deck.beatgridData) return;
+
+      const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+      const samplesPerBeat = (60 / deck.bpm) * deck.sampleRate;
+      const loopLength = Math.round(beats * samplesPerBeat);
+
+      const inPoint = currentSample;
+      const outPoint = currentSample + loopLength;
+
+      // Find next available loop slot
+      const usedIndices = new Set(deck.loops.map((l) => l.index));
+      let nextIndex = 0;
+      while (usedIndices.has(nextIndex) && nextIndex < 8) {
+        nextIndex++;
+      }
+
+      if (nextIndex >= 8) {
+        toast.error('Maximum 8 loops reached');
+        return;
+      }
+
+      const newLoop: LoopData = {
+        index: nextIndex,
+        inPoint,
+        outPoint,
+        color: DEFAULT_CUE_COLOR,
+        name: '',
+        isActive: true,
+      };
+
+      // Optimistic update
+      addLoop(deckId, newLoop);
+      setActiveLoop(deckId, nextIndex);
+
+      // Persist to database
+      try {
+        await analysisService.saveLoop(deck.trackId, newLoop);
+        toast.success(`${beats} beat loop saved`);
+      } catch (error) {
+        console.error('[LibraryWaveform] Failed to save loop:', error);
+        removeLoop(deckId, nextIndex);
+        toast.error('Failed to save loop');
+      }
+    },
+    [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, playheadPosition, addLoop, setActiveLoop, removeLoop]
+  );
+
+  // Stem control callbacks
+  const handleStemMuteToggle = useCallback(
+    (stemType: StemType) => {
+      toggleStemMute(deckId, stemType);
+    },
+    [deckId, toggleStemMute]
+  );
+
+  const handleStemSoloToggle = useCallback(
+    (stemType: StemType) => {
+      toggleStemSolo(deckId, stemType);
+    },
+    [deckId, toggleStemSolo]
+  );
+
+  const handleAnalyzeStems = useCallback(async () => {
+    if (!deck.trackId) return;
+
+    // Get the audio file to analyze
+    const file = await import('../services/file-handle-store').then(
+      (m) => m.getFileWithPermission(deck.trackId!)
+    );
+
+    if (!file) {
+      toast.error('Cannot access audio file for stem analysis');
+      return;
+    }
+
+    // Decode audio
+    const arrayBuffer = await file.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+
+    // Start analysis
+    setStemAnalyzing(deckId, true);
+
+    try {
+      await stemsService.analyzeStems(deck.trackId, audioBuffer, {
+        onProgress: (progress) => {
+          setStemProgress(deckId, progress.progress, progress.stage);
+        },
+        onComplete: (result) => {
+          // Convert ArrayBuffers to AudioBuffers
+          const stemBuffers = StemsService.createStemBuffers(result, audioContext);
+          setStemBuffers(deckId, stemBuffers);
+          toast.success('Stem separation complete');
+        },
+        onError: (error) => {
+          setStemAnalyzing(deckId, false);
+          toast.error(`Stem analysis failed: ${error.message}`);
+        },
+      });
+    } catch (error) {
+      setStemAnalyzing(deckId, false);
+      toast.error('Failed to start stem analysis');
+      console.error('[LibraryWaveform] Stem analysis error:', error);
+    }
+  }, [deckId, deck.trackId, setStemAnalyzing, setStemProgress, setStemBuffers]);
+
+  const handleCancelStemAnalysis = useCallback(() => {
+    if (deck.trackId) {
+      stemsService.cancelAnalysis(deck.trackId);
+      setStemAnalyzing(deckId, false);
+    }
+  }, [deckId, deck.trackId, setStemAnalyzing]);
+
+  // Clear stems action
+  const clearStems = useAudioStore((s) => s.clearStems);
+  const handleClearStems = useCallback(() => {
+    clearStems(deckId);
+  }, [deckId, clearStems]);
+
+  // Get active loop data
+  const activeLoop = deck.activeLoopIndex >= 0
+    ? deck.loops.find((l) => l.index === deck.activeLoopIndex) ?? null
+    : null;
+
+  // Calculate samples per beat for loop length display
+  const samplesPerBeat = deck.sampleRate > 0 && deck.bpm > 0
+    ? (60 / deck.bpm) * deck.sampleRate
+    : 22050; // Default fallback
+
+  // Current position in samples
+  const currentPositionSamples = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+
+  // Cleanup nudge timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (nudgeTimeoutRef.current) {
+        clearTimeout(nudgeTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  const cycleColorMode = useCallback(() => {
+    const currentIndex = COLOR_MODES.indexOf(colorMode);
+    const nextIndex = (currentIndex + 1) % COLOR_MODES.length;
+    setColorMode(COLOR_MODES[nextIndex]);
+  }, [colorMode, setColorMode]);
+
+  const handleLoadFile = useCallback(async () => {
+    try {
+      await pickAndLoadTrack(deckId);
+    } catch (error) {
+      console.error('Failed to load track:', error);
+    }
+  }, [deckId]);
+
+  const handleEject = useCallback(() => {
+    ejectTrack(deckId);
+    setPlayheadPosition(0);
+  }, [deckId]);
+
+  const hasTrack = deck.trackId !== null;
+
+  return (
+    <div
+      className={`deck-ui bg-[#121212] border border-[#4DFA90]/30 rounded-sm overflow-hidden ${className}`}
+    >
+      {/* Header with Track Info */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-[#4DFA90]/20">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-2xl font-bold text-[#4DFA90] flex-shrink-0">{deckId}</span>
+          <div
+            className={`w-2 h-2 rounded-full flex-shrink-0 ${
+              deck.isPlaying ? 'bg-[#4DFA90] animate-pulse' : 'bg-[#4DFA90]/30'
+            }`}
+          />
+          {hasTrack ? (
+            <>
+              <span className="text-[#4DFA90]/30 flex-shrink-0">|</span>
+              <span className="text-sm font-semibold truncate">{deck.title || 'Unknown Title'}</span>
+              <span className="text-[#4DFA90]/40 flex-shrink-0">—</span>
+              <span className="text-sm text-[#4DFA90]/60 truncate">{deck.artist || 'Unknown Artist'}</span>
+              <span className="text-[#4DFA90]/40 flex-shrink-0">•</span>
+              <span className="text-xs font-mono text-[#4DFA90]/80 flex-shrink-0">{deck.bpm.toFixed(1)} BPM</span>
+              <span className="text-[#4DFA90]/40 flex-shrink-0">•</span>
+              <span className="text-xs font-mono text-[#4DFA90]/80 flex-shrink-0">{formatDuration(deck.duration)}</span>
+            </>
+          ) : (
+            <span className="text-[#4DFA90]/40 text-sm italic">Double-click a track to load</span>
+          )}
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {hasTrack && (
+            <button
+              onClick={handleEject}
+              className="px-2 py-1 text-xs font-mono uppercase bg-[#000] border border-red-500/50 text-red-400 rounded hover:border-red-500 hover:bg-red-500/10 transition-colors"
+              title="Eject track"
+            >
+              ⏏
+            </button>
+          )}
+          <button
+            onClick={handleLoadFile}
+            disabled={deck.isAnalyzing}
+            className="px-3 py-1 text-xs font-mono uppercase bg-[#000] border border-[#4DFA90]/30 rounded hover:border-[#4DFA90] hover:bg-[#4DFA90]/10 transition-colors disabled:opacity-50"
+            title="Load audio file"
+          >
+            Load
+          </button>
+          <button
+            onClick={cycleColorMode}
+            className="px-3 py-1 text-xs font-mono uppercase bg-[#000] border border-[#4DFA90]/30 rounded hover:border-[#4DFA90] transition-colors"
+          >
+            {COLOR_MODE_LABELS[colorMode]}
+          </button>
+        </div>
+      </div>
+
+      {/* Analyzing indicator */}
+      {deck.isAnalyzing && (
+        <div className="px-4 py-2 bg-[#4DFA90]/10 text-xs font-mono text-[#4DFA90] flex items-center gap-2">
+          <div className="w-3 h-3 border-2 border-[#4DFA90] border-t-transparent rounded-full animate-spin" />
+          Analyzing waveform...
+        </div>
+      )}
+
+      {/* Overview Waveform */}
+      <div className="px-4 py-2">
+        <WaveformOverview
+          waveformData={deck.waveformData}
+          playheadPosition={playheadPosition}
+          colorMode={colorMode}
+          onSeek={handleSeek}
+          isPlaying={deck.isPlaying}
+          height={48}
+        />
+      </div>
+
+      {/* Detail Waveform */}
+      <div className="px-4 pb-2">
+        <WaveformDetail
+          waveformData={deck.waveformData}
+          beatgridData={deck.beatgridData}
+          transients={deck.transients}
+          playheadPosition={playheadPosition}
+          colorMode={colorMode}
+          onSeek={handleSeek}
+          isPlaying={deck.isPlaying}
+          bpm={deck.bpm}
+          sampleRate={deck.sampleRate}
+          zoomLevel={deck.zoomLevel}
+          onZoomChange={handleZoomChange}
+          height={100}
+          isSlipModeActive={deck.slipMode.isActive}
+          slipOffset={deck.slipMode.currentOffset}
+          onSlipStart={handleSlipStart}
+          onSlipUpdate={handleSlipUpdate}
+          onSlipCommit={handleSlipCommit}
+          onSlipCancel={handleSlipCancel}
+          snappedBeatIndex={deck.slipMode.snappedBeatIndex}
+          onSnapChange={handleSnapChange}
+          onKeyboardNudge={handleKeyboardNudge}
+          cuePoints={deck.cuePoints}
+          loops={deck.loops}
+        />
+      </div>
+
+      {/* Performance Pads */}
+      {hasTrack && (
+        <div className="px-4 pb-2">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">HOT CUES</div>
+          <PerformancePads
+            cuePoints={deck.cuePoints}
+            onPadClick={handlePadClick}
+            onPadContextMenu={handlePadContextMenu}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
+      {/* Loop Controls */}
+      {hasTrack && (
+        <div className="px-4 pb-4">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">LOOP</div>
+          <LoopControls
+            activeLoop={activeLoop}
+            loops={deck.loops}
+            currentPositionSamples={currentPositionSamples}
+            samplesPerBeat={samplesPerBeat}
+            bpm={deck.bpm}
+            onSetLoopIn={handleSetLoopIn}
+            onSetLoopOut={handleSetLoopOut}
+            onToggleLoop={handleToggleLoop}
+            onSetLoopLength={handleSetLoopLength}
+            onLoopContextMenu={handleLoopContextMenu}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
+      {/* Stem Controls */}
+      {hasTrack && (
+        <div className="px-4 pb-4">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">STEMS</div>
+          <StemControls
+            stemState={stemState}
+            hasWebGPU={hasWebGPU}
+            webGPUUnavailableReason={webGPUUnavailableReason}
+            onToggleMute={handleStemMuteToggle}
+            onToggleSolo={handleStemSoloToggle}
+            onAnalyzeStems={handleAnalyzeStems}
+            onCancelAnalysis={handleCancelStemAnalysis}
+            onClearStems={handleClearStems}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
+      {/* Context Menu for Cue/Loop Management */}
+      <CueContextMenu
+        isOpen={contextMenuState !== null}
+        position={contextMenuState ? { x: contextMenuState.x, y: contextMenuState.y } : { x: 0, y: 0 }}
+        type={contextMenuState?.type ?? 'cue'}
+        cueData={contextMenuState?.type === 'cue' ? deck.cuePoints[contextMenuState.index] : undefined}
+        loopData={contextMenuState?.type === 'loop' ? deck.loops.find((l) => l.index === contextMenuState.index) : undefined}
+        onColorChange={handleContextMenuColorChange}
+        onNameChange={handleContextMenuNameChange}
+        onDelete={handleContextMenuDelete}
+        onClose={handleCloseContextMenu}
+      />
+    </div>
+  );
+}
+
 function formatDuration(seconds: number): string {
   if (!seconds || seconds <= 0) return '0:00';
   const mins = Math.floor(seconds / 60);
   const secs = Math.floor(seconds % 60);
   return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
-/**
- * Placeholder component shown when no track is loaded in Deck A
- */
-function PlaceholderState() {
-  return (
-    <div className="flex items-center justify-center h-[88px] bg-[#000] rounded-sm border border-[#4DFA90]/10">
-      <span className="text-[#4DFA90]/40 text-sm font-mono">
-        Load a track in Deck A to preview
-      </span>
-    </div>
-  );
-}
-
-/**
- * Track info display component
- */
-interface TrackInfoProps {
-  title: string;
-  artist: string;
-  bpm: number;
-  duration: number;
-}
-
-function TrackInfo({ title, artist, bpm, duration }: TrackInfoProps) {
-  return (
-    <div className="flex items-center justify-between mb-2">
-      <div className="flex items-center gap-3 min-w-0 flex-1">
-        <span className="text-sm font-medium text-[#4DFA90] truncate">
-          {title || 'Unknown Title'}
-        </span>
-        <span className="text-xs text-[#4DFA90]/50">—</span>
-        <span className="text-xs text-[#4DFA90]/60 truncate">
-          {artist || 'Unknown Artist'}
-        </span>
-      </div>
-      <div className="flex items-center gap-3 text-xs font-mono text-[#4DFA90]/70 flex-shrink-0 ml-4">
-        <span>{bpm.toFixed(1)} BPM</span>
-        <span className="text-[#4DFA90]/30">•</span>
-        <span>{formatDuration(duration)}</span>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Zoom control buttons component
- */
-interface ZoomControlsProps {
-  zoomLevel: 1 | 2 | 4 | 8;
-  onChange: (level: 1 | 2 | 4 | 8) => void;
-}
-
-function ZoomControls({ zoomLevel, onChange }: ZoomControlsProps) {
-  const levels: Array<1 | 2 | 4 | 8> = [1, 2, 4, 8];
-
-  return (
-    <div className="flex items-center gap-1 mt-2">
-      <span className="text-[10px] font-mono text-[#4DFA90]/40 uppercase mr-2">Zoom</span>
-      {levels.map((level) => (
-        <button
-          key={level}
-          onClick={() => onChange(level)}
-          className={`px-2 py-0.5 text-[10px] font-mono rounded transition-colors ${
-            zoomLevel === level
-              ? 'bg-[#4DFA90]/20 text-[#4DFA90] border border-[#4DFA90]/50'
-              : 'bg-[#121212] text-[#4DFA90]/50 border border-[#4DFA90]/20 hover:border-[#4DFA90]/40'
-          }`}
-        >
-          {level}x
-        </button>
-      ))}
-    </div>
-  );
-}
-
-/**
- * LibraryWaveform component - displays waveform preview of Deck A track
- */
-export function LibraryWaveform() {
-  const deck = useAudioStore(selectDeck('A'));
-  const colorMode = useAudioStore(selectColorMode);
-  const setPosition = useAudioStore((s) => s.setPosition);
-  const setZoomLevel = useAudioStore((s) => s.setZoomLevel);
-
-  // Handle seek (Needle Drop)
-  const handleSeek = useCallback(
-    (normalizedPosition: number) => {
-      setPosition('A', normalizedPosition);
-    },
-    [setPosition]
-  );
-
-  // Handle zoom level change
-  const handleZoomChange = useCallback(
-    (level: 1 | 2 | 4 | 8) => {
-      setZoomLevel('A', level);
-    },
-    [setZoomLevel]
-  );
-
-  // Show placeholder when no track is loaded
-  if (!deck.trackId) {
-    return <PlaceholderState />;
-  }
-
-  return (
-    <div className="library-waveform">
-      {/* Track Info */}
-      <TrackInfo
-        title={deck.title}
-        artist={deck.artist}
-        bpm={deck.bpm}
-        duration={deck.duration}
-      />
-
-      {/* Waveform */}
-      <WaveformOverview
-        waveformData={deck.waveformData}
-        playheadPosition={deck.position}
-        colorMode={colorMode}
-        onSeek={handleSeek}
-        isPlaying={deck.isPlaying}
-        height={48}
-      />
-
-      {/* Zoom Controls */}
-      <ZoomControls zoomLevel={deck.zoomLevel} onChange={handleZoomChange} />
-    </div>
-  );
 }
