@@ -1,0 +1,35 @@
+export const EventType = {
+  PING: 'PING',
+  PONG: 'PONG',
+  ERROR: 'ERROR',
+  LOG: 'LOG',
+  
+  // Database Events
+  DB_QUERY_REQUEST: 'DB_QUERY_REQUEST',
+  DB_QUERY_RESPONSE: 'DB_QUERY_RESPONSE',
+  
+  // Audio Events
+  AUDIO_LOAD_REQUEST: 'AUDIO_LOAD_REQUEST',
+  AUDIO_LOAD_RESPONSE: 'AUDIO_LOAD_RESPONSE',
+  
+  // Hardware Events
+  HARDWARE_EVENT: 'HARDWARE_EVENT'
+} as const;
+
+export type EventType = typeof EventType[keyof typeof EventType];
+
+export interface WorkerMessage<T = any> {
+  id: string;      // UUID (v4)
+  type: EventType; // e.g., 'PING'
+  payload: T;      // Data
+  timestamp: number;
+}
+
+export interface PingPayload {
+  message: string;
+}
+
+export interface PongPayload {
+  message: string;
+  workerStartTime: number;
+}

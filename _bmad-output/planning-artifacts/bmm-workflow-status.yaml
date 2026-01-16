@@ -52,8 +52,8 @@ workflow_status:
   # Phase 3: Solutioning
   create-architecture: _bmad-output/planning-artifacts/architecture.md
   create-epics-and-stories: _bmad-output/planning-artifacts/epics.md
-  test-design: optional
+  test-design: _bmad-output/implementation-artifacts/test-design-epic-1.md
   implementation-readiness: _bmad-output/planning-artifacts/implementation-readiness-report-2026-01-16.md
 
   # Phase 4: Implementation
-  sprint-planning: required
+  sprint-planning: _bmad-output/implementation-artifacts/sprint-status.yaml

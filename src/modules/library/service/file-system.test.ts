@@ -8,7 +8,6 @@ describe('File System Service', () => {
 
     it('should open directory picker', async () => {
         const mockHandle = { kind: 'directory', name: 'music' };
-        // @ts-expect-error - missing types for file system access api in test env
         global.showDirectoryPicker = vi.fn().mockResolvedValue(mockHandle);
 
         const handle = await getDirectoryHandle();

@@ -91,7 +91,6 @@ export const ImportControl = () => {
         for (const item of items) {
             if (item.kind === 'file') {
                 try {
-                    // @ts-expect-error - Types might be missing for modern API
                     const handle = await item.getAsFileSystemHandle();
                     if (handle && handle.kind === 'directory') {
                         await processImport(handle as FileSystemDirectoryHandle);
