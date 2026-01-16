@@ -54,28 +54,6 @@ function App() {
         setDbInfo(`SQLite Version: ${versionResult.version}`);
         setDbStatus('ready');
         setLogs(prev => [...prev, '[UI] Database Health Check PASSED']);
-
-        // 3. Persistence Verification (AC6)
-        setLogs(prev => [...prev, '[UI] Verifying Persistence...']);
-        const testPath = `/test-track-${Date.now()}.mp3`;
-        
-        // Insert dummy track
-        await kernel.send(EventType.DB_QUERY_REQUEST, {
-          sql: 'INSERT INTO Track (title, path, filename) VALUES (?, ?, ?)',
-          params: ['Persistence Test Track', testPath, 'test.mp3'],
-          method: 'run',
-          targetDb: 'm'
-        });
-
-        // Verify count
-        const countResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
-            sql: 'SELECT count(*) as count FROM Track',
-            method: 'get',
-            targetDb: 'm'
-        });
-        
-        setLogs(prev => [...prev, `[UI] Persistence Check: Track count is now ${countResult.count}. Refresh to verify it increases!`]);
-
       } catch (error: any) {
         console.error('Database Init Failed:', error);
         setDbStatus('error');
