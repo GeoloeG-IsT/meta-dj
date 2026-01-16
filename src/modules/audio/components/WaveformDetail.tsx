@@ -10,10 +10,12 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import { BeatgridOverlay } from './BeatgridOverlay';
+import { CueMarkerOverlay } from './CueMarkerOverlay';
 import { findNearestTransient, DEFAULT_TRANSIENT_CONFIG } from '../utils/transient-detector';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode } from '../types';
+import type { HotCueData } from '../types/cue-loop';
 
 export interface WaveformDetailProps {
   /** Waveform data to render */
@@ -60,6 +62,12 @@ export interface WaveformDetailProps {
   onSnapChange?: (beatIndex: number | null, isSnapped: boolean) => void;
   /** Callback for keyboard nudge (Shift+Arrow keys). Offset is sample delta (±44 for 1ms at 44.1kHz) */
   onKeyboardNudge?: (sampleOffset: number) => void;
+  /** Hot cue points to display on the waveform */
+  cuePoints?: HotCueData[];
+  /** Callback when a cue marker is clicked */
+  onCueClick?: (cueIndex: number) => void;
+  /** Callback when a cue marker is right-clicked (context menu) */
+  onCueContextMenu?: (cueIndex: number, event: React.MouseEvent) => void;
 }
 
 /** Calculate view range based on zoom level and center position */
@@ -137,6 +145,9 @@ export function WaveformDetail({
   snappedBeatIndex = null,
   onSnapChange,
   onKeyboardNudge,
+  cuePoints = [],
+  onCueClick,
+  onCueContextMenu,
 }: WaveformDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -407,6 +418,18 @@ export function WaveformDetail({
           height={height}
           slipOffset={slipOffset}
           snappedBeatIndex={snappedBeatIndex}
+        />
+      )}
+
+      {/* Cue Marker Overlay */}
+      {cuePoints.length > 0 && (
+        <CueMarkerOverlay
+          cuePoints={cuePoints}
+          viewRange={viewRange}
+          totalSamples={totalSamples}
+          height={height}
+          onCueClick={onCueClick}
+          onCueContextMenu={onCueContextMenu}
         />
       )}
 

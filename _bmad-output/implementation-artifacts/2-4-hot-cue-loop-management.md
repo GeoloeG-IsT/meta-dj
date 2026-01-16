@@ -43,13 +43,13 @@ So that I can mark specific performance sections and trigger them during a set.
   - [x] Load cue/loop data in deck-loader.service.ts when track loads
   - [x] Implement optimistic update pattern with rollback on failure
 
-- [ ] **Task 3: Cue Marker Overlay Component** (AC: 3)
-  - [ ] Create `CueMarkerOverlay.tsx` component for rendering cue markers
-  - [ ] Render triangle markers at cue positions with pad number (1-8)
-  - [ ] Apply color from cue data (default: Engine Green)
-  - [ ] Calculate pixel positions based on view range (same pattern as BeatgridOverlay)
-  - [ ] Integrate with WaveformDetail component
-  - [ ] Write unit tests for position calculations
+- [x] **Task 3: Cue Marker Overlay Component** (AC: 3)
+  - [x] Create `CueMarkerOverlay.tsx` component for rendering cue markers
+  - [x] Render triangle markers at cue positions with pad number (1-8)
+  - [x] Apply color from cue data (default: Engine Green)
+  - [x] Calculate pixel positions based on view range (same pattern as BeatgridOverlay)
+  - [x] Integrate with WaveformDetail component
+  - [x] Write unit tests for position calculations
 
 - [ ] **Task 4: Loop Region Overlay Component** (AC: 3)
   - [ ] Create `LoopRegionOverlay.tsx` component for rendering loop regions
