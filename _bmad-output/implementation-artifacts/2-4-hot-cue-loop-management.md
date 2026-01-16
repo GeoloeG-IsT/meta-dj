@@ -67,28 +67,28 @@ So that I can mark specific performance sections and trigger them during a set.
   - [x] Integrate with DeckUI component
   - [x] Add keyboard event listeners for keys 1-8
 
-- [ ] **Task 6: Loop Controls UI** (AC: 2, 7)
-  - [ ] Create `LoopControls.tsx` component with loop in/out/active buttons
-  - [ ] Display current loop length selector (1/4, 1/2, 1, 2, 4, 8, 16 beats)
-  - [ ] Handle loop activation/deactivation toggle
-  - [ ] Visual feedback for active loop state (Engine Green highlight)
-  - [ ] Add keyboard event listener for L key
-  - [ ] Integrate with DeckUI component
+- [x] **Task 6: Loop Controls UI** (AC: 2, 7)
+  - [x] Create `LoopControls.tsx` component with loop in/out/active buttons
+  - [x] Display current loop length selector (1/4, 1/2, 1, 2, 4, 8, 16 beats)
+  - [x] Handle loop activation/deactivation toggle
+  - [x] Visual feedback for active loop state (Engine Green highlight)
+  - [x] Add keyboard event listener for L key
+  - [x] Integrate with DeckUI component
 
-- [ ] **Task 7: Context Menu for Cue/Loop Management** (AC: 4, 5, 8)
-  - [ ] Create `CueContextMenu.tsx` using Headless UI Popover
-  - [ ] Add color picker with 8-color Engine DJ palette
-  - [ ] Add inline name editor with blur-to-save
-  - [ ] Add delete option with hold-to-confirm pattern
-  - [ ] Trigger on right-click on cue marker or pad button
-  - [ ] Wire up to store actions for persistence
+- [x] **Task 7: Context Menu for Cue/Loop Management** (AC: 4, 5, 8)
+  - [x] Create `CueContextMenu.tsx` using Headless UI Popover
+  - [x] Add color picker with 8-color Engine DJ palette
+  - [x] Add inline name editor with blur-to-save
+  - [x] Add delete option with hold-to-confirm pattern
+  - [x] Trigger on right-click on cue marker or pad button
+  - [x] Wire up to store actions for persistence
 
-- [ ] **Task 8: Integration & Testing** (AC: all)
-  - [ ] Add unit tests for cue/loop position calculations
-  - [ ] Add unit tests for keyboard shortcut handlers
-  - [ ] Test database persistence across page reload
-  - [ ] Verify optimistic update and rollback behavior
-  - [ ] Test context menu interactions
+- [x] **Task 8: Integration & Testing** (AC: all)
+  - [x] Add unit tests for cue/loop position calculations
+  - [x] Add unit tests for keyboard shortcut handlers
+  - [x] Test database persistence across page reload
+  - [x] Verify optimistic update and rollback behavior
+  - [x] Test context menu interactions
 
 ## Dev Notes
 
