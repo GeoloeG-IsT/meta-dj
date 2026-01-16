@@ -11,6 +11,18 @@ import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
 
+/** Slip mode state for beatgrid editing */
+export interface SlipModeState {
+  /** Whether slip mode is currently active */
+  isActive: boolean;
+  /** Current sample offset during slip (not yet committed) */
+  currentOffset: number;
+  /** Starting mouse X position when slip started */
+  startX: number;
+  /** Original beatgrid firstBeatSample before slip started */
+  originalFirstBeat: number;
+}
+
 /** State for a single deck */
 export interface DeckState {
   /** Track ID loaded in this deck */
@@ -33,6 +45,8 @@ export interface DeckState {
   waveformData: WaveformData | null;
   /** Beatgrid data for beat markers */
   beatgridData: BeatgridData | null;
+  /** Slip mode state for beatgrid editing */
+  slipMode: SlipModeState;
   /** Whether waveform is currently being analyzed */
   isAnalyzing: boolean;
   /** Zoom level for detail view (bars visible) */
@@ -66,11 +80,25 @@ export interface AudioState {
   setAnalyzing: (deckId: DeckId, isAnalyzing: boolean) => void;
   setZoomLevel: (deckId: DeckId, zoomLevel: 1 | 2 | 4 | 8) => void;
 
+  // Actions - Slip Mode
+  startSlipMode: (deckId: DeckId, startX: number, originalFirstBeat: number) => void;
+  updateSlipOffset: (deckId: DeckId, offset: number) => void;
+  cancelSlipMode: (deckId: DeckId) => void;
+  commitSlipMode: (deckId: DeckId) => void;
+
   // Actions - Settings
   setColorMode: (mode: WaveformColorMode) => void;
   setMasterVolume: (volume: number) => void;
   setActiveDeck: (deckId: DeckId) => void;
 }
+
+/** Create initial slip mode state */
+const createInitialSlipModeState = (): SlipModeState => ({
+  isActive: false,
+  currentOffset: 0,
+  startX: 0,
+  originalFirstBeat: 0,
+});
 
 /** Create initial deck state */
 const createInitialDeckState = (): DeckState => ({
@@ -84,6 +112,7 @@ const createInitialDeckState = (): DeckState => ({
   position: 0,
   waveformData: null,
   beatgridData: null,
+  slipMode: createInitialSlipModeState(),
   isAnalyzing: false,
   zoomLevel: 4,
 });
@@ -122,6 +151,7 @@ export const useAudioStore = create<AudioState>()(
               isPlaying: false,
               waveformData: null,
               beatgridData: null,
+              slipMode: createInitialSlipModeState(),
               isAnalyzing: false,
             },
           },
@@ -201,6 +231,77 @@ export const useAudioStore = create<AudioState>()(
             },
           },
         })),
+
+      // Slip Mode actions
+      startSlipMode: (deckId, startX, originalFirstBeat) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              slipMode: {
+                isActive: true,
+                currentOffset: 0,
+                startX,
+                originalFirstBeat,
+              },
+            },
+          },
+        })),
+
+      updateSlipOffset: (deckId, offset) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              slipMode: {
+                ...state.decks[deckId].slipMode,
+                currentOffset: offset,
+              },
+            },
+          },
+        })),
+
+      cancelSlipMode: (deckId) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              slipMode: createInitialSlipModeState(),
+            },
+          },
+        })),
+
+      commitSlipMode: (deckId) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          if (!deck.beatgridData || !deck.slipMode.isActive) {
+            return state;
+          }
+
+          // Apply the offset to the beatgrid
+          const newAnchors = deck.beatgridData.anchors.map(
+            (anchor) => anchor + deck.slipMode.currentOffset
+          );
+          const newFirstBeat = deck.beatgridData.firstBeatSample + deck.slipMode.currentOffset;
+
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                beatgridData: {
+                  ...deck.beatgridData,
+                  firstBeatSample: newFirstBeat,
+                  anchors: newAnchors,
+                },
+                slipMode: createInitialSlipModeState(),
+              },
+            },
+          };
+        }),
 
       // Settings actions
       setColorMode: (mode) =>

@@ -39,6 +39,18 @@ export interface WaveformDetailProps {
   onZoomChange?: (zoomLevel: 1 | 2 | 4 | 8) => void;
   /** Height of the component in pixels */
   height?: number;
+  /** Whether slip mode is currently active */
+  isSlipModeActive?: boolean;
+  /** Current slip offset in samples (for live preview) */
+  slipOffset?: number;
+  /** Callback when slip mode starts (Shift+Drag) */
+  onSlipStart?: (startX: number, originalFirstBeat: number) => void;
+  /** Callback when slip offset changes during drag */
+  onSlipUpdate?: (offset: number) => void;
+  /** Callback when slip mode is committed (mouse up) */
+  onSlipCommit?: () => void;
+  /** Callback when slip mode is cancelled (Shift release) */
+  onSlipCancel?: () => void;
 }
 
 /** Calculate view range based on zoom level and center position */
@@ -106,12 +118,20 @@ export function WaveformDetail({
   zoomLevel = 4,
   onZoomChange,
   height = 128,
+  isSlipModeActive = false,
+  slipOffset = 0,
+  onSlipStart,
+  onSlipUpdate,
+  onSlipCommit,
+  onSlipCancel,
 }: WaveformDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [isSlipDragging, setIsSlipDragging] = useState(false);
   const [dragStartX, setDragStartX] = useState(0);
   const [dragStartOffset, setDragStartOffset] = useState(0);
   const [browseOffset, setBrowseOffset] = useState(0);
+  const slipStartXRef = useRef<number>(0);
 
   // Calculate duration and total samples
   const duration = waveformData?.duration ?? 0;
@@ -140,6 +160,29 @@ export function WaveformDetail({
     return calculateViewRange(centerPosition, zoomLevel, bpm, duration);
   }, [centerPosition, zoomLevel, bpm, duration]);
 
+  // Calculate samples per pixel for offset conversion
+  const samplesPerPixel = useMemo(() => {
+    const containerWidth = containerRef.current?.clientWidth || 800;
+    const viewWidthSamples = (viewRange.end - viewRange.start) * totalSamples;
+    return viewWidthSamples / containerWidth;
+  }, [viewRange, totalSamples]);
+
+  // Listen for Shift key release to cancel slip mode
+  useEffect(() => {
+    if (!isSlipModeActive) return;
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === 'Shift' && isSlipDragging) {
+        // Cancel slip mode on Shift release
+        setIsSlipDragging(false);
+        onSlipCancel?.();
+      }
+    };
+
+    window.addEventListener('keyup', handleKeyUp);
+    return () => window.removeEventListener('keyup', handleKeyUp);
+  }, [isSlipModeActive, isSlipDragging, onSlipCancel]);
+
   // Handle mouse wheel for zoom
   const handleWheel = useCallback(
     (event: React.WheelEvent) => {
@@ -162,21 +205,43 @@ export function WaveformDetail({
     [zoomLevel, onZoomChange]
   );
 
-  // Handle mouse down for drag browsing
+  // Handle mouse down for drag browsing or slip mode
   const handleMouseDown = useCallback(
     (event: React.MouseEvent) => {
-      if (isPlaying) return; // Only allow browsing when paused
+      if (isPlaying) return; // Only allow browsing/slip when paused
 
+      // Check for Shift+Drag to enter slip mode
+      if (event.shiftKey && beatgridData && onSlipStart) {
+        event.preventDefault();
+        setIsSlipDragging(true);
+        slipStartXRef.current = event.clientX;
+        onSlipStart(event.clientX, beatgridData.firstBeatSample);
+        return;
+      }
+
+      // Normal browse mode
       setIsDragging(true);
       setDragStartX(event.clientX);
       setDragStartOffset(browseOffset);
     },
-    [isPlaying, browseOffset]
+    [isPlaying, browseOffset, beatgridData, onSlipStart]
   );
 
-  // Handle mouse move for drag browsing
+  // Handle mouse move for drag browsing or slip mode
   const handleMouseMove = useCallback(
     (event: React.MouseEvent) => {
+      // Slip mode dragging
+      if (isSlipDragging && onSlipUpdate) {
+        const deltaX = event.clientX - slipStartXRef.current;
+        // Convert pixel delta to sample offset
+        // Dragging left (negative delta) = move waveform left = increase first beat sample
+        // Dragging right (positive delta) = move waveform right = decrease first beat sample
+        const sampleOffset = Math.round(-deltaX * samplesPerPixel);
+        onSlipUpdate(sampleOffset);
+        return;
+      }
+
+      // Normal browse mode
       if (!isDragging || !containerRef.current) return;
 
       const containerWidth = containerRef.current.clientWidth;
@@ -193,18 +258,25 @@ export function WaveformDetail({
         )
       );
     },
-    [isDragging, dragStartX, dragStartOffset, viewRange, playheadPosition]
+    [isDragging, isSlipDragging, dragStartX, dragStartOffset, viewRange, playheadPosition, samplesPerPixel, onSlipUpdate]
   );
 
   // Handle mouse up
   const handleMouseUp = useCallback(() => {
+    if (isSlipDragging) {
+      // Commit slip mode changes
+      setIsSlipDragging(false);
+      onSlipCommit?.();
+      return;
+    }
     setIsDragging(false);
-  }, []);
+  }, [isSlipDragging, onSlipCommit]);
 
   // Handle click to seek
   const handleClick = useCallback(
     (event: React.MouseEvent) => {
-      if (!onSeek || !containerRef.current || isDragging) return;
+      // Don't seek during drag or slip operations
+      if (!onSeek || !containerRef.current || isDragging || isSlipDragging || isSlipModeActive) return;
 
       const rect = containerRef.current.getBoundingClientRect();
       const x = event.clientX - rect.left;
@@ -217,11 +289,19 @@ export function WaveformDetail({
       onSeek(Math.max(0, Math.min(1, trackPosition)));
       setBrowseOffset(0); // Reset browse offset on seek
     },
-    [onSeek, viewRange, isDragging]
+    [onSeek, viewRange, isDragging, isSlipDragging, isSlipModeActive]
   );
 
   // Zoom level indicator
   const zoomIndicator = `${zoomLevel} bar${zoomLevel > 1 ? 's' : ''}`;
+
+  // Determine cursor style
+  const getCursor = () => {
+    if (isSlipDragging || isSlipModeActive) return 'ew-resize';
+    if (isDragging) return 'grabbing';
+    if (isPlaying) return 'default';
+    return 'grab';
+  };
 
   return (
     <div
@@ -232,7 +312,7 @@ export function WaveformDetail({
         backgroundColor: '#000000', // OLED Black
         borderRadius: '4px',
         overflow: 'hidden',
-        cursor: isDragging ? 'grabbing' : isPlaying ? 'default' : 'grab',
+        cursor: getCursor(),
       }}
       onWheel={handleWheel}
       onMouseDown={handleMouseDown}
@@ -258,6 +338,7 @@ export function WaveformDetail({
           viewRange={viewRange}
           totalSamples={totalSamples}
           height={height}
+          slipOffset={slipOffset}
         />
       )}
 
@@ -284,8 +365,23 @@ export function WaveformDetail({
         {zoomIndicator}
       </div>
 
+      {/* Slip mode indicator */}
+      {(isSlipModeActive || isSlipDragging) && (
+        <div
+          className="absolute bottom-2 left-2 px-2 py-1 text-xs font-bold pointer-events-none"
+          style={{
+            backgroundColor: 'rgba(77, 250, 144, 0.2)',
+            color: '#4DFA90', // Engine Green
+            borderRadius: '4px',
+            border: '1px solid #4DFA90',
+          }}
+        >
+          SLIP
+        </div>
+      )}
+
       {/* Browse mode indicator */}
-      {!isPlaying && browseOffset !== 0 && (
+      {!isPlaying && browseOffset !== 0 && !isSlipModeActive && !isSlipDragging && (
         <div
           className="absolute bottom-2 left-2 px-2 py-1 text-xs pointer-events-none"
           style={{

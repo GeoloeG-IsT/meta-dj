@@ -31,13 +31,13 @@ So that I can ensure 100% accurate sync for tracks with complex transients.
   - [x] Render vertical lines at each beat position (subtle gray for normal, Engine Green for downbeats)
   - [x] Integrate overlay with WaveformDetail component
 
-- [ ] **Task 2: Slip Mode Interaction** (AC: 1)
-  - [ ] Detect Shift+Drag combination on waveform component
-  - [ ] Implement slip mode state management in audio store
-  - [ ] Calculate sample offset from mouse delta (pixels → samples conversion)
-  - [ ] Move waveform visually while keeping center playhead/grid static
-  - [ ] Add visual indicator for "SLIP" mode active state
-  - [ ] Handle Shift key release to cancel slip without saving
+- [x] **Task 2: Slip Mode Interaction** (AC: 1)
+  - [x] Detect Shift+Drag combination on waveform component
+  - [x] Implement slip mode state management in audio store
+  - [x] Calculate sample offset from mouse delta (pixels → samples conversion)
+  - [x] Move waveform visually while keeping center playhead/grid static
+  - [x] Add visual indicator for "SLIP" mode active state
+  - [x] Handle Shift key release to cancel slip without saving
 
 - [ ] **Task 3: Transient Detection for Snap** (AC: 2)
   - [ ] Implement peak detection algorithm on waveform data

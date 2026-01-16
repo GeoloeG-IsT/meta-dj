@@ -43,6 +43,12 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   const setPosition = useAudioStore((s) => s.setPosition);
   const setZoomLevel = useAudioStore((s) => s.setZoomLevel);
 
+  // Slip mode actions
+  const startSlipMode = useAudioStore((s) => s.startSlipMode);
+  const updateSlipOffset = useAudioStore((s) => s.updateSlipOffset);
+  const cancelSlipMode = useAudioStore((s) => s.cancelSlipMode);
+  const commitSlipMode = useAudioStore((s) => s.commitSlipMode);
+
   // Local playhead for demo (will be replaced by SAB sync in real implementation)
   const [playheadPosition, setPlayheadPosition] = useState(0);
 
@@ -60,6 +66,29 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     },
     [deckId, setZoomLevel]
   );
+
+  // Slip mode callbacks
+  const handleSlipStart = useCallback(
+    (startX: number, originalFirstBeat: number) => {
+      startSlipMode(deckId, startX, originalFirstBeat);
+    },
+    [deckId, startSlipMode]
+  );
+
+  const handleSlipUpdate = useCallback(
+    (offset: number) => {
+      updateSlipOffset(deckId, offset);
+    },
+    [deckId, updateSlipOffset]
+  );
+
+  const handleSlipCancel = useCallback(() => {
+    cancelSlipMode(deckId);
+  }, [deckId, cancelSlipMode]);
+
+  const handleSlipCommit = useCallback(() => {
+    commitSlipMode(deckId);
+  }, [deckId, commitSlipMode]);
 
   const cycleColorMode = useCallback(() => {
     const currentIndex = COLOR_MODES.indexOf(colorMode);
@@ -178,6 +207,12 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           zoomLevel={deck.zoomLevel}
           onZoomChange={handleZoomChange}
           height={100}
+          isSlipModeActive={deck.slipMode.isActive}
+          slipOffset={deck.slipMode.currentOffset}
+          onSlipStart={handleSlipStart}
+          onSlipUpdate={handleSlipUpdate}
+          onSlipCommit={handleSlipCommit}
+          onSlipCancel={handleSlipCancel}
         />
       </div>
     </div>
