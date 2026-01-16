@@ -196,11 +196,12 @@ export function WaveformDetail({
     return () => window.removeEventListener('keyup', handleKeyUp);
   }, [isSlipModeActive, isSlipDragging, onSlipCancel]);
 
-  // Handle mouse wheel for zoom
-  const handleWheel = useCallback(
-    (event: React.WheelEvent) => {
-      if (!onZoomChange) return;
+  // Handle mouse wheel for zoom - use native listener with { passive: false } to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container || !onZoomChange) return;
 
+    const handleWheel = (event: WheelEvent) => {
       // Prevent page scroll
       event.preventDefault();
 
@@ -214,9 +215,11 @@ export function WaveformDetail({
         // Zoom in (show fewer bars)
         onZoomChange(zoomLevels[currentIndex - 1]);
       }
-    },
-    [zoomLevel, onZoomChange]
-  );
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [zoomLevel, onZoomChange]);
 
   // Handle mouse down for drag browsing or slip mode
   const handleMouseDown = useCallback(
@@ -375,7 +378,6 @@ export function WaveformDetail({
         outline: 'none', // Hide focus outline (we have our own visual feedback)
       }}
       tabIndex={0}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
