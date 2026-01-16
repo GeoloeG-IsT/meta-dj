@@ -112,7 +112,12 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         } else if (method === 'get') {
             result = target.selectObject(sql, params);
         } else {
-            result = target.selectObjects(sql, params);
+            result = target.exec({ 
+                sql, 
+                bind: params, 
+                returnValue: 'resultRows', 
+                rowMode: 'object' 
+            });
         }
 
         source.postMessage({
