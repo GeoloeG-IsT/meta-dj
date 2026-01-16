@@ -58,7 +58,7 @@ development_status:
   2-3-slip-under-beatgrid-editing: done
   2-4-hot-cue-loop-management: done
   2-5-client-side-stem-separation-webgpu: done
-  epic-2-retrospective: optional
+  epic-2-retrospective: done
 
   # Epic 3: The Performer (Playback & DSP)
   epic-3: backlog
