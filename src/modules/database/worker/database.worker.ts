@@ -94,6 +94,24 @@ const init = async () => {
           log('Created SmartListRule table');
         } catch (e) {}
 
+        // Migration: WaveformData table for 3-band FFT visualization
+        try {
+          dbs.m.exec(`
+            CREATE TABLE IF NOT EXISTS WaveformData (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              trackId INTEGER UNIQUE,
+              waveform_data BLOB,
+              sample_rate INTEGER,
+              duration REAL,
+              points_per_second REAL,
+              created_at INTEGER,
+              FOREIGN KEY(trackId) REFERENCES Track(id)
+            )
+          `);
+          dbs.m.exec('CREATE INDEX IF NOT EXISTS idx_waveform_track ON WaveformData(trackId)');
+          log('Created WaveformData table');
+        } catch (e) {}
+
         // Migration: PlaylistEntity table (fix for persistent "playlistId" NOT NULL constraints)
         try {
           const columns: any[] = dbs.m.exec({ sql: "PRAGMA table_info(PlaylistEntity)", returnValue: 'resultRows', rowMode: 'object' });

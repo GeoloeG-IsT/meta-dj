@@ -63,12 +63,12 @@ CREATE TABLE IF NOT EXISTS PlaylistEntity (
 );
 
 -- PerformanceData Table: Cues, Loops, and Beatgrid (often in p.db)
--- In meta-dj, we might combine or keep separate. 
+-- In meta-dj, we might combine or keep separate.
 -- For now, we'll implement the m.db structure and placeholders for performance data.
 CREATE TABLE IF NOT EXISTS PerformanceData (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     trackId INTEGER,
-    type INTEGER, -- 1: HotCue, 2: Loop, 3: Beatgrid
+    type INTEGER, -- 1: HotCue, 2: Loop, 3: Beatgrid, 4: Waveform
     position INTEGER,
     endPosition INTEGER,
     color INTEGER,
@@ -77,7 +77,21 @@ CREATE TABLE IF NOT EXISTS PerformanceData (
     FOREIGN KEY(trackId) REFERENCES Track(id)
 );
 
+-- WaveformData Table: Pre-computed 3-band FFT waveform data for visualization
+-- Stored separately for efficient retrieval during deck loading
+CREATE TABLE IF NOT EXISTS WaveformData (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trackId INTEGER UNIQUE,
+    waveform_data BLOB,       -- Serialized WaveformData (3-band peaks)
+    sample_rate INTEGER,      -- Original audio sample rate
+    duration REAL,            -- Track duration in seconds
+    points_per_second REAL,   -- Resolution of the waveform data
+    created_at INTEGER,       -- Timestamp of analysis
+    FOREIGN KEY(trackId) REFERENCES Track(id)
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_track_path ON Track(path);
 CREATE INDEX IF NOT EXISTS idx_playlist_parent ON Playlist(parentListId);
 CREATE INDEX IF NOT EXISTS idx_entity_list ON PlaylistEntity(listId);
+CREATE INDEX IF NOT EXISTS idx_waveform_track ON WaveformData(trackId);
