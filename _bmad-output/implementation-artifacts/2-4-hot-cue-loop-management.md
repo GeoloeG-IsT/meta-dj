@@ -1,6 +1,6 @@
 # Story 2.4: Hot Cue & Loop Management
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 

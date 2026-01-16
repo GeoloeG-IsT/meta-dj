@@ -9,12 +9,14 @@ import { useCallback, useState, useRef, useEffect } from 'react';
 import { WaveformOverview } from './WaveformOverview';
 import { WaveformDetail } from './WaveformDetail';
 import { PerformancePads } from './PerformancePads';
+import { LoopControls } from './LoopControls';
+import { CueContextMenu } from './CueContextMenu';
 import { useAudioStore, selectDeck, selectColorMode } from '../store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '../services/deck-loader.service';
 import { analysisService } from '../services/analysis.service';
 import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '../types';
-import type { HotCueData } from '../types/cue-loop';
+import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
 import { DEFAULT_CUE_COLOR } from '../types/cue-loop';
 
 export interface DeckUIProps {
@@ -58,6 +60,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   // Cue point actions
   const addCuePoint = useAudioStore((s) => s.addCuePoint);
   const removeCuePoint = useAudioStore((s) => s.removeCuePoint);
+
+  // Loop actions
+  const addLoop = useAudioStore((s) => s.addLoop);
+  const removeLoop = useAudioStore((s) => s.removeLoop);
+  const setActiveLoop = useAudioStore((s) => s.setActiveLoop);
+  const updateLoop = useAudioStore((s) => s.updateLoop);
+
+  // Cue update action
+  const updateCuePoint = useAudioStore((s) => s.updateCuePoint);
 
   // Local playhead for demo (will be replaced by SAB sync in real implementation)
   const [playheadPosition, setPlayheadPosition] = useState(0);
@@ -243,20 +254,266 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     [deckId, deck.trackId, deck.cuePoints, deck.duration, deck.sampleRate, playheadPosition, addCuePoint, removeCuePoint, setPosition]
   );
 
-  // Cue point context menu handler (placeholder for now)
+  // Context menu state for cue/loop management
   const [contextMenuState, setContextMenuState] = useState<{
-    cueIndex: number;
+    type: 'cue' | 'loop';
+    index: number;
     x: number;
     y: number;
   } | null>(null);
 
+  // Loop in-point pending state (when user has set IN but not OUT yet)
+  const [pendingLoopInPoint, setPendingLoopInPoint] = useState<number | null>(null);
+
+  // Reset pending loop in-point when track changes
+  useEffect(() => {
+    setPendingLoopInPoint(null);
+  }, [deck.trackId]);
+
   const handlePadContextMenu = useCallback((padIndex: number, event: React.MouseEvent) => {
-    setContextMenuState({
-      cueIndex: padIndex,
-      x: event.clientX,
-      y: event.clientY,
-    });
+    // Only show context menu if the cue is set
+    if (deck.cuePoints[padIndex]?.isSet) {
+      setContextMenuState({
+        type: 'cue',
+        index: padIndex,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    }
+  }, [deck.cuePoints]);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenuState(null);
   }, []);
+
+  // Context menu action handlers
+  const handleContextMenuColorChange = useCallback(
+    async (color: CueColor) => {
+      if (!contextMenuState || !deck.trackId) return;
+
+      const { type, index } = contextMenuState;
+
+      if (type === 'cue') {
+        // Optimistic update
+        updateCuePoint(deckId, index, { color });
+        // Persist
+        try {
+          await analysisService.updateCuePoint(deck.trackId, index, { color });
+          toast.success('Color updated');
+        } catch (error) {
+          console.error('[DeckUI] Failed to update cue color:', error);
+          toast.error('Failed to update color');
+        }
+      } else {
+        // Optimistic update
+        updateLoop(deckId, index, { color });
+        // Persist
+        try {
+          await analysisService.updateLoop(deck.trackId, index, { color });
+          toast.success('Color updated');
+        } catch (error) {
+          console.error('[DeckUI] Failed to update loop color:', error);
+          toast.error('Failed to update color');
+        }
+      }
+    },
+    [contextMenuState, deckId, deck.trackId, updateCuePoint, updateLoop]
+  );
+
+  const handleContextMenuNameChange = useCallback(
+    async (name: string) => {
+      if (!contextMenuState || !deck.trackId) return;
+
+      const { type, index } = contextMenuState;
+
+      if (type === 'cue') {
+        // Optimistic update
+        updateCuePoint(deckId, index, { name });
+        // Persist
+        try {
+          await analysisService.updateCuePoint(deck.trackId, index, { name });
+          toast.success('Name updated');
+        } catch (error) {
+          console.error('[DeckUI] Failed to update cue name:', error);
+          toast.error('Failed to update name');
+        }
+      } else {
+        // Optimistic update
+        updateLoop(deckId, index, { name });
+        // Persist
+        try {
+          await analysisService.updateLoop(deck.trackId, index, { name });
+          toast.success('Name updated');
+        } catch (error) {
+          console.error('[DeckUI] Failed to update loop name:', error);
+          toast.error('Failed to update name');
+        }
+      }
+    },
+    [contextMenuState, deckId, deck.trackId, updateCuePoint, updateLoop]
+  );
+
+  const handleContextMenuDelete = useCallback(async () => {
+    if (!contextMenuState || !deck.trackId) return;
+
+    const { type, index } = contextMenuState;
+
+    if (type === 'cue') {
+      // Optimistic update
+      removeCuePoint(deckId, index);
+      // Persist
+      try {
+        await analysisService.deleteCuePoint(deck.trackId, index);
+        toast.success(`Cue ${index + 1} deleted`);
+      } catch (error) {
+        console.error('[DeckUI] Failed to delete cue:', error);
+        toast.error('Failed to delete cue');
+      }
+    } else {
+      // Optimistic update
+      removeLoop(deckId, index);
+      // Persist
+      try {
+        await analysisService.deleteLoop(deck.trackId, index);
+        toast.success(`Loop ${index + 1} deleted`);
+      } catch (error) {
+        console.error('[DeckUI] Failed to delete loop:', error);
+        toast.error('Failed to delete loop');
+      }
+    }
+
+    setContextMenuState(null);
+  }, [contextMenuState, deckId, deck.trackId, removeCuePoint, removeLoop]);
+
+  // Loop control callbacks
+  const handleSetLoopIn = useCallback((samplePosition: number) => {
+    setPendingLoopInPoint(samplePosition);
+  }, []);
+
+  const handleSetLoopOut = useCallback(
+    async (samplePosition: number) => {
+      if (!deck.trackId) return;
+
+      // Determine in-point (either pending or current position minus default length)
+      const inPoint = pendingLoopInPoint ?? samplePosition;
+      const outPoint = samplePosition;
+
+      // Ensure out is after in
+      if (outPoint <= inPoint) {
+        toast.error('Loop out must be after loop in');
+        return;
+      }
+
+      // Find next available loop slot
+      const usedIndices = new Set(deck.loops.map((l) => l.index));
+      let nextIndex = 0;
+      while (usedIndices.has(nextIndex) && nextIndex < 8) {
+        nextIndex++;
+      }
+
+      if (nextIndex >= 8) {
+        toast.error('Maximum 8 loops reached');
+        return;
+      }
+
+      const newLoop: LoopData = {
+        index: nextIndex,
+        inPoint,
+        outPoint,
+        color: DEFAULT_CUE_COLOR,
+        name: '',
+        isActive: true,
+      };
+
+      // Optimistic update
+      addLoop(deckId, newLoop);
+      setActiveLoop(deckId, nextIndex);
+      setPendingLoopInPoint(null);
+
+      // Persist to database
+      try {
+        await analysisService.saveLoop(deck.trackId, newLoop);
+        toast.success('Loop saved');
+      } catch (error) {
+        console.error('[DeckUI] Failed to save loop:', error);
+        removeLoop(deckId, nextIndex);
+        toast.error('Failed to save loop');
+      }
+    },
+    [deckId, deck.trackId, deck.loops, pendingLoopInPoint, addLoop, setActiveLoop, removeLoop]
+  );
+
+  const handleToggleLoop = useCallback(() => {
+    // If there's an active loop, deactivate it
+    // If there's no active loop but loops exist, activate the first one
+    if (deck.activeLoopIndex >= 0) {
+      setActiveLoop(deckId, deck.activeLoopIndex); // Toggle off
+    } else if (deck.loops.length > 0) {
+      setActiveLoop(deckId, deck.loops[0].index); // Activate first loop
+    }
+  }, [deckId, deck.activeLoopIndex, deck.loops, setActiveLoop]);
+
+  const handleSetLoopLength = useCallback(
+    async (beats: number) => {
+      if (!deck.trackId || !deck.beatgridData) return;
+
+      const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+      const samplesPerBeat = (60 / deck.bpm) * deck.sampleRate;
+      const loopLength = Math.round(beats * samplesPerBeat);
+
+      const inPoint = currentSample;
+      const outPoint = currentSample + loopLength;
+
+      // Find next available loop slot
+      const usedIndices = new Set(deck.loops.map((l) => l.index));
+      let nextIndex = 0;
+      while (usedIndices.has(nextIndex) && nextIndex < 8) {
+        nextIndex++;
+      }
+
+      if (nextIndex >= 8) {
+        toast.error('Maximum 8 loops reached');
+        return;
+      }
+
+      const newLoop: LoopData = {
+        index: nextIndex,
+        inPoint,
+        outPoint,
+        color: DEFAULT_CUE_COLOR,
+        name: '',
+        isActive: true,
+      };
+
+      // Optimistic update
+      addLoop(deckId, newLoop);
+      setActiveLoop(deckId, nextIndex);
+
+      // Persist to database
+      try {
+        await analysisService.saveLoop(deck.trackId, newLoop);
+        toast.success(`${beats} beat loop saved`);
+      } catch (error) {
+        console.error('[DeckUI] Failed to save loop:', error);
+        removeLoop(deckId, nextIndex);
+        toast.error('Failed to save loop');
+      }
+    },
+    [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, playheadPosition, addLoop, setActiveLoop, removeLoop]
+  );
+
+  // Get active loop data
+  const activeLoop = deck.activeLoopIndex >= 0
+    ? deck.loops.find((l) => l.index === deck.activeLoopIndex) ?? null
+    : null;
+
+  // Calculate samples per beat for loop length display
+  const samplesPerBeat = deck.sampleRate > 0 && deck.bpm > 0
+    ? (60 / deck.bpm) * deck.sampleRate
+    : 22050; // Default fallback
+
+  // Current position in samples
+  const currentPositionSamples = Math.round(playheadPosition * deck.duration * deck.sampleRate);
 
   // Cleanup nudge timeout on unmount
   useEffect(() => {
@@ -401,7 +658,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
 
       {/* Performance Pads */}
       {hasTrack && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-2">
           <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">HOT CUES</div>
           <PerformancePads
             cuePoints={deck.cuePoints}
@@ -411,6 +668,38 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           />
         </div>
       )}
+
+      {/* Loop Controls */}
+      {hasTrack && (
+        <div className="px-4 pb-4">
+          <div className="text-xs font-mono text-[#4DFA90]/60 mb-1">LOOP</div>
+          <LoopControls
+            activeLoop={activeLoop}
+            loops={deck.loops}
+            currentPositionSamples={currentPositionSamples}
+            samplesPerBeat={samplesPerBeat}
+            bpm={deck.bpm}
+            onSetLoopIn={handleSetLoopIn}
+            onSetLoopOut={handleSetLoopOut}
+            onToggleLoop={handleToggleLoop}
+            onSetLoopLength={handleSetLoopLength}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
+      {/* Context Menu for Cue/Loop Management */}
+      <CueContextMenu
+        isOpen={contextMenuState !== null}
+        position={contextMenuState ? { x: contextMenuState.x, y: contextMenuState.y } : { x: 0, y: 0 }}
+        type={contextMenuState?.type ?? 'cue'}
+        cueData={contextMenuState?.type === 'cue' ? deck.cuePoints[contextMenuState.index] : undefined}
+        loopData={contextMenuState?.type === 'loop' ? deck.loops.find((l) => l.index === contextMenuState.index) : undefined}
+        onColorChange={handleContextMenuColorChange}
+        onNameChange={handleContextMenuNameChange}
+        onDelete={handleContextMenuDelete}
+        onClose={handleCloseContextMenu}
+      />
     </div>
   );
 }
