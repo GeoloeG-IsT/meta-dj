@@ -25,28 +25,32 @@ export interface ModelLoadProgress {
 export type ModelLoadCallback = (progress: ModelLoadProgress) => void;
 
 /**
- * Available stem separation models.
- * Note: URLs should be updated to point to actual model hosting.
+ * Available stem separation models hosted on HuggingFace.
+ * Models are downloaded on first use and cached in IndexedDB.
+ *
+ * Sources:
+ * - htdemucs_6s: https://huggingface.co/arjune123/demucs-onnx (~114MB)
+ * - htdemucs: https://huggingface.co/timcsy/demucs-web-onnx (~172MB)
  */
 export const STEM_MODELS: Record<string, ModelInfo> = {
-  // Lightweight model for development/testing
-  'demucs-lite': {
-    name: 'demucs-lite',
-    url: '/models/demucs-lite.onnx',
-    size: 20 * 1024 * 1024, // 20MB placeholder
+  // HTDemucs 6-source model - good quality, smaller size
+  'htdemucs_6s': {
+    name: 'htdemucs_6s',
+    url: 'https://huggingface.co/arjune123/demucs-onnx/resolve/main/htdemucs_6s.onnx',
+    size: 114_559_139, // ~114MB
     version: '1.0.0',
   },
-  // Full quality model (htdemucs)
+  // HTDemucs embedded model - best quality, larger size
   'htdemucs': {
     name: 'htdemucs',
-    url: '/models/htdemucs.onnx',
-    size: 80 * 1024 * 1024, // ~80MB
+    url: 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx',
+    size: 180_534_758, // ~172MB
     version: '1.0.0',
   },
 } as const;
 
-// Default model to use
-export const DEFAULT_MODEL = 'demucs-lite';
+// Default model to use (smaller, faster download)
+export const DEFAULT_MODEL = 'htdemucs_6s';
 
 class ModelLoaderService {
   private db: IDBDatabase | null = null;

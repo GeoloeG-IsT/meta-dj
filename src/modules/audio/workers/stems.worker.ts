@@ -39,6 +39,155 @@ const log = (...args: unknown[]) => console.log('[Stems Worker]', ...args);
 const error = (...args: unknown[]) => console.error('[Stems Worker]', ...args);
 
 // ============================================================
+// Model Download with IndexedDB Caching
+// ============================================================
+
+const MODEL_CACHE_DB = 'meta-dj-stems-models';
+const MODEL_CACHE_STORE = 'models';
+
+/**
+ * Download model with progress reporting and IndexedDB caching.
+ */
+async function downloadModelWithProgress(
+  url: string,
+  expectedSize: number,
+  onProgress: (percentage: number) => void
+): Promise<ArrayBuffer> {
+  // Try to load from cache first
+  const cached = await getModelFromCache(url);
+  if (cached) {
+    log('Model loaded from cache');
+    onProgress(100);
+    return cached;
+  }
+
+  log(`Downloading model from ${url}...`);
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+
+  const contentLength = response.headers.get('content-length');
+  const total = contentLength ? parseInt(contentLength, 10) : expectedSize;
+
+  if (!response.body) {
+    // Fallback for environments without ReadableStream
+    const data = await response.arrayBuffer();
+    onProgress(100);
+    await cacheModel(url, data);
+    return data;
+  }
+
+  // Stream download with progress
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let loaded = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    chunks.push(value);
+    loaded += value.length;
+
+    const percentage = Math.round((loaded / total) * 100);
+    onProgress(percentage);
+  }
+
+  // Combine chunks into single ArrayBuffer
+  const data = new Uint8Array(loaded);
+  let offset = 0;
+  for (const chunk of chunks) {
+    data.set(chunk, offset);
+    offset += chunk.length;
+  }
+
+  // Cache for future use
+  await cacheModel(url, data.buffer);
+  log('Model cached for future use');
+
+  return data.buffer;
+}
+
+/**
+ * Get model from IndexedDB cache.
+ */
+async function getModelFromCache(url: string): Promise<ArrayBuffer | null> {
+  return new Promise((resolve) => {
+    try {
+      const request = indexedDB.open(MODEL_CACHE_DB, 1);
+
+      request.onerror = () => resolve(null);
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(MODEL_CACHE_STORE)) {
+          db.createObjectStore(MODEL_CACHE_STORE, { keyPath: 'url' });
+        }
+      };
+
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction(MODEL_CACHE_STORE, 'readonly');
+          const store = tx.objectStore(MODEL_CACHE_STORE);
+          const getRequest = store.get(url);
+
+          getRequest.onsuccess = () => {
+            const result = getRequest.result;
+            resolve(result?.data ?? null);
+          };
+
+          getRequest.onerror = () => resolve(null);
+        } catch {
+          resolve(null);
+        }
+      };
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
+/**
+ * Cache model in IndexedDB.
+ */
+async function cacheModel(url: string, data: ArrayBuffer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    try {
+      const request = indexedDB.open(MODEL_CACHE_DB, 1);
+
+      request.onerror = () => reject(request.error);
+
+      request.onupgradeneeded = (event) => {
+        const db = (event.target as IDBOpenDBRequest).result;
+        if (!db.objectStoreNames.contains(MODEL_CACHE_STORE)) {
+          db.createObjectStore(MODEL_CACHE_STORE, { keyPath: 'url' });
+        }
+      };
+
+      request.onsuccess = () => {
+        const db = request.result;
+        try {
+          const tx = db.transaction(MODEL_CACHE_STORE, 'readwrite');
+          const store = tx.objectStore(MODEL_CACHE_STORE);
+
+          store.put({ url, data, cachedAt: Date.now() });
+
+          tx.oncomplete = () => resolve();
+          tx.onerror = () => reject(tx.error);
+        } catch (err) {
+          reject(err);
+        }
+      };
+    } catch (err) {
+      reject(err);
+    }
+  });
+}
+
+// ============================================================
 // Progress Reporting
 // ============================================================
 
@@ -115,37 +264,47 @@ async function initializeONNX(): Promise<boolean> {
     }
 
     log('WebGPU adapter found:', adapter);
-    reportModelLoading(40, 'Loading stem separation model...');
+    reportModelLoading(40, 'Downloading stem separation model...');
 
-    // Model path - will be loaded from public directory or CDN
-    // For now, we'll use a placeholder path that will be configured later
-    const modelPath = '/models/demucs-lite.onnx';
+    // Model configuration - hosted on HuggingFace
+    const MODEL_URL = 'https://huggingface.co/arjune123/demucs-onnx/resolve/main/htdemucs_6s.onnx';
+    const MODEL_NAME = 'htdemucs_6s';
+    const MODEL_SIZE = 114_559_139; // ~114MB
 
-    // Create inference session with WebGPU backend
-    // Note: The actual model loading will fail until we have a real model file
+    // Download model with progress reporting
+    let modelData: ArrayBuffer;
     try {
-      session = await ort.InferenceSession.create(modelPath, {
+      modelData = await downloadModelWithProgress(MODEL_URL, MODEL_SIZE, (progress) => {
+        // Map download progress to 40-80% of total loading progress
+        const loadProgress = 40 + Math.round(progress * 0.4);
+        reportModelLoading(loadProgress, `Downloading model... ${progress}%`);
+      });
+      log(`Model downloaded: ${modelData.byteLength} bytes`);
+    } catch (downloadError) {
+      error('Failed to download model:', downloadError);
+      isModelLoading = false;
+      throw new Error(`Failed to download stem separation model: ${downloadError}`);
+    }
+
+    reportModelLoading(85, 'Initializing inference session...');
+
+    // Create inference session from ArrayBuffer with WebGPU backend
+    try {
+      session = await ort.InferenceSession.create(modelData, {
         executionProviders: ['webgpu'],
         graphOptimizationLevel: 'all',
       });
 
       log('ONNX session created with WebGPU backend');
       reportModelLoading(100, 'Model loaded successfully');
-      reportModelReady('demucs-lite', true);
+      reportModelReady(MODEL_NAME, true);
 
       isModelLoading = false;
       return true;
     } catch (modelError) {
-      // Model file doesn't exist yet - this is expected during development
-      // We'll handle this gracefully and report the error
-      error('Failed to load model:', modelError);
-
-      // For development: create a mock session indicator
-      // In production, this would fail and report error to user
-      log('Model file not found - stem separation requires model deployment');
-
+      error('Failed to create inference session:', modelError);
       isModelLoading = false;
-      throw new Error('Stem separation model not deployed. Please check /models/demucs-lite.onnx');
+      throw new Error(`Failed to initialize stem separation model: ${modelError}`);
     }
   } catch (err) {
     isModelLoading = false;
