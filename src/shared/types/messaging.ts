@@ -5,8 +5,12 @@ export const EventType = {
   LOG: 'LOG',
   
   // Database Events
+  DB_INIT: 'DB_INIT',
+  DB_READY: 'DB_READY',
   DB_QUERY_REQUEST: 'DB_QUERY_REQUEST',
   DB_QUERY_RESPONSE: 'DB_QUERY_RESPONSE',
+  DB_EXEC_SCRIPT: 'DB_EXEC_SCRIPT',
+  DB_ERROR: 'DB_ERROR',
   
   // Audio Events
   AUDIO_LOAD_REQUEST: 'AUDIO_LOAD_REQUEST',
