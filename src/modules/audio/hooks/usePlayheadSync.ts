@@ -283,9 +283,6 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
     }
   }, [sharedArrayBuffer]);
 
-  // Debug counter ref
-  const debugCounterRef = useRef(0);
-
   // Animation loop for reading playhead
   // Use ref to store the callback to avoid variable-before-declaration issue with recursive calls
   const syncLoop = useCallback(() => {
@@ -298,20 +295,6 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
       const sampleRate = reader.getSampleRate();
       const durationSamples = reader.getDuration();
       const durationInSeconds = sampleRate > 0 ? durationSamples / sampleRate : 0;
-
-      // Debug: Log every 60 frames (~1 second at 60fps)
-      debugCounterRef.current++;
-      if (debugCounterRef.current % 60 === 0) {
-        console.log('[usePlayheadSync] Reading SAB:', {
-          normalizedPosition,
-          positionInSeconds: positionInSeconds.toFixed(2),
-          isPlaying,
-          durationSamples,
-          sampleRate,
-          lastPosition: lastPositionRef.current,
-          positionChanged: normalizedPosition !== lastPositionRef.current,
-        });
-      }
 
       // Only update state if position changed (avoid unnecessary re-renders)
       if (normalizedPosition !== lastPositionRef.current) {
@@ -326,8 +309,6 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
 
         onPositionChange?.(normalizedPosition, positionInSeconds);
       }
-    } else if (debugCounterRef.current % 60 === 0) {
-      console.log('[usePlayheadSync] No reader available');
     }
 
     if (syncLoopRef.current) {
@@ -342,19 +323,10 @@ export function usePlayheadSync(options: UsePlayheadSyncOptions = {}): PlayheadS
 
   // Start/stop sync loop
   useEffect(() => {
-    console.log('[usePlayheadSync] Effect check:', {
-      enabled,
-      hasSAB: !!sharedArrayBuffer,
-      hasSyncLoop: !!syncLoopRef.current,
-    });
-
     if (enabled && sharedArrayBuffer && syncLoopRef.current) {
-      console.log('[usePlayheadSync] Starting animation loop');
-      debugCounterRef.current = 0; // Reset counter
       animationFrameRef.current = requestAnimationFrame(syncLoopRef.current);
 
       return () => {
-        console.log('[usePlayheadSync] Stopping animation loop');
         cancelAnimationFrame(animationFrameRef.current);
       };
     }

@@ -125,7 +125,6 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
       if (cancelled) return;
       if (DeckEngineService.isInitialized()) {
         const sab = DeckEngineService.getPlayheadSAB(deckId);
-        console.log('[LibraryWaveform] SAB retrieved after polling:', !!sab);
         setPlayheadSAB(sab);
         clearInterval(checkInterval);
       }
@@ -141,18 +140,6 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
     sharedArrayBuffer: playheadSAB,
     enabled: hasTrack && playheadSAB !== null,
   });
-
-  // Debug: Log playhead sync status
-  useEffect(() => {
-    console.log('[LibraryWaveform] Playhead sync status:', {
-      deckId,
-      hasTrack,
-      isAnalyzing: deck.isAnalyzing,
-      engineInitialized: DeckEngineService.isInitialized(),
-      hasSAB: playheadSAB !== null,
-      playheadPosition,
-    });
-  }, [deckId, hasTrack, deck.isAnalyzing, playheadSAB, playheadPosition]);
 
   // Accumulator and debounce timer for keyboard nudge
   const nudgeAccumulatorRef = useRef(0);

@@ -84,13 +84,10 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
 
     // Initialize SAB writer if provided in processor options
     const sab = options?.processorOptions?.sharedArrayBuffer;
-    console.log('[DeckEngineProcessor] Constructor - SAB received:', !!sab, sab);
     if (sab) {
       this.playheadWriter = new PlayheadWriter(sab);
-      console.log('[DeckEngineProcessor] PlayheadWriter created');
     } else {
       this.playheadWriter = null;
-      console.warn('[DeckEngineProcessor] No SAB provided - playhead sync will not work!');
     }
 
     // Set up message handler for commands from main thread
@@ -184,17 +181,6 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
         this.bufferDuration,
         this.isPlaying
       );
-      // Debug: Log every ~1 second (344 frames at 44.1kHz/128 samples)
-      if (!this._debugCounter) this._debugCounter = 0;
-      this._debugCounter++;
-      if (this._debugCounter % 344 === 0) {
-        console.log('[DeckEngineProcessor] Writing to SAB:', {
-          playhead: this.playhead,
-          duration: this.bufferDuration,
-          isPlaying: this.isPlaying,
-          sampleRate: this.bufferSampleRate,
-        });
-      }
     }
 
     // Return true to keep processor alive
@@ -206,7 +192,6 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
    */
   handleMessage(event) {
     const { type, payload } = event.data;
-    console.log('[DeckEngineProcessor] Received message:', type);
 
     switch (type) {
       case 'SET_SAB': {
@@ -222,13 +207,9 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
       }
 
       case 'PLAY':
-        console.log('[DeckEngineProcessor] PLAY - bufferLoaded:', this.bufferLoaded);
         if (this.bufferLoaded) {
           this.isPlaying = true;
-          console.log('[DeckEngineProcessor] Starting playback');
           this.port.postMessage({ type: 'STATE_CHANGED', payload: { isPlaying: true } });
-        } else {
-          console.warn('[DeckEngineProcessor] PLAY ignored - buffer not loaded');
         }
         break;
 
@@ -294,19 +275,12 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
    */
   loadBuffer(data) {
     const { channelData, sampleRate, duration } = data;
-    console.log('[DeckEngineProcessor] Loading buffer:', {
-      channels: channelData?.length,
-      sampleRate,
-      duration,
-      durationSeconds: duration / sampleRate,
-    });
 
     // Store buffer data (already Float32Arrays, no allocation needed)
     this.channelData = channelData;
     this.bufferSampleRate = sampleRate;
     this.bufferDuration = duration;
     this.bufferLoaded = true;
-    console.log('[DeckEngineProcessor] Buffer loaded, bufferLoaded =', this.bufferLoaded);
 
     // Reset playback state
     this.playhead = 0;

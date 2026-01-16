@@ -115,12 +115,8 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
 
     // Initialize SAB writer if provided in processor options
     const sab = options?.processorOptions?.sharedArrayBuffer as SharedArrayBuffer | undefined;
-    console.log('[DeckEngineProcessor] Constructor - SAB received:', !!sab, sab);
     if (sab) {
       this.playheadWriter = new PlayheadWriter(sab);
-      console.log('[DeckEngineProcessor] PlayheadWriter created');
-    } else {
-      console.warn('[DeckEngineProcessor] No SAB provided - playhead sync will not work!');
     }
 
     // Set up message handler for commands from main thread
