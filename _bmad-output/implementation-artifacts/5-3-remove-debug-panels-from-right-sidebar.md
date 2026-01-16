@@ -199,10 +199,33 @@ None - this is a cleanup task removing dead code.
 
 ### Agent Model Used
 
-{{agent_model_name_version}}
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
+- Build verification: TypeScript compilation successful for App.tsx changes
+- Unit tests: 270 tests passed, no regressions
+
 ### Completion Notes List
 
+- **Task 1:** Removed 5 unused useState hooks (`status`, `dbStatus`, `heartbeat`, `dbInfo`, `logs`) from App.tsx. Changed import from `import { useEffect, useState }` to `import { useEffect }`.
+
+- **Task 2:** Replaced all `setLogs()` calls with `console.debug()`:
+  - Kernel handler: Now logs worker events with `console.debug('[Worker Event]', msg.type, msg.payload)`
+  - Init heartbeat: `console.debug('[UI] Heartbeat Success:', ...)`
+  - Init database: `console.debug('[UI] Waiting for Database Worker...')`, `console.debug('[UI] Database Health Check PASSED - SQLite Version:', ...)`
+
+- **Task 3:** Simplified init logic by removing `setStatus()` and `setDbStatus()` calls. Errors still go to `console.error()` for visibility. Success paths simplified to immediate console logging.
+
+- **Task 4:** Layout verified - LibraryView already uses full available space (no changes needed to JSX structure).
+
+- **Task 5:** All 270 unit tests pass. App compiles successfully. Debug logging preserved for developer visibility.
+
 ### File List
+
+**Modified:**
+- src/App.tsx (removed 5 useState hooks, replaced setLogs with console.debug, simplified init)
+
+### Change Log
+
+- 2026-01-16: Implemented Story 5.3 - Removed all debug state variables and replaced setLogs() calls with console.debug(). App.tsx reduced from 89 lines to 68 lines. All 270 unit tests pass.
