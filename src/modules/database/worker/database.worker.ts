@@ -89,6 +89,15 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         source.postMessage({ type: EventType.DB_READY });
         break;
 
+      case EventType.DB_PING:
+        source.postMessage({
+          id,
+          type: EventType.DB_QUERY_RESPONSE,
+          payload: { ready: !!dbs },
+          timestamp: Date.now()
+        });
+        break;
+
       case EventType.DB_QUERY_REQUEST: {
         if (!dbs) throw new Error('Database not initialized');
         const { sql, params, method, targetDb = 'm' } = payload;

@@ -7,6 +7,7 @@ export const EventType = {
   // Database Events
   DB_INIT: 'DB_INIT',
   DB_READY: 'DB_READY',
+  DB_PING: 'DB_PING',
   DB_QUERY_REQUEST: 'DB_QUERY_REQUEST',
   DB_QUERY_RESPONSE: 'DB_QUERY_RESPONSE',
   DB_EXEC_SCRIPT: 'DB_EXEC_SCRIPT',

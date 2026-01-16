@@ -83,13 +83,13 @@ export const TrackList: React.FC = () => {
                     {track.artist}
                   </div>
                   <div className="w-24 px-2 text-xs font-mono text-right tabular-nums">
-                    {track.bpm.toFixed(1)}
+                    {(track.bpm || 0).toFixed(1)}
                   </div>
                   <div className="w-20 px-2 text-xs font-mono text-center text-[#4DFA90]/80">
-                    {track.key}
+                    {track.key || '-'}
                   </div>
                   <div className="w-20 px-2 text-xs font-mono text-right opacity-60">
-                    {formatDuration(track.duration)}
+                    {formatDuration(track.duration || 0)}
                   </div>
                 </div>
               );

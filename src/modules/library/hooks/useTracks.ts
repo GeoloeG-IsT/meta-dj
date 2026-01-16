@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
 
+const METADATA_DB = 'm';
+
 export interface Track {
   id: number;
   title: string;
@@ -23,26 +25,26 @@ export function useTracks() {
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [sort, setSort] = useState<{ field: SortField; order: SortOrder }>({ field: 'title', order: 'ASC' });
+  const [isDbReady, setIsDbReady] = useState(false);
 
   const fetchTracks = useCallback(async () => {
+    if (!isDbReady) return;
+
     setIsLoading(true);
     try {
-      // 1. Get total count
       const countResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
         sql: 'SELECT COUNT(*) as count FROM Track',
         method: 'get',
-        targetDb: 'm'
+        targetDb: METADATA_DB
       });
       setTotalCount(countResult.count);
 
-      // 2. Fetch all tracks (optimized for MVP, windowing can be added later)
-      // We only fetch essential columns
       const queryResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
         sql: `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename 
               FROM Track 
               ORDER BY ${sort.field} ${sort.order}`,
         method: 'all',
-        targetDb: 'm'
+        targetDb: METADATA_DB
       });
 
       setTracks(queryResult || []);
@@ -51,22 +53,42 @@ export function useTracks() {
     } finally {
       setIsLoading(false);
     }
-  }, [sort]);
+  }, [sort, isDbReady]);
 
   useEffect(() => {
-    fetchTracks();
-    
-    // Listen for DB_READY which might signal a fresh import
+    let isMounted = true;
+
+    // Initial check
+    const checkReady = async () => {
+        try {
+            const result = await kernel.send(EventType.DB_PING, {});
+            if (isMounted && result?.ready) setIsDbReady(true);
+        } catch (e) {
+            // Silently wait for DB_READY event
+        }
+    };
+    checkReady();
+
     const unsubscribe = kernel.addHandler((msg) => {
-      if (msg.type === EventType.DB_QUERY_RESPONSE && (msg.payload as any)?.success) {
-        // Refresh after successful query
+      if (!isMounted) return;
+
+      if (msg.type === EventType.DB_READY) {
+        setIsDbReady(true);
+      } else if (msg.type === EventType.DB_QUERY_RESPONSE) {
+        // Safe check for successful write operations which might require a refresh
+        // Assuming payload structure { success: boolean } for non-select queries
+        const payload = msg.payload as { success?: boolean };
+        if (payload?.success) {
+          fetchTracks();
+        }
       }
     });
 
     return () => {
+      isMounted = false;
       unsubscribe();
     };
-  }, [fetchTracks]);
+  }, [fetchTracks]); // fetchTracks includes sort and isDbReady dependencies
 
   const toggleSort = (field: SortField) => {
     setSort(prev => ({
