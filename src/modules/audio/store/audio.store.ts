@@ -10,6 +10,8 @@ import { persist } from 'zustand/middleware';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
+import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
+import { createEmptyHotCues } from '../types/cue-loop';
 
 /** Slip mode state for beatgrid editing */
 export interface SlipModeState {
@@ -57,6 +59,12 @@ export interface DeckState {
   isAnalyzing: boolean;
   /** Zoom level for detail view (bars visible) */
   zoomLevel: 1 | 2 | 4 | 8;
+  /** Hot cue points (8 pads, some may be unset) */
+  cuePoints: HotCueData[];
+  /** Loop regions (stored loops) */
+  loops: LoopData[];
+  /** Currently active loop index (-1 if no loop active) */
+  activeLoopIndex: number;
 }
 
 /** Global audio settings */
@@ -94,6 +102,19 @@ export interface AudioState {
   cancelSlipMode: (deckId: DeckId) => void;
   commitSlipMode: (deckId: DeckId) => void;
 
+  // Actions - Cue Points
+  setCuePoints: (deckId: DeckId, cuePoints: HotCueData[]) => void;
+  addCuePoint: (deckId: DeckId, cue: HotCueData) => void;
+  updateCuePoint: (deckId: DeckId, cueIndex: number, updates: Partial<Pick<HotCueData, 'color' | 'name' | 'position'>>) => void;
+  removeCuePoint: (deckId: DeckId, cueIndex: number) => void;
+
+  // Actions - Loops
+  setLoops: (deckId: DeckId, loops: LoopData[]) => void;
+  addLoop: (deckId: DeckId, loop: LoopData) => void;
+  updateLoop: (deckId: DeckId, loopIndex: number, updates: Partial<Pick<LoopData, 'color' | 'name' | 'inPoint' | 'outPoint'>>) => void;
+  removeLoop: (deckId: DeckId, loopIndex: number) => void;
+  setActiveLoop: (deckId: DeckId, loopIndex: number) => void;
+
   // Actions - Settings
   setColorMode: (mode: WaveformColorMode) => void;
   setMasterVolume: (volume: number) => void;
@@ -126,6 +147,9 @@ const createInitialDeckState = (): DeckState => ({
   slipMode: createInitialSlipModeState(),
   isAnalyzing: false,
   zoomLevel: 4,
+  cuePoints: createEmptyHotCues(),
+  loops: [],
+  activeLoopIndex: -1,
 });
 
 /** Create the audio store */
@@ -165,6 +189,9 @@ export const useAudioStore = create<AudioState>()(
               transients: [],
               slipMode: createInitialSlipModeState(),
               isAnalyzing: false,
+              cuePoints: createEmptyHotCues(),
+              loops: [],
+              activeLoopIndex: -1,
             },
           },
         })),
@@ -338,6 +365,173 @@ export const useAudioStore = create<AudioState>()(
                   anchors: newAnchors,
                 },
                 slipMode: createInitialSlipModeState(),
+              },
+            },
+          };
+        }),
+
+      // Cue Point actions
+      setCuePoints: (deckId, cuePoints) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              cuePoints,
+            },
+          },
+        })),
+
+      addCuePoint: (deckId, cue) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          // Replace existing cue at the same index or add new
+          const newCuePoints = [...deck.cuePoints];
+          newCuePoints[cue.index] = cue;
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                cuePoints: newCuePoints,
+              },
+            },
+          };
+        }),
+
+      updateCuePoint: (deckId, cueIndex, updates) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const existingCue = deck.cuePoints[cueIndex];
+          if (!existingCue || !existingCue.isSet) {
+            return state;
+          }
+          const newCuePoints = [...deck.cuePoints];
+          newCuePoints[cueIndex] = { ...existingCue, ...updates };
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                cuePoints: newCuePoints,
+              },
+            },
+          };
+        }),
+
+      removeCuePoint: (deckId, cueIndex) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const newCuePoints = [...deck.cuePoints];
+          // Reset to empty cue instead of removing
+          newCuePoints[cueIndex] = {
+            index: cueIndex,
+            position: 0,
+            color: 'green',
+            name: '',
+            isSet: false,
+          };
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                cuePoints: newCuePoints,
+              },
+            },
+          };
+        }),
+
+      // Loop actions
+      setLoops: (deckId, loops) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              loops,
+            },
+          },
+        })),
+
+      addLoop: (deckId, loop) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          // Check if loop with same index exists
+          const existingIndex = deck.loops.findIndex((l) => l.index === loop.index);
+          const newLoops =
+            existingIndex >= 0
+              ? deck.loops.map((l, i) => (i === existingIndex ? loop : l))
+              : [...deck.loops, loop];
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                loops: newLoops,
+              },
+            },
+          };
+        }),
+
+      updateLoop: (deckId, loopIndex, updates) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const loopArrayIndex = deck.loops.findIndex((l) => l.index === loopIndex);
+          if (loopArrayIndex < 0) {
+            return state;
+          }
+          const existingLoop = deck.loops[loopArrayIndex];
+          const newLoops = [...deck.loops];
+          newLoops[loopArrayIndex] = { ...existingLoop, ...updates };
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                loops: newLoops,
+              },
+            },
+          };
+        }),
+
+      removeLoop: (deckId, loopIndex) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const newLoops = deck.loops.filter((l) => l.index !== loopIndex);
+          // If we removed the active loop, clear activeLoopIndex
+          const newActiveIndex =
+            deck.activeLoopIndex === loopIndex ? -1 : deck.activeLoopIndex;
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                loops: newLoops,
+                activeLoopIndex: newActiveIndex,
+              },
+            },
+          };
+        }),
+
+      setActiveLoop: (deckId, loopIndex) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          // Toggle off if same loop clicked again
+          const newActiveIndex =
+            deck.activeLoopIndex === loopIndex ? -1 : loopIndex;
+          // Update loop isActive status
+          const newLoops = deck.loops.map((l) => ({
+            ...l,
+            isActive: l.index === newActiveIndex,
+          }));
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                loops: newLoops,
+                activeLoopIndex: newActiveIndex,
               },
             },
           };

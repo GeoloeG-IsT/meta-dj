@@ -116,6 +116,43 @@ async function loadBeatgridForDeck(deckId: DeckId, trackId: number): Promise<voi
 }
 
 /**
+ * Load cue points and loops from database for a deck.
+ * Called after track is loaded to show cue/loop markers.
+ */
+async function loadCueLoopDataForDeck(deckId: DeckId, trackId: number): Promise<void> {
+  const store = useAudioStore.getState();
+
+  try {
+    // Load cue points
+    const cuePoints = await analysisService.getCuePoints(trackId);
+    if (cuePoints.length > 0) {
+      // Merge loaded cues into the 8-pad array
+      const currentCues = [...store.decks[deckId].cuePoints];
+      for (const cue of cuePoints) {
+        if (cue.index >= 0 && cue.index < 8) {
+          currentCues[cue.index] = cue;
+        }
+      }
+      store.setCuePoints(deckId, currentCues);
+      console.log(`[DeckLoader] Loaded ${cuePoints.length} cue points for track ${trackId}`);
+    }
+  } catch (error) {
+    console.warn(`[DeckLoader] Failed to load cue points for track ${trackId}:`, error);
+  }
+
+  try {
+    // Load loops
+    const loops = await analysisService.getLoops(trackId);
+    if (loops.length > 0) {
+      store.setLoops(deckId, loops);
+      console.log(`[DeckLoader] Loaded ${loops.length} loops for track ${trackId}`);
+    }
+  } catch (error) {
+    console.warn(`[DeckLoader] Failed to load loops for track ${trackId}:`, error);
+  }
+}
+
+/**
  * Load a track from the library into a deck using stored file handle.
  * Falls back to file picker if handle is unavailable or permission denied.
  */
@@ -145,8 +182,9 @@ export async function loadTrackFromLibrary(
       duration: track.duration,
     });
 
-    // Load beatgrid data from database if available
+    // Load beatgrid and cue/loop data from database if available
     await loadBeatgridForDeck(deckId, track.id);
+    await loadCueLoopDataForDeck(deckId, track.id);
     return;
   }
 
@@ -175,8 +213,9 @@ export async function loadTrackFromLibrary(
       duration: track.duration,
     });
 
-    // Load beatgrid data from database if available
+    // Load beatgrid and cue/loop data from database if available
     await loadBeatgridForDeck(deckId, track.id);
+    await loadCueLoopDataForDeck(deckId, track.id);
   } catch (error) {
     if ((error as Error).name === 'AbortError') {
       return;

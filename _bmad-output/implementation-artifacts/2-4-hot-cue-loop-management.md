@@ -37,11 +37,11 @@ So that I can mark specific performance sections and trigger them during a set.
   - [x] Add `updateCuePoint()` and `updateLoop()` for color/name changes
   - [x] Write unit tests for serialization/deserialization
 
-- [ ] **Task 2: Store State Management** (AC: 1, 2, 6)
-  - [ ] Add `cuePoints: HotCueData[]` and `loops: LoopData[]` to DeckState in audio.store.ts
-  - [ ] Add actions: `setCuePoints`, `setLoops`, `addCuePoint`, `addLoop`, `updateCuePoint`, `updateLoop`, `removeCuePoint`, `removeLoop`
-  - [ ] Load cue/loop data in deck-loader.service.ts when track loads
-  - [ ] Implement optimistic update pattern with rollback on failure
+- [x] **Task 2: Store State Management** (AC: 1, 2, 6)
+  - [x] Add `cuePoints: HotCueData[]` and `loops: LoopData[]` to DeckState in audio.store.ts
+  - [x] Add actions: `setCuePoints`, `setLoops`, `addCuePoint`, `addLoop`, `updateCuePoint`, `updateLoop`, `removeCuePoint`, `removeLoop`
+  - [x] Load cue/loop data in deck-loader.service.ts when track loads
+  - [x] Implement optimistic update pattern with rollback on failure
 
 - [ ] **Task 3: Cue Marker Overlay Component** (AC: 3)
   - [ ] Create `CueMarkerOverlay.tsx` component for rendering cue markers
