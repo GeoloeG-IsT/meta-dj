@@ -18,6 +18,7 @@ interface DeckEngineInstance {
   engine: DeckEngineNode;
   deckId: DeckId;
   trackId: number | null;
+  gainNode: GainNode | null;
 }
 
 /**
@@ -301,6 +302,26 @@ class DeckEngineServiceClass {
   }
 
   /**
+   * Set volume for a specific deck
+   * @param deckId - Target deck
+   * @param volume - Volume level (0-1)
+   */
+  setDeckVolume(deckId: DeckId, volume: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (deckInstance?.gainNode) {
+      deckInstance.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+    }
+  }
+
+  /**
+   * Get volume for a specific deck
+   */
+  getDeckVolume(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.gainNode?.gain.value ?? 1;
+  }
+
+  /**
    * Get the current playhead position for a deck in samples
    */
   getPosition(deckId: DeckId): number {
@@ -337,9 +358,12 @@ class DeckEngineServiceClass {
    * Dispose of the service and release resources
    */
   async dispose(): Promise<void> {
-    // Dispose all deck engines
+    // Dispose all deck engines and their gain nodes
     for (const [_deckId, instance] of this.decks) {
       instance.engine.dispose();
+      if (instance.gainNode) {
+        instance.gainNode.disconnect();
+      }
     }
     this.decks.clear();
 
@@ -356,6 +380,10 @@ class DeckEngineServiceClass {
     }
 
     this.initialized = false;
+
+    // Reset singleton for clean reinitialization (useful for tests/hot reload)
+    DeckEngineServiceClass.instance = null;
+
     console.log('[DeckEngineService] Disposed');
   }
 
@@ -370,8 +398,13 @@ class DeckEngineServiceClass {
     // Create the deck engine
     const engine = new DeckEngineNode(this.audioContext, true);
 
-    // Connect to master gain
-    engine.connect(this.masterGain);
+    // Create per-deck gain node for individual volume control
+    const gainNode = this.audioContext.createGain();
+    gainNode.gain.value = 1.0;
+
+    // Connect: engine -> deck gain -> master gain
+    engine.connect(gainNode);
+    gainNode.connect(this.masterGain);
 
     // Set up event handlers
     engine.on('stateChanged', (payload) => {
@@ -387,6 +420,7 @@ class DeckEngineServiceClass {
       engine,
       deckId,
       trackId: null,
+      gainNode,
     });
   }
 }

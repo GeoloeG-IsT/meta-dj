@@ -266,7 +266,7 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
         break;
 
       default:
-        console.warn(`[DeckEngineProcessor] Unknown message type: ${type}`);
+        // Silently ignore unknown message types to avoid string allocation
     }
   }
 

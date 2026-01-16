@@ -11,7 +11,7 @@
  * - SharedArrayBuffer setup for playhead sync
  */
 
-import { createPlayheadSAB, PlayheadReader, PLAYHEAD_SAB_LAYOUT } from '../hooks/usePlayheadSync';
+import { createPlayheadSAB, PlayheadReader } from '../hooks/usePlayheadSync';
 
 /** Message types sent to the processor */
 export type ProcessorCommandType =
@@ -303,10 +303,18 @@ export class DeckEngineNode extends AudioWorkletNode {
       channelData.map((arr) => arr.buffer)
     );
 
-    // Wait for confirmation
-    return new Promise((resolve) => {
+    // Wait for confirmation with timeout
+    return new Promise((resolve, reject) => {
+      const LOAD_TIMEOUT_MS = 10000; // 10 second timeout
+
+      const timeoutId = setTimeout(() => {
+        this.port.removeEventListener('message', handler);
+        reject(new Error('Buffer load timeout - processor did not respond'));
+      }, LOAD_TIMEOUT_MS);
+
       const handler = (event: MessageEvent) => {
         if (event.data.type === 'BUFFER_LOADED') {
+          clearTimeout(timeoutId);
           this.port.removeEventListener('message', handler);
           resolve();
         }

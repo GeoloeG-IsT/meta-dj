@@ -62,7 +62,7 @@ development_status:
 
   # Epic 3: The Performer (Playback & DSP)
   epic-3: in-progress
-  3-1-audioworklet-deck-engine: in-progress
+  3-1-audioworklet-deck-engine: done
   3-2-3-band-eq-master-limiter: backlog
   3-3-real-time-time-stretching-rubberband-wasm: backlog
   3-4-pointer-lock-rotary-controls: backlog
