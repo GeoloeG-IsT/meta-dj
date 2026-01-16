@@ -11,6 +11,7 @@
 import { WaveformAnalyzer } from '../analysis/waveform-analyzer';
 import { useAudioStore } from '../store/audio.store';
 import type { DeckId } from '../types';
+import { getFileWithPermission } from '../../library/services/file-handle-store';
 
 // Shared AudioContext for decoding (created lazily)
 let audioContext: AudioContext | null = null;
@@ -77,6 +78,70 @@ export async function loadTrackToDeck(
   } catch (error) {
     console.error(`[DeckLoader] Failed to load track to deck ${deckId}:`, error);
     store.setAnalyzing(deckId, false);
+    throw error;
+  }
+}
+
+/**
+ * Load a track from the library into a deck using stored file handle.
+ * Falls back to file picker if handle is unavailable or permission denied.
+ */
+export async function loadTrackFromLibrary(
+  deckId: DeckId,
+  track: {
+    id: number;
+    title: string;
+    artist: string;
+    bpm: number;
+    duration: number;
+  }
+): Promise<void> {
+  console.log(`[DeckLoader] Loading track ${track.id}: ${track.title}`);
+
+  // Try to get the file from stored handle
+  const file = await getFileWithPermission(track.id);
+  console.log(`[DeckLoader] getFileWithPermission result:`, file ? file.name : 'null');
+
+  if (file) {
+    // Successfully got file from stored handle
+    await loadTrackToDeck(deckId, file, {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      bpm: track.bpm,
+      duration: track.duration,
+    });
+    return;
+  }
+
+  // Handle not found or permission denied - fall back to file picker
+  console.warn(`[DeckLoader] No stored handle for track ${track.id}, falling back to file picker`);
+
+  try {
+    const [fileHandle] = await window.showOpenFilePicker({
+      types: [
+        {
+          description: 'Audio Files',
+          accept: {
+            'audio/*': ['.mp3', '.wav', '.aiff', '.flac', '.m4a', '.ogg'],
+          },
+        },
+      ],
+      multiple: false,
+    });
+
+    const pickedFile = await fileHandle.getFile();
+    await loadTrackToDeck(deckId, pickedFile, {
+      id: track.id,
+      title: track.title,
+      artist: track.artist,
+      bpm: track.bpm,
+      duration: track.duration,
+    });
+  } catch (error) {
+    if ((error as Error).name === 'AbortError') {
+      return;
+    }
     throw error;
   }
 }

@@ -15,6 +15,7 @@ export { DeckUI } from './components/DeckUI';
 // Services
 export {
   loadTrackToDeck,
+  loadTrackFromLibrary,
   pickAndLoadTrack,
   ejectTrack,
 } from './services/deck-loader.service';

@@ -6,7 +6,7 @@ import { useTracks, type SortField } from '../hooks/useTracks';
 import { useLibraryStore } from '../store/library.store';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { CSS } from '@dnd-kit/utilities';
-import { loadTrackToDeck } from '../../audio/services/deck-loader.service';
+import { loadTrackFromLibrary } from '../../audio/services/deck-loader.service';
 
 export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -85,23 +85,8 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
 
   const handleDoubleClick = useCallback(async () => {
     try {
-      // Open file picker - user must select the file since we don't have direct access
-      const [fileHandle] = await window.showOpenFilePicker({
-        types: [
-          {
-            description: 'Audio Files',
-            accept: {
-              'audio/*': ['.mp3', '.wav', '.aiff', '.flac', '.m4a', '.ogg'],
-            },
-          },
-        ],
-        multiple: false,
-      });
-
-      const file = await fileHandle.getFile();
-
-      // Load with track metadata from library
-      await loadTrackToDeck('A', file, {
+      // Load track using stored file handle (falls back to file picker if needed)
+      await loadTrackFromLibrary('A', {
         id: track.id,
         title: track.title,
         artist: track.artist,
@@ -109,10 +94,6 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
         duration: track.duration,
       });
     } catch (error) {
-      // User cancelled the picker
-      if ((error as Error).name === 'AbortError') {
-        return;
-      }
       console.error('Failed to load track to deck:', error);
     }
   }, [track]);

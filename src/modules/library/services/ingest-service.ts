@@ -2,6 +2,7 @@ import * as mm from 'music-metadata-browser';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
 import { scanDirectory } from '../utils/file-system';
+import { storeFileHandlesBatch } from './file-handle-store';
 
 export interface IngestProgress {
   total: number;
@@ -17,7 +18,7 @@ export class IngestService {
    */
   async ingestDirectory(dirHandle: FileSystemDirectoryHandle, onProgress?: ProgressCallback) {
     const files: { handle: FileSystemFileHandle; relativePath: string }[] = [];
-    
+
     // 1. Discovery phase
     for await (const file of scanDirectory(dirHandle)) {
       files.push(file);
@@ -30,7 +31,7 @@ export class IngestService {
     const batchSize = 10;
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      const trackBatch = [];
+      const trackBatch: Array<{ data: any; handle: FileSystemFileHandle; path: string }> = [];
 
       for (const file of batch) {
         try {
@@ -43,7 +44,11 @@ export class IngestService {
 
           const trackData = await this.processFile(file.handle, file.relativePath);
           if (trackData) {
-            trackBatch.push(trackData);
+            trackBatch.push({
+              data: trackData,
+              handle: file.handle,
+              path: file.relativePath,
+            });
           }
         } catch (err) {
           console.error(`Failed to process ${file.relativePath}:`, err);
@@ -53,7 +58,28 @@ export class IngestService {
 
       // 3. Database batch insert
       if (trackBatch.length > 0) {
-        await this.saveTracks(trackBatch);
+        await this.saveTracks(trackBatch.map(t => t.data));
+
+        // 4. Query for inserted track IDs and store file handles
+        const paths = trackBatch.map(t => t.path);
+        const trackIds = await this.getTrackIdsByPaths(paths);
+
+        const handleRecords = trackBatch
+          .map(t => {
+            const trackId = trackIds.get(t.path);
+            if (trackId) {
+              return { trackId, handle: t.handle, path: t.path };
+            }
+            return null;
+          })
+          .filter((r): r is NonNullable<typeof r> => r !== null);
+
+        if (handleRecords.length > 0) {
+          console.log(`[IngestService] Storing ${handleRecords.length} file handles`);
+          await storeFileHandlesBatch(handleRecords);
+        } else {
+          console.warn(`[IngestService] No track IDs found for paths:`, paths);
+        }
       }
     }
 
@@ -98,6 +124,26 @@ export class IngestService {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return `${hashHex}-${file.size}`;
+  }
+
+  private async getTrackIdsByPaths(paths: string[]): Promise<Map<string, number>> {
+    const placeholders = paths.map(() => '?').join(',');
+    const sql = `SELECT id, path FROM Track WHERE path IN (${placeholders})`;
+
+    const rows = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      params: paths,
+      method: 'all',
+      targetDb: 'm',
+    });
+
+    const map = new Map<string, number>();
+    if (Array.isArray(rows)) {
+      for (const row of rows) {
+        map.set(row.path, row.id);
+      }
+    }
+    return map;
   }
 
   private async saveTracks(tracks: any[]) {
