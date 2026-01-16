@@ -104,6 +104,9 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       return;
     }
 
+    // Store original beatgrid for rollback
+    const originalBeatgrid = { ...currentDeck.beatgridData };
+
     // Calculate new beatgrid with offset applied
     const offset = currentDeck.slipMode.currentOffset;
     const newBeatgrid = {
@@ -118,11 +121,12 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     // Persist to database
     try {
       await analysisService.updateBeatgridOffset(currentDeck.trackId, newBeatgrid);
-      console.log(`[DeckUI] Beatgrid saved for track ${currentDeck.trackId}`);
       toast.success('Beatgrid saved');
     } catch (error) {
       console.error('[DeckUI] Failed to save beatgrid:', error);
-      toast.error('Failed to save beatgrid');
+      // Rollback to original beatgrid on failure
+      useAudioStore.getState().setBeatgridData(deckId, originalBeatgrid);
+      toast.error('Failed to save beatgrid - rolled back');
     }
   }, [deckId, commitSlipMode]);
 
@@ -180,6 +184,16 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     },
     [deckId]
   );
+
+  // Reset nudge accumulator and cleanup timeout when track changes
+  useEffect(() => {
+    // Reset on track change
+    nudgeAccumulatorRef.current = 0;
+    if (nudgeTimeoutRef.current) {
+      clearTimeout(nudgeTimeoutRef.current);
+      nudgeTimeoutRef.current = null;
+    }
+  }, [deck.trackId]);
 
   // Cleanup nudge timeout on unmount
   useEffect(() => {
@@ -298,6 +312,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
         <WaveformDetail
           waveformData={deck.waveformData}
           beatgridData={deck.beatgridData}
+          transients={deck.transients}
           playheadPosition={playheadPosition}
           colorMode={colorMode}
           onSeek={handleSeek}

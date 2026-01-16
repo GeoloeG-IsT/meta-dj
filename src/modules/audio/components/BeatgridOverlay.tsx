@@ -131,17 +131,6 @@ export function BeatgridOverlay({
       className="beatgrid-overlay absolute inset-0 pointer-events-none"
       style={{ height: `${height}px` }}
     >
-      {/* CSS for pulse animation */}
-      <style>{`
-        @keyframes beatgrid-snap-pulse {
-          0%, 100% { opacity: 1; transform: translateX(-50%) scaleX(1); }
-          50% { opacity: 0.8; transform: translateX(-50%) scaleX(1.5); }
-        }
-        .beatgrid-snapped {
-          animation: beatgrid-snap-pulse 0.3s ease-in-out;
-        }
-      `}</style>
-
       {visibleBeats.map((beat) => {
         const isSnapped = snappedBeatIndex === beat.index;
         const color = isSnapped

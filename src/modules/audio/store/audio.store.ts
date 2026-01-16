@@ -49,6 +49,8 @@ export interface DeckState {
   waveformData: WaveformData | null;
   /** Beatgrid data for beat markers */
   beatgridData: BeatgridData | null;
+  /** Detected transient positions for magnetic snap (sample positions) */
+  transients: number[];
   /** Slip mode state for beatgrid editing */
   slipMode: SlipModeState;
   /** Whether waveform is currently being analyzed */
@@ -81,6 +83,7 @@ export interface AudioState {
   setPosition: (deckId: DeckId, position: number) => void;
   setWaveformData: (deckId: DeckId, waveformData: WaveformData | null) => void;
   setBeatgridData: (deckId: DeckId, beatgridData: BeatgridData | null) => void;
+  setTransients: (deckId: DeckId, transients: number[]) => void;
   setAnalyzing: (deckId: DeckId, isAnalyzing: boolean) => void;
   setZoomLevel: (deckId: DeckId, zoomLevel: 1 | 2 | 4 | 8) => void;
 
@@ -119,6 +122,7 @@ const createInitialDeckState = (): DeckState => ({
   position: 0,
   waveformData: null,
   beatgridData: null,
+  transients: [],
   slipMode: createInitialSlipModeState(),
   isAnalyzing: false,
   zoomLevel: 4,
@@ -158,6 +162,7 @@ export const useAudioStore = create<AudioState>()(
               isPlaying: false,
               waveformData: null,
               beatgridData: null,
+              transients: [],
               slipMode: createInitialSlipModeState(),
               isAnalyzing: false,
             },
@@ -213,6 +218,17 @@ export const useAudioStore = create<AudioState>()(
             [deckId]: {
               ...state.decks[deckId],
               beatgridData,
+            },
+          },
+        })),
+
+      setTransients: (deckId, transients) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              transients,
             },
           },
         })),

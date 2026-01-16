@@ -1,6 +1,6 @@
 # Story 2.3: "Slip-Under" Beatgrid Editing
 
-Status: review
+Status: done
 
 ## Story
 
@@ -289,6 +289,32 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 - **Task 8 (2026-01-16):** Verified all unit tests pass (86 tests). Existing test coverage for beatgrid serialization (track-analyzer.test.ts), transient detection (transient-detector.test.ts, 22 tests), and BeatgridOverlay (11 tests). Manual testing: slip mode visual behavior works, database persistence verified.
 
+### Senior Developer Review (AI)
+
+**Review Date:** 2026-01-16
+**Reviewer:** Claude Opus 4.5
+
+**Issues Found & Fixed:**
+
+1. **CRITICAL - AC2 Magnetic Snap Not Wired Up**: TransientDetector was implemented but never used. Fixed by:
+   - Added `transients: number[]` to DeckState in audio.store.ts
+   - Added `setTransients` action to audio store
+   - Updated deck-loader.service.ts to detect transients when waveform loads
+   - Updated WaveformDetail.tsx to check for beat-to-transient alignment during slip mode
+   - Wired transients prop through DeckUI to WaveformDetail
+
+2. **MEDIUM - Inline CSS Animations**: Moved keyframe animations from inline `<style>` tags to src/index.css for better performance (BeatgridOverlay.tsx, Toast.tsx)
+
+3. **MEDIUM - Toast Accessibility**: Added `role="img"` and `aria-label` to Toast icon span for screen reader support
+
+4. **MEDIUM - Nudge Accumulator Not Reset**: Added useEffect in DeckUI to reset nudge accumulator and clear timeout when track changes
+
+5. **MEDIUM - Keyboard Events Propagation**: Added `event.stopPropagation()` to Shift+Arrow key handlers to prevent conflicts
+
+6. **LOW - No Rollback on Failed Save**: Added rollback mechanism in handleSlipCommit - if database save fails, beatgrid is restored to original state
+
+**Outcome:** All issues fixed. 86 unit tests passing.
+
 ### Change Log
 
 - 2026-01-16: Task 1 - Beatgrid Rendering on Waveform completed
@@ -299,6 +325,7 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - 2026-01-16: Task 6 - Toast Notification System completed
 - 2026-01-16: Task 7 - Keyboard Nudge Support completed
 - 2026-01-16: Task 8 - Integration & Testing completed
+- 2026-01-16: Senior Developer Review - Fixed 6 issues (1 CRITICAL, 4 MEDIUM, 1 LOW)
 
 ### File List
 
@@ -317,3 +344,4 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 - src/modules/audio/services/deck-loader.service.ts
 - src/modules/audio/services/analysis.service.ts
 - src/App.tsx
+- src/index.css (added global animations)

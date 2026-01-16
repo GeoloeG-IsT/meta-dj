@@ -76,7 +76,11 @@ function ToastItem({
       title="Click to dismiss"
     >
       {/* Icon based on variant */}
-      <span style={{ fontSize: '16px' }}>
+      <span
+        role="img"
+        aria-label={variant}
+        style={{ fontSize: '16px' }}
+      >
         {variant === 'success' && '\u2713'}
         {variant === 'error' && '\u2717'}
         {variant === 'info' && '\u2139'}
@@ -128,26 +132,6 @@ export function ToastContainer() {
         pointerEvents: 'auto',
       }}
     >
-      {/* CSS for animations */}
-      <style>{`
-        @keyframes toast-slide-in {
-          from {
-            opacity: 0;
-            transform: translateX(100%);
-          }
-          to {
-            opacity: 1;
-            transform: translateX(0);
-          }
-        }
-        .toast-item {
-          animation: toast-slide-in 0.2s ease-out;
-        }
-        .toast-item:hover {
-          opacity: 0.9;
-        }
-      `}</style>
-
       {toasts.map((toast) => (
         <ToastItem
           key={toast.id}

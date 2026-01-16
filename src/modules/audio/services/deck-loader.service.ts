@@ -17,6 +17,7 @@ import {
   isEssentiaReady,
   type TrackAnalysisResult,
 } from '../analysis/track-analyzer';
+import { detectTransients } from '../utils/transient-detector';
 import { analysisService } from './analysis.service';
 import { useAudioStore } from '../store/audio.store';
 import type { DeckId, TrackAnalysisProgress } from '../types';
@@ -85,6 +86,10 @@ export async function loadTrackToDeck(
 
     // 5. Update store with waveform data
     store.setWaveformData(deckId, waveformData);
+
+    // 6. Detect transients for magnetic snap functionality
+    const transients = detectTransients(waveformData);
+    store.setTransients(deckId, transients);
   } catch (error) {
     console.error(`[DeckLoader] Failed to load track to deck ${deckId}:`, error);
     store.setAnalyzing(deckId, false);

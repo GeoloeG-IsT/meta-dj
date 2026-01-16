@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import { BeatgridOverlay } from './BeatgridOverlay';
+import { findNearestTransient, DEFAULT_TRANSIENT_CONFIG } from '../utils/transient-detector';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode } from '../types';
@@ -19,6 +20,8 @@ export interface WaveformDetailProps {
   waveformData: WaveformData | null;
   /** Beatgrid data for beat markers */
   beatgridData?: BeatgridData | null;
+  /** Detected transient positions for magnetic snap (sample positions) */
+  transients?: number[];
   /** Current playhead position (0-1) */
   playheadPosition?: number;
   /** Color mode for rendering */
@@ -114,6 +117,7 @@ function calculateViewRange(
 export function WaveformDetail({
   waveformData,
   beatgridData,
+  transients = [],
   playheadPosition = 0,
   colorMode = 'rgb',
   className = '',
@@ -247,6 +251,28 @@ export function WaveformDetail({
         // Dragging right (positive delta) = move waveform right = decrease first beat sample
         const sampleOffset = Math.round(-deltaX * samplesPerPixel);
         onSlipUpdate(sampleOffset);
+
+        // Check for magnetic snap: is any beat (with offset applied) near a transient?
+        if (onSnapChange && beatgridData && transients.length > 0) {
+          let snappedIndex: number | null = null;
+
+          // Check each beat anchor with offset applied
+          for (let i = 0; i < beatgridData.anchors.length; i++) {
+            const beatPosition = beatgridData.anchors[i] + sampleOffset;
+            const snapResult = findNearestTransient(
+              transients,
+              beatPosition,
+              DEFAULT_TRANSIENT_CONFIG.snapThreshold
+            );
+
+            if (snapResult.found) {
+              snappedIndex = i;
+              break; // Snap to first matching beat
+            }
+          }
+
+          onSnapChange(snappedIndex, snappedIndex !== null);
+        }
         return;
       }
 
@@ -267,7 +293,7 @@ export function WaveformDetail({
         )
       );
     },
-    [isDragging, isSlipDragging, dragStartX, dragStartOffset, viewRange, playheadPosition, samplesPerPixel, onSlipUpdate]
+    [isDragging, isSlipDragging, dragStartX, dragStartOffset, viewRange, playheadPosition, samplesPerPixel, onSlipUpdate, onSnapChange, beatgridData, transients]
   );
 
   // Handle mouse up
@@ -292,10 +318,12 @@ export function WaveformDetail({
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
+        event.stopPropagation();
         // Left arrow = move grid earlier = decrease first beat sample
         onKeyboardNudge(-NUDGE_SAMPLES);
       } else if (event.key === 'ArrowRight') {
         event.preventDefault();
+        event.stopPropagation();
         // Right arrow = move grid later = increase first beat sample
         onKeyboardNudge(NUDGE_SAMPLES);
       }
