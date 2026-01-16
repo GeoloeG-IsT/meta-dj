@@ -45,18 +45,18 @@ So that I can ensure 100% accurate sync for tracks with complex transients.
   - [x] Store transient positions for quick lookup during drag
   - [x] Configure snap threshold (default 10ms = ~441 samples at 44.1kHz)
 
-- [ ] **Task 4: Magnetic Snap Feedback** (AC: 2)
-  - [ ] Detect when dragged position aligns with a grid marker (within threshold)
-  - [ ] Show "Engine Green" highlight on snapped grid line
-  - [ ] Add subtle "pulse" animation when snap occurs
-  - [ ] Optional: audio click feedback when snapping
+- [x] **Task 4: Magnetic Snap Feedback** (AC: 2)
+  - [x] Detect when dragged position aligns with a grid marker (within threshold)
+  - [x] Show "Engine Green" highlight on snapped grid line
+  - [x] Add subtle "pulse" animation when snap occurs
+  - [ ] Optional: audio click feedback when snapping (skipped)
 
-- [ ] **Task 5: Database Update on Release** (AC: 4, 5)
-  - [ ] Calculate new `firstBeatSample` offset from slip amount
-  - [ ] Update all anchor positions with the offset delta
-  - [ ] Re-serialize beatgrid using existing `serializeBeatgrid()` function
-  - [ ] Call `analysisService.updateBeatgridOffset()` to persist
-  - [ ] Update local store state immediately (optimistic update)
+- [x] **Task 5: Database Update on Release** (AC: 4, 5)
+  - [x] Calculate new `firstBeatSample` offset from slip amount
+  - [x] Update all anchor positions with the offset delta
+  - [x] Re-serialize beatgrid using existing `serializeBeatgrid()` function
+  - [x] Call `analysisService.updateBeatgridOffset()` to persist
+  - [x] Update local store state immediately (optimistic update)
 
 - [ ] **Task 6: Toast Notification System** (AC: 5)
   - [ ] Create `Toast.tsx` component (non-blocking notification)
@@ -279,11 +279,17 @@ Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 - **Task 3 (2026-01-16):** Implemented TransientDetector utility with peak detection algorithm. Created `detectTransients()` function that analyzes waveform peaks for local maxima above threshold. Created `findNearestTransient()` with O(log n) binary search lookup. Added TransientDetector class for cached transient analysis with configurable snap threshold (default 10ms = 441 samples). Added 22 unit tests, all passing.
 
+- **Task 4 (2026-01-16):** Implemented magnetic snap feedback UI. Extended SlipModeState with snappedBeatIndex and isSnapped properties. Added setSnappedBeat action to audio store. Updated BeatgridOverlay with CSS pulse animation for snapped beats (beatgrid-snap-pulse keyframes). Added Engine Green glow effect (3px width, box-shadow) on snapped beats. Wired snappedBeatIndex through DeckUI to WaveformDetail to BeatgridOverlay.
+
+- **Task 5 (2026-01-16):** Implemented database persistence for beatgrid edits. Added `updateBeatgridOffset()` method to AnalysisService that serializes beatgrid data and updates PerformanceData table. Updated DeckUI handleSlipCommit to calculate new beatgrid positions (offset applied to firstBeatSample and all anchors), perform optimistic store update, then async persist to database.
+
 ### Change Log
 
 - 2026-01-16: Task 1 - Beatgrid Rendering on Waveform completed
 - 2026-01-16: Task 2 - Slip Mode Interaction completed
 - 2026-01-16: Task 3 - Transient Detection for Snap completed
+- 2026-01-16: Task 4 - Magnetic Snap Feedback completed
+- 2026-01-16: Task 5 - Database Update on Release completed
 
 ### File List
 
