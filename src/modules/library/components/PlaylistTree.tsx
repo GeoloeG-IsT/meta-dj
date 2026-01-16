@@ -95,7 +95,6 @@ export const PlaylistTree: React.FC = () => {
     }
 
     try {
-      // @ts-expect-error - File System Access API not in TS lib yet
       const dirHandle = await window.showDirectoryPicker();
 
       setIsImporting(true);
