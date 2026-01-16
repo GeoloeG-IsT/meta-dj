@@ -1,16 +1,29 @@
 import React, { useEffect, useState } from 'react';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
-import { Library, FolderPlus, FilePlus, Trash2 } from 'lucide-react';
+import { Library, FolderPlus, FilePlus, Trash2, Zap } from 'lucide-react';
 import { useLibraryStore } from '../store/library.store';
 import { usePlaylists } from '../hooks/usePlaylists';
 import { useTracks } from '../hooks/useTracks';
 import { PlaylistItem } from './PlaylistItem';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { ContextMenu } from './ContextMenu';
+import { SmartListBuilder } from './SmartListBuilder';
 
 export const PlaylistTree: React.FC = () => {
-  const { fetchPlaylists, createPlaylist, isLoading, setDbReady, selectedPlaylistId, setSelectedPlaylist, clearLibrary } = useLibraryStore();
+  const {
+    fetchPlaylists,
+    createPlaylist,
+    createSmartList,
+    isLoading,
+    setDbReady,
+    selectedPlaylistId,
+    setSelectedPlaylist,
+    clearLibrary,
+    editingSmartListId,
+    editingSmartListTitle,
+    closeSmartListEditor
+  } = useLibraryStore();
   const { tree } = usePlaylists();
   const { showPrompt, showConfirm } = useModalStore();
   const { totalCount } = useTracks();
@@ -46,6 +59,16 @@ export const PlaylistTree: React.FC = () => {
         placeholder: 'Enter playlist name',
         onConfirm: (name) => {
             if (name) createPlaylist(name, 0, false);
+        }
+    });
+  };
+
+  const handleAddSmartList = () => {
+    showPrompt({
+        title: 'New SmartList',
+        placeholder: 'Enter smartlist name',
+        onConfirm: (name) => {
+            if (name) createSmartList(name, 0);
         }
     });
   };
@@ -87,6 +110,9 @@ export const PlaylistTree: React.FC = () => {
           <button onClick={handleAddPlaylist} title="New Playlist" className="text-[#4DFA90] hover:text-white transition-colors opacity-60 hover:opacity-100">
             <FilePlus size={14} />
           </button>
+          <button onClick={handleAddSmartList} title="New SmartList" className="text-[#4DFA90] hover:text-white transition-colors opacity-60 hover:opacity-100">
+            <Zap size={14} />
+          </button>
         </div>
       </header>
 
@@ -125,6 +151,18 @@ export const PlaylistTree: React.FC = () => {
           tree.map((node) => <PlaylistItem key={node.id} node={node} />)
         )}
       </div>
+
+      {/* SmartList Builder Modal */}
+      {editingSmartListId !== null && editingSmartListTitle !== null && (
+        <SmartListBuilder
+          playlistId={editingSmartListId}
+          playlistTitle={editingSmartListTitle}
+          onClose={closeSmartListEditor}
+          onSave={() => {
+            fetchPlaylists();
+          }}
+        />
+      )}
     </div>
   );
 };

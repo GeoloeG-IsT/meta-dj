@@ -6,7 +6,17 @@ export interface DBPlaylist {
   parentListId: number;
   title: string;
   isFolder: number; // SQLite uses 0/1 for BOOLEAN
+  isSmartList: number; // SQLite uses 0/1 for BOOLEAN
   trackCount: number;
+}
+
+export interface SmartListRule {
+  id?: number;
+  playlistId?: number;
+  field: string;
+  operator: string;
+  value: string;
+  logic: string;
 }
 
 export class PlaylistService {
@@ -40,7 +50,7 @@ export class PlaylistService {
   async getHierarchy(): Promise<DBPlaylist[]> {
     try {
       const sql = `
-        SELECT p.id, p.parentListId, p.title, p.isFolder, COUNT(pe.id) as trackCount
+        SELECT p.id, p.parentListId, p.title, p.isFolder, p.isSmartList, COUNT(pe.id) as trackCount
         FROM Playlist p
         LEFT JOIN PlaylistEntity pe ON p.id = pe.listId
         GROUP BY p.id
@@ -216,6 +226,70 @@ export class PlaylistService {
       method: 'run',
       targetDb: this.DB
     });
+  }
+
+  /**
+   * Creates a new smartlist.
+   */
+  async createSmartList(title: string, parentId: number = 0): Promise<number> {
+    await this.validateParent(parentId);
+
+    const sql = `INSERT INTO Playlist (title, parentListId, isFolder, isSmartList) VALUES (?, ?, 0, 1)`;
+    const result = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      params: [title, parentId],
+      method: 'run',
+      targetDb: this.DB
+    });
+    return result.changes;
+  }
+
+  /**
+   * Fetches smartlist rules for a playlist.
+   */
+  async getSmartListRules(playlistId: number): Promise<SmartListRule[]> {
+    const sql = `SELECT id, playlistId, field, operator, value, logic FROM SmartListRule WHERE playlistId = ? ORDER BY id ASC`;
+    const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql,
+      params: [playlistId],
+      method: 'all',
+      targetDb: this.DB
+    });
+    return results || [];
+  }
+
+  /**
+   * Saves smartlist rules for a playlist and triggers refresh.
+   */
+  async saveSmartListRules(playlistId: number, rules: SmartListRule[]): Promise<{ success: boolean; trackCount: number }> {
+    // 1. Delete existing rules
+    await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql: `DELETE FROM SmartListRule WHERE playlistId = ?`,
+      params: [playlistId],
+      method: 'run',
+      targetDb: this.DB
+    });
+
+    // 2. Insert new rules
+    for (const rule of rules) {
+      await kernel.send(EventType.DB_QUERY_REQUEST, {
+        sql: `INSERT INTO SmartListRule (playlistId, field, operator, value, logic) VALUES (?, ?, ?, ?, ?)`,
+        params: [playlistId, rule.field, rule.operator, rule.value, rule.logic],
+        method: 'run',
+        targetDb: this.DB
+      });
+    }
+
+    // 3. Trigger smartlist update (refreshes PlaylistEntity with matching tracks)
+    const result = await kernel.send(EventType.DB_SMARTLIST_UPDATE, {
+      playlistId,
+      rules
+    });
+
+    return {
+      success: result.success,
+      trackCount: result.trackCount
+    };
   }
 }
 

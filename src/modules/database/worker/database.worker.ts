@@ -260,6 +260,81 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         });
         break;
       
+      case EventType.DB_SMARTLIST_UPDATE: {
+        if (!dbs) await init();
+        if (!dbs) throw new Error('Database initialization failed');
+
+        const { playlistId, rules } = payload as { playlistId: number; rules: SmartListRule[] };
+
+        let trackCount = 0;
+        try {
+          // Generate WHERE clause from rules (validates inputs)
+          const whereClause = generateSmartListSql(rules);
+
+          // Query matching tracks
+          const trackSql = `SELECT id FROM Track WHERE ${whereClause}`;
+          log('Smartlist query:', trackSql);
+
+          const matchingTracks = dbs.m.exec({
+            sql: trackSql,
+            returnValue: 'resultRows',
+            rowMode: 'object'
+          }) as Array<{ id: number }>;
+
+          trackCount = matchingTracks.length;
+
+          // Use transaction for batch operations (performance optimization)
+          dbs.m.exec('BEGIN TRANSACTION');
+
+          try {
+            // Clear existing playlist entries for this smartlist
+            dbs.m.exec({
+              sql: 'DELETE FROM PlaylistEntity WHERE listId = ?',
+              bind: [playlistId]
+            });
+
+            // Batch insert matching tracks into PlaylistEntity
+            // Build linked list in reverse order for correct nextEntityId
+            let prevEntityId = 0;
+            for (let i = matchingTracks.length - 1; i >= 0; i--) {
+              const track = matchingTracks[i];
+              dbs.m.exec({
+                sql: 'INSERT INTO PlaylistEntity (listId, trackId, nextEntityId) VALUES (?, ?, ?)',
+                bind: [playlistId, track.id, prevEntityId]
+              });
+              prevEntityId = dbs.m.selectObject('SELECT last_insert_rowid() as id').id;
+            }
+
+            dbs.m.exec('COMMIT');
+          } catch (txErr) {
+            dbs.m.exec('ROLLBACK');
+            throw txErr;
+          }
+        } catch (smartlistErr: unknown) {
+          const errMsg = smartlistErr instanceof Error ? smartlistErr.message : 'Unknown error';
+          error('Smartlist update failed:', errMsg);
+          source.postMessage({
+            id,
+            type: EventType.DB_ERROR,
+            payload: `Smartlist update failed: ${errMsg}`,
+            timestamp: Date.now()
+          });
+          break;
+        }
+
+        source.postMessage({
+          id,
+          type: EventType.DB_QUERY_RESPONSE,
+          payload: {
+            success: true,
+            trackCount,
+            playlistId
+          },
+          timestamp: Date.now()
+        });
+        break;
+      }
+
       case EventType.LOG:
           log('Log received:', payload);
           break;

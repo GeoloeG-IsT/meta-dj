@@ -8,18 +8,25 @@ interface LibraryState {
   selectedPlaylistId: number | null;
   isLoading: boolean;
   isDbReady: boolean;
-  
+
+  // Smartlist editing state
+  editingSmartListId: number | null;
+  editingSmartListTitle: string | null;
+
   // Actions
   fetchPlaylists: () => Promise<void>;
   setDbReady: (ready: boolean) => void;
   setSelectedPlaylist: (id: number | null) => void;
   createPlaylist: (title: string, parentId?: number, isFolder?: boolean) => Promise<void>;
+  createSmartList: (title: string, parentId?: number) => Promise<void>;
   renamePlaylist: (id: number, title: string) => Promise<void>;
   deletePlaylist: (id: number) => Promise<void>;
   movePlaylist: (id: number, newParentId: number) => Promise<void>;
   deleteTrack: (id: number) => Promise<void>;
   removeTrackFromPlaylist: (trackId: number, playlistId: number) => Promise<void>;
   clearLibrary: () => Promise<void>;
+  openSmartListEditor: (id: number, title: string) => void;
+  closeSmartListEditor: () => void;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
@@ -27,6 +34,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   selectedPlaylistId: null,
   isLoading: false,
   isDbReady: false,
+  editingSmartListId: null,
+  editingSmartListTitle: null,
 
   fetchPlaylists: async () => {
     if (!get().isDbReady) {
@@ -65,6 +74,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     await get().fetchPlaylists();
   },
 
+  createSmartList: async (title, parentId = 0) => {
+    await playlistService.createSmartList(title, parentId);
+    await get().fetchPlaylists();
+  },
+
   renamePlaylist: async (id, title) => {
     await playlistService.rename(id, title);
     await get().fetchPlaylists();
@@ -97,5 +111,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   clearLibrary: async () => {
     await playlistService.deleteAllTracks();
     await get().fetchPlaylists();
+  },
+
+  openSmartListEditor: (id, title) => {
+    set({ editingSmartListId: id, editingSmartListTitle: title });
+  },
+
+  closeSmartListEditor: () => {
+    set({ editingSmartListId: null, editingSmartListTitle: null });
   }
 }));

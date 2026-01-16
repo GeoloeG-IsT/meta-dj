@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Folder, FolderOpen, Music, ChevronRight, ChevronDown, Edit2, Trash2 } from 'lucide-react';
+import { Folder, FolderOpen, Music, ChevronRight, ChevronDown, Edit2, Trash2, Zap, Settings2 } from 'lucide-react';
 import { useLibraryStore } from '../store/library.store';
 import { type PlaylistNode } from '../hooks/usePlaylists';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
@@ -15,8 +15,9 @@ interface PlaylistItemProps {
 export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const { selectedPlaylistId, setSelectedPlaylist, renamePlaylist, deletePlaylist, createPlaylist } = useLibraryStore();
+  const { selectedPlaylistId, setSelectedPlaylist, renamePlaylist, deletePlaylist, createPlaylist, openSmartListEditor } = useLibraryStore();
   const { showConfirm, showPrompt } = useModalStore();
+  const isSmartList = node.isSmartList === 1;
 
   const isSelected = selectedPlaylistId === node.id;
 
@@ -51,31 +52,36 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
   };
 
   const menuOptions = [
-    { 
-        label: 'Sub-Crate', 
-        icon: <Folder size={14} />, 
+    {
+        label: 'Sub-Crate',
+        icon: <Folder size={14} />,
         onClick: handleAddCrate
     },
-    { 
-        label: 'Sub-Playlist', 
-        icon: <Music size={14} />, 
+    {
+        label: 'Sub-Playlist',
+        icon: <Music size={14} />,
         onClick: handleAddPlaylist
     },
-    { 
-        label: 'Rename', 
-        icon: <Edit2 size={14} />, 
+    {
+        label: 'Edit Rules',
+        icon: <Settings2 size={14} />,
+        onClick: () => openSmartListEditor(node.id, node.title)
+    },
+    {
+        label: 'Rename',
+        icon: <Edit2 size={14} />,
         onClick: () => {
             showPrompt({
                 title: 'Rename Item',
                 message: `Enter new name for "${node.title}":`,
-                initialValue: node.title,
+                defaultValue: node.title,
                 onConfirm: (title) => renamePlaylist(node.id, title)
             });
         }
     },
-    { 
-        label: 'Delete', 
-        icon: <Trash2 size={14} />, 
+    {
+        label: 'Delete',
+        icon: <Trash2 size={14} />,
         danger: true,
         onClick: () => {
             showConfirm({
@@ -89,9 +95,11 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
     }
   ];
 
-  const filteredOptions = node.isFolder 
-    ? menuOptions 
-    : menuOptions.filter(opt => opt.label !== 'Sub-Crate' && opt.label !== 'Sub-Playlist');
+  const filteredOptions = node.isFolder
+    ? menuOptions.filter(opt => opt.label !== 'Edit Rules')
+    : isSmartList
+    ? menuOptions.filter(opt => opt.label !== 'Sub-Crate' && opt.label !== 'Sub-Playlist')
+    : menuOptions.filter(opt => opt.label !== 'Sub-Crate' && opt.label !== 'Sub-Playlist' && opt.label !== 'Edit Rules');
 
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -126,7 +134,13 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
         )}
         
         <div className="flex items-center gap-2 flex-1 min-w-0">
-            {node.isFolder ? (isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />) : <Music size={14} />}
+            {node.isFolder ? (
+              isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />
+            ) : isSmartList ? (
+              <Zap size={14} className="text-[#4DFA90]" />
+            ) : (
+              <Music size={14} />
+            )}
             <span className="text-[10px] font-bold uppercase tracking-widest truncate">
                 {node.title}
             </span>
