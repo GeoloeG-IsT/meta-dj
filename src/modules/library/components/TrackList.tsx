@@ -107,8 +107,8 @@ const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualIt
   );
 };
 
-export const TrackList: React.FC = () => {
-  const { tracks, isLoading, sort, toggleSort } = useTracks();
+export const TrackList: React.FC<{ searchQuery?: string }> = ({ searchQuery }) => {
+  const { tracks, isLoading, sort, toggleSort } = useTracks(searchQuery);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({

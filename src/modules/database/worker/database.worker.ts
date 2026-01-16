@@ -79,10 +79,7 @@ const init = async () => {
           
           if (hasPlaylistId) {
             log('Legacy playlistId detected. Performing hard migration of PlaylistEntity...');
-            // 1. Rename old table
             dbs.m.exec("ALTER TABLE PlaylistEntity RENAME TO temp_PlaylistEntity");
-            
-            // 2. Create new table with correct schema
             dbs.m.exec(`
               CREATE TABLE PlaylistEntity (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -94,15 +91,10 @@ const init = async () => {
                 FOREIGN KEY(trackId) REFERENCES Track(id)
               )
             `);
-
-            // 3. Copy data (map playlistId to listId)
             dbs.m.exec("INSERT INTO PlaylistEntity (id, listId, trackId, nextEntityId) SELECT id, playlistId, trackId, COALESCE(nextEntityId, 0) FROM temp_PlaylistEntity");
-            
-            // 4. Drop temp table
             dbs.m.exec("DROP TABLE temp_PlaylistEntity");
             log('Hard migration of PlaylistEntity complete.');
           } else {
-            // Ensure nextEntityId exists for newer schemas
             if (!columns.some(c => c.name === 'nextEntityId')) {
                 dbs.m.exec("ALTER TABLE PlaylistEntity ADD COLUMN nextEntityId INTEGER DEFAULT 0");
             }
@@ -122,9 +114,44 @@ const init = async () => {
           `);
         }
       }
+
+      // Migration: FTS5 Search Index
+      try {
+        dbs.m.exec(`
+          CREATE VIRTUAL TABLE IF NOT EXISTS Track_fts USING fts5(
+            title, artist, album, 
+            content='Track', 
+            content_rowid='id'
+          );
+        `);
+
+        // Triggers for automatic sync
+        dbs.m.exec(`
+          CREATE TRIGGER IF NOT EXISTS track_ai AFTER INSERT ON Track BEGIN
+            INSERT INTO Track_fts(rowid, title, artist, album) VALUES (new.id, new.title, new.artist, new.album);
+          END;
+          CREATE TRIGGER IF NOT EXISTS track_ad AFTER DELETE ON Track BEGIN
+            INSERT INTO Track_fts(Track_fts, rowid, title, artist, album) VALUES('delete', old.id, old.title, old.artist, old.album);
+          END;
+          CREATE TRIGGER IF NOT EXISTS track_au AFTER UPDATE ON Track BEGIN
+            INSERT INTO Track_fts(Track_fts, rowid, title, artist, album) VALUES('delete', old.id, old.title, old.artist, old.album);
+            INSERT INTO Track_fts(rowid, title, artist, album) VALUES (new.id, new.title, new.artist, new.album);
+          END;
+        `);
+
+        // Initial population if FTS table is empty
+        const ftsCount = dbs.m.selectObject("SELECT count(*) as count FROM Track_fts");
+        if (ftsCount.count === 0) {
+          log('Populating FTS index from existing tracks...');
+          dbs.m.exec("INSERT INTO Track_fts(rowid, title, artist, album) SELECT id, title, artist, album FROM Track");
+        }
+        log('FTS5 Search Index initialized');
+      } catch (e) {
+        error('FTS5 Initialization failed:', e);
+      }
     } catch (err: any) {
       error('Initialization failed:', err.name, err.message);
-      initPromise = null; // Allow retry
+      initPromise = null;
       throw err;
     }
   })();
@@ -170,8 +197,6 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         const { sql, params, method, targetDb = 'm' } = payload;
         const target = (dbs as any)[targetDb] || dbs.m;
 
-        // CRITICAL FIX: Only pass 'bind' if there are actually parameters to bind.
-        // SQLite WASM throws "This statement has no bindable parameters" if bind is an empty array for a 0-param query.
         const bindOptions = (params && params.length > 0) ? { bind: params } : {};
 
         let result;
@@ -179,8 +204,6 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
             target.exec({ sql, ...bindOptions });
             result = { changes: target.changes(), success: true };
         } else if (method === 'get') {
-            // selectObject doesn't take an options object, it takes (sql, params)
-            // If params is empty/undefined, pass undefined
             result = target.selectObject(sql, (params && params.length > 0) ? params : undefined);
         } else {
             result = target.exec({ 
@@ -218,8 +241,6 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
           break;
 
       default:
-        // specific event types might be handled elsewhere or ignored
-        // log('Unknown message type:', type);
         break;
     }
   } catch (err: any) {

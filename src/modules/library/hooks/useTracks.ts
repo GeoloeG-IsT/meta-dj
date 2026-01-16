@@ -21,7 +21,7 @@ export interface Track {
 export type SortField = 'title' | 'artist' | 'album' | 'bpm' | 'key' | 'duration' | 'genre';
 export type SortOrder = 'ASC' | 'DESC';
 
-export function useTracks() {
+export function useTracks(searchQuery?: string) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,6 +39,7 @@ export function useTracks() {
       let dataSql = `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename FROM Track`;
       let params: any[] = [];
 
+      // 1. Playlist Filter (Recursive)
       if (selectedPlaylistId) {
         countSql = `
           WITH RECURSIVE descendants(id) AS (
@@ -48,6 +49,7 @@ export function useTracks() {
           )
           SELECT COUNT(DISTINCT pe.trackId) as count 
           FROM PlaylistEntity pe 
+          INNER JOIN Track t ON pe.trackId = t.id
           WHERE pe.listId IN (SELECT id FROM descendants)
         `;
         dataSql = `
@@ -61,7 +63,23 @@ export function useTracks() {
           INNER JOIN PlaylistEntity pe ON t.id = pe.trackId
           WHERE pe.listId IN (SELECT id FROM descendants)
         `;
-        params = [selectedPlaylistId];
+        params.push(selectedPlaylistId);
+      }
+
+      // 2. Search Filter (FTS5)
+      if (searchQuery && searchQuery.trim().length > 0) {
+        const ftsMatch = `${searchQuery.trim()}*`;
+        const ftsSubquery = `id IN (SELECT rowid FROM Track_fts WHERE Track_fts MATCH ?)`;
+        
+        if (selectedPlaylistId) {
+            // Add to existing CTE-based query
+            countSql += ` AND t.${ftsSubquery}`;
+            dataSql += ` AND t.${ftsSubquery}`;
+        } else {
+            countSql = `SELECT COUNT(*) as count FROM Track t WHERE t.${ftsSubquery}`;
+            dataSql = `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename FROM Track t WHERE t.${ftsSubquery}`;
+        }
+        params.push(ftsMatch);
       }
 
       // 1. Get total count
@@ -87,7 +105,7 @@ export function useTracks() {
     } finally {
       setIsLoading(false);
     }
-  }, [sort, isDbReady, selectedPlaylistId]);
+  }, [sort, isDbReady, selectedPlaylistId, searchQuery]);
 
   useEffect(() => {
     let isMounted = true;

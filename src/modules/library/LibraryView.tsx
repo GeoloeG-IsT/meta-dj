@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
 import { ImportControl } from './components/ImportControl';
 import { TrackList, TrackRowUI } from './components/TrackList';
@@ -6,12 +6,52 @@ import { PlaylistTree } from './components/PlaylistTree';
 import { playlistService } from './services/playlist.service';
 import { useLibraryStore } from './store/library.store';
 import { useModalStore } from '../../shared/components/modals/modal.store';
+import { SearchOverlay } from './components/SearchOverlay';
 
 export const LibraryView: React.FC = () => {
   const { clearLibrary, fetchPlaylists, movePlaylist } = useLibraryStore();
-  const { showConfirm } = useModalStore();
+  const { showConfirm, isOpen: isModalOpen } = useModalStore();
   const [activeTrack, setActiveTrack] = useState<any | null>(null);
   const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // Debounce search
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 150);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Global Type-Ahead Listener
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Skip if modal is open or focusing an input
+      if (isModalOpen) return;
+      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+
+      // Handle Escape
+      if (e.key === 'Escape') {
+        setSearchQuery('');
+        return;
+      }
+
+      // Handle Backspace
+      if (e.key === 'Backspace') {
+        setSearchQuery(prev => prev.slice(0, -1));
+        return;
+      }
+
+      // Capture Alphanumeric + Space
+      if (e.key.length === 1 && /[a-zA-Z0-9 ]/.test(e.key)) {
+        // Prevent default space scrolling
+        if (e.key === ' ') e.preventDefault();
+        setSearchQuery(prev => prev + e.key);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -37,7 +77,8 @@ export const LibraryView: React.FC = () => {
     const { active } = event;
     if (active.data.current?.type === 'playlist') {
         setActivePlaylist(active.data.current);
-    } else {
+    }
+    else {
         setActiveTrack(active.data.current?.track || null);
     }
   };
@@ -115,11 +156,13 @@ export const LibraryView: React.FC = () => {
               <div className="flex items-center justify-between mb-2">
                 <span className="text-[10px] uppercase tracking-widest opacity-60">Tracks</span>
               </div>
-              <TrackList />
+              <TrackList searchQuery={debouncedSearch} />
             </section>
           </div>
         </main>
       </div>
+
+      <SearchOverlay query={searchQuery} />
 
       <DragOverlay>
         {activeTrack ? (
