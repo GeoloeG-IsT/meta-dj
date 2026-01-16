@@ -91,6 +91,9 @@ export async function loadTrackToDeck(
     // 6. Detect transients for magnetic snap functionality
     const transients = detectTransients(waveformData);
     store.setTransients(deckId, transients);
+
+    // 7. Clear analyzing state on successful completion
+    store.setAnalyzing(deckId, false);
   } catch (error) {
     console.error(`[DeckLoader] Failed to load track to deck ${deckId}:`, error);
     store.setAnalyzing(deckId, false);
@@ -110,6 +113,9 @@ async function loadBeatgridForDeck(deckId: DeckId, trackId: number): Promise<voi
       const store = useAudioStore.getState();
       store.setBeatgridData(deckId, beatgridData);
       console.log(`[DeckLoader] Loaded beatgrid for track ${trackId}: ${beatgridData.beatCount} beats at ${beatgridData.bpm.toFixed(1)} BPM`);
+    } else {
+      // No beatgrid data for this track - graceful fallback (overlay won't render)
+      console.debug(`[DeckLoader] No beatgrid data for track ${trackId} - track may not have been analyzed yet`);
     }
   } catch (error) {
     console.warn(`[DeckLoader] Failed to load beatgrid for track ${trackId}:`, error);
@@ -292,6 +298,11 @@ export async function loadTrackFromLibrary(
 
 /**
  * Open a file picker and load the selected audio file into a deck.
+ *
+ * Note: Tracks loaded via file picker do NOT have a trackId from the library,
+ * so beatgrid, cue points, loops, and stems cannot be loaded from the database.
+ * This is expected behavior - only library tracks have persisted performance data.
+ * Users should import tracks to the library first for full functionality.
  */
 export async function pickAndLoadTrack(deckId: DeckId): Promise<void> {
   try {
