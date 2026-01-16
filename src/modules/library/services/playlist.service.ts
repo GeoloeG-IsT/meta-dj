@@ -6,6 +6,7 @@ export interface DBPlaylist {
   parentListId: number;
   title: string;
   isFolder: number; // SQLite uses 0/1 for BOOLEAN
+  trackCount: number;
 }
 
 export class PlaylistService {
@@ -38,13 +39,18 @@ export class PlaylistService {
    */
   async getHierarchy(): Promise<DBPlaylist[]> {
     try {
-      const sql = `SELECT id, parentListId, title, isFolder FROM Playlist ORDER BY title ASC`;
+      const sql = `
+        SELECT p.id, p.parentListId, p.title, p.isFolder, COUNT(pe.id) as trackCount
+        FROM Playlist p
+        LEFT JOIN PlaylistEntity pe ON p.id = pe.listId
+        GROUP BY p.id
+        ORDER BY p.title ASC
+      `;
       const results = await kernel.send(EventType.DB_QUERY_REQUEST, {
         sql,
         method: 'all',
         targetDb: this.DB
       });
-      // console.log('[PlaylistService] Hierarchy Results:', results);
       return results || [];
     } catch (e) {
       console.error('[PlaylistService] Failed to get hierarchy:', e);
@@ -144,6 +150,46 @@ export class PlaylistService {
             method: 'run',
             targetDb: this.DB
         });
+    }
+  }
+
+  /**
+   * Removes a track from a specific playlist and repairs the linked-list pointers.
+   */
+  async removeFromPlaylist(trackId: number, playlistId: number): Promise<void> {
+    // 1. Find the entity to remove and its predecessor
+    const predecessor = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql: `SELECT id FROM PlaylistEntity WHERE listId = ? AND nextEntityId = (SELECT id FROM PlaylistEntity WHERE listId = ? AND trackId = ? LIMIT 1)`,
+      params: [playlistId, playlistId, trackId],
+      method: 'get',
+      targetDb: this.DB
+    });
+
+    const target = await kernel.send(EventType.DB_QUERY_REQUEST, {
+      sql: `SELECT id, nextEntityId FROM PlaylistEntity WHERE listId = ? AND trackId = ? LIMIT 1`,
+      params: [playlistId, trackId],
+      method: 'get',
+      targetDb: this.DB
+    });
+
+    if (target) {
+      // 2. If there's a predecessor, link it to target's successor
+      if (predecessor) {
+        await kernel.send(EventType.DB_QUERY_REQUEST, {
+          sql: `UPDATE PlaylistEntity SET nextEntityId = ? WHERE id = ?`,
+          params: [target.nextEntityId, predecessor.id],
+          method: 'run',
+          targetDb: this.DB
+        });
+      }
+      
+      // 3. Delete the entity
+      await kernel.send(EventType.DB_QUERY_REQUEST, {
+        sql: `DELETE FROM PlaylistEntity WHERE id = ?`,
+        params: [target.id],
+        method: 'run',
+        targetDb: this.DB
+      });
     }
   }
 

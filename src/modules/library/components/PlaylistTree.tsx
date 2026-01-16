@@ -1,8 +1,10 @@
 import React, { useEffect } from 'react';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
+import { Library, FolderPlus, FilePlus } from 'lucide-react';
 import { useLibraryStore } from '../store/library.store';
 import { usePlaylists } from '../hooks/usePlaylists';
+import { useTracks } from '../hooks/useTracks';
 import { PlaylistItem } from './PlaylistItem';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 
@@ -10,6 +12,7 @@ export const PlaylistTree: React.FC = () => {
   const { fetchPlaylists, createPlaylist, isLoading, setDbReady, selectedPlaylistId, setSelectedPlaylist } = useLibraryStore();
   const { tree } = usePlaylists();
   const { showPrompt } = useModalStore();
+  const { totalCount } = useTracks();
 
   useEffect(() => {
     fetchPlaylists();
@@ -50,8 +53,12 @@ export const PlaylistTree: React.FC = () => {
       <header className="p-4 border-b border-[#4DFA90]/10 flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-[0.2em] opacity-40">Explorer</span>
         <div className="flex gap-2">
-          <button onClick={handleAddCrate} title="New Crate" className="text-[#4DFA90] hover:text-white text-xs opacity-60 hover:opacity-100">✚📁</button>
-          <button onClick={handleAddPlaylist} title="New Playlist" className="text-[#4DFA90] hover:text-white text-xs opacity-60 hover:opacity-100">✚📑</button>
+          <button onClick={handleAddCrate} title="New Crate" className="text-[#4DFA90] hover:text-white transition-colors opacity-60 hover:opacity-100">
+            <FolderPlus size={14} />
+          </button>
+          <button onClick={handleAddPlaylist} title="New Playlist" className="text-[#4DFA90] hover:text-white transition-colors opacity-60 hover:opacity-100">
+            <FilePlus size={14} />
+          </button>
         </div>
       </header>
 
@@ -59,15 +66,21 @@ export const PlaylistTree: React.FC = () => {
         {/* All Tracks Root Item */}
         <div 
             onClick={() => setSelectedPlaylist(null)}
-            className={`flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors border-l-2 mb-2
+            className={`flex items-center gap-2 px-4 py-2 cursor-pointer transition-colors border-l-2 mb-2 group
                 ${selectedPlaylistId === null ? 'bg-[#4DFA90]/10 border-[#4DFA90] text-white' : 'border-transparent text-[#4DFA90]/40 hover:bg-[#4DFA90]/5'}
             `}
         >
-            <span className="text-[10px] font-bold uppercase tracking-widest">🎛️ All Tracks</span>
+            <Library size={14} />
+            <span className="text-[10px] font-bold uppercase tracking-widest flex-1">All Tracks</span>
+            {totalCount > 0 && (
+                <span className="text-[9px] font-mono bg-[#4DFA90]/10 px-1.5 rounded-full text-[#4DFA90]/60 group-hover:text-[#4DFA90]">
+                    {totalCount}
+                </span>
+            )}
         </div>
 
         {isLoading && tree.length === 0 ? (
-          <div className="p-4 text-[8px] uppercase opacity-20 animate-pulse">Loading Tree...</div>
+          <div className="p-4 text-[8px] uppercase opacity-20 animate-pulse text-center">Loading Tree...</div>
         ) : tree.length === 0 ? (
           <div className="p-4 text-[8px] uppercase opacity-20 italic text-center">Empty Library</div>
         ) : (

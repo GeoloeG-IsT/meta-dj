@@ -10,6 +10,8 @@ export function usePlaylists() {
   const playlists = useLibraryStore((state) => state.playlists);
 
   const tree = useMemo(() => {
+    if (!playlists) return [];
+    
     const nodes: Record<number, PlaylistNode> = {};
     const root: PlaylistNode[] = [];
 

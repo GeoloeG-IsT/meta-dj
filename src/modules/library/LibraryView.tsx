@@ -42,8 +42,8 @@ export const LibraryView: React.FC = () => {
           return;
         }
   
-        // Capture Alphanumeric + Space
-        if (e.key.length === 1 && /[a-zA-Z0-9 ]/.test(e.key)) {
+        // Capture Alphanumeric + Unicode + Space
+        if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
           // Prevent default space scrolling
           if (e.key === ' ') e.preventDefault();
           setSearchQuery(prev => prev + e.key);
@@ -184,9 +184,9 @@ export const LibraryView: React.FC = () => {
           </main>
         </div>
   
-        <SearchOverlay query={isSearchFocused ? '' : searchQuery} />
-  
-        <DragOverlay>        {activeTrack ? (
+      <SearchOverlay query={isSearchFocused ? '' : debouncedSearch} />
+
+      <DragOverlay>        {activeTrack ? (
           <div className="w-[400px] pointer-events-none">
             <TrackRowUI 
                 track={activeTrack} 

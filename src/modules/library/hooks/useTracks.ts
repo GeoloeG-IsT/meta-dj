@@ -73,10 +73,13 @@ export function useTracks(searchQuery?: string) {
 
       // 2. Search Filter (FTS5)
       if (searchQuery && searchQuery.trim().length > 0) {
-        // Robust FTS5 Sanitization: Remove special characters that can break MATCH
+        // Robust FTS5 Sanitization: 
+        // 1. Remove double quotes to prevent phrase syntax breaking
+        // 2. Collapse multiple spaces
+        // 3. Keep Unicode characters (letters/numbers) for international support
         const cleanQuery = searchQuery.trim()
-            .replace(/[^\w\s]/gi, ' ') // Only allow alphanumeric and spaces
-            .replace(/\s+/g, ' ');     // Collapse spaces
+            .replace(/"/g, ' ') 
+            .replace(/\s+/g, ' ');
             
         const ftsMatch = `"${cleanQuery}"*`; 
         const ftsSubquery = `id IN (SELECT rowid FROM Track_fts WHERE Track_fts MATCH ?)`;

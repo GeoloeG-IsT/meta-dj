@@ -18,6 +18,7 @@ interface LibraryState {
   deletePlaylist: (id: number) => Promise<void>;
   movePlaylist: (id: number, newParentId: number) => Promise<void>;
   deleteTrack: (id: number) => Promise<void>;
+  removeTrackFromPlaylist: (trackId: number, playlistId: number) => Promise<void>;
   clearLibrary: () => Promise<void>;
 }
 
@@ -28,7 +29,6 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   isDbReady: false,
 
   fetchPlaylists: async () => {
-    // Initial silent check
     if (!get().isDbReady) {
         try {
             const check = await kernel.send(EventType.DB_PING, {});
@@ -85,9 +85,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   deleteTrack: async (id) => {
     await playlistService.deleteTrack(id);
+    // Refresh playlists because track counts might change
+    await get().fetchPlaylists();
+  },
+
+  removeTrackFromPlaylist: async (trackId, playlistId) => {
+    await playlistService.removeFromPlaylist(trackId, playlistId);
+    await get().fetchPlaylists();
   },
 
   clearLibrary: async () => {
     await playlistService.deleteAllTracks();
+    await get().fetchPlaylists();
   }
 }));

@@ -1,9 +1,11 @@
 import React, { useRef } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { useDraggable } from '@dnd-kit/core';
+import { Trash2, XCircle } from 'lucide-react';
 import { useTracks, type SortField } from '../hooks/useTracks';
 import { useLibraryStore } from '../store/library.store';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
+import { CSS } from '@dnd-kit/utilities';
 
 export const formatDuration = (seconds: number) => {
   const mins = Math.floor(seconds / 60);
@@ -16,17 +18,19 @@ interface TrackRowUIProps {
     isDragging?: boolean;
     isVirtual?: boolean;
     style?: React.CSSProperties;
-    onDelete?: () => void;
+    onAction?: () => void;
+    actionIcon: React.ReactNode;
     className?: string;
 }
 
-export const TrackRowUI: React.FC<TrackRowUIProps> = ({ 
-    track, 
-    isDragging, 
-    isVirtual, 
-    style, 
-    onDelete,
-    className 
+export const TrackRowUI: React.FC<TrackRowUIProps> = ({
+    track,
+    isDragging,
+    isVirtual,
+    style,
+    onAction,
+    actionIcon,
+    className
 }) => {
     return (
         <div
@@ -37,7 +41,7 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
             `}
             style={style}
         >
-            <div className="flex-[3] px-2 text-sm truncate text-[#4DFA90] group-hover:text-white">
+            <div className="flex-[3] px-2 text-sm truncate text-[#4DFA90] group-hover:text-white py-2">
                 {track.title}
             </div>
             <div className="flex-[2] px-2 text-xs truncate opacity-60">
@@ -54,12 +58,12 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
             </div>
             <div className="w-12 flex justify-center">
                 {!isDragging && (
-                    <button 
+                    <button
                         onPointerDown={(e) => e.stopPropagation()}
-                        onClick={onDelete}
-                        className="text-[8px] text-red-500/40 hover:text-red-500 transition-colors p-2"
+                        onClick={onAction}
+                        className="text-red-500/40 hover:text-red-500 transition-colors p-2"
                     >
-                        ✕
+                        {actionIcon}
                     </button>
                 )}
             </div>
@@ -68,45 +72,57 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
 };
 
 const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualItem }) => {
-  const { deleteTrack } = useLibraryStore();
+  const { deleteTrack, removeTrackFromPlaylist, selectedPlaylistId } = useLibraryStore();
   const { showConfirm } = useModalStore();
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: track.id,
     data: { track }
   });
 
-  const handleDelete = () => {
-    showConfirm({
-        title: 'Delete Track',
-        message: `Are you sure you want to delete "${track.title}" from the library?`,
-        confirmLabel: 'Delete',
-        isDanger: true,
-        onConfirm: () => deleteTrack(track.id)
-    });
+  const handleAction = () => {
+    if (selectedPlaylistId) {
+        showConfirm({
+            title: 'Remove from Playlist',
+            message: `Remove "${track.title}" from this playlist? The track will remain in your collection.`,
+            confirmLabel: 'Remove',
+            onConfirm: () => removeTrackFromPlaylist(track.id, selectedPlaylistId)
+        });
+    } else {
+        showConfirm({
+            title: 'Delete Track',
+            message: `Are you sure you want to delete "${track.title}" from the library? This removes it from ALL playlists.`,
+            confirmLabel: 'Delete Entirely',
+            isDanger: true,
+            onConfirm: () => deleteTrack(track.id)
+        });
+    }
+  };
+
+  const style = {
+    height: `${virtualItem.size}px`,
+    top: `${virtualItem.start}px`,
+    transform: CSS.Translate.toString(transform),
+    zIndex: isDragging ? 100 : 1,
   };
 
   return (
-    <div 
-        ref={setNodeRef} 
-        {...listeners} 
+    <div
+        ref={setNodeRef}
+        {...listeners}
         {...attributes}
         className="absolute left-0 w-full"
-        style={{
-            height: `${virtualItem.size}px`,
-            top: `${virtualItem.start}px`,
-            zIndex: isDragging ? 0 : 1
-        }}
+        style={style}
     >
-        <TrackRowUI 
+        <TrackRowUI
             track={track}
             isDragging={isDragging}
-            onDelete={handleDelete}
+            onAction={handleAction}
+            actionIcon={selectedPlaylistId ? <XCircle size={14} /> : <Trash2 size={14} />}
             className={virtualItem.index % 2 === 0 ? 'bg-transparent' : 'bg-[#4DFA90]/5'}
         />
     </div>
   );
 };
-
 export const TrackList: React.FC<{ searchQuery?: string }> = ({ searchQuery }) => {
   const { tracks, isLoading, sort, toggleSort } = useTracks(searchQuery);
   const parentRef = useRef<HTMLDivElement>(null);
@@ -139,7 +155,7 @@ export const TrackList: React.FC<{ searchQuery?: string }> = ({ searchQuery }) =
         {renderHeader('BPM', 'bpm', 'w-24')}
         {renderHeader('Key', 'key', 'w-20')}
         {renderHeader('Time', 'duration', 'w-20')}
-        <div className="w-12 border-b border-[#4DFA90]/20" />
+        <div className="w-24 border-b border-[#4DFA90]/20" />
       </div>
 
       {/* Virtualized Body */}

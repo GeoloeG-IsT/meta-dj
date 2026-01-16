@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { Folder, FolderOpen, Music, ChevronRight, ChevronDown, Edit2, Trash2 } from 'lucide-react';
 import { useLibraryStore } from '../store/library.store';
 import { type PlaylistNode } from '../hooks/usePlaylists';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
 import { ContextMenu } from './ContextMenu';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
+import { CSS } from '@dnd-kit/utilities';
 
 interface PlaylistItemProps {
   node: PlaylistNode;
@@ -13,94 +15,88 @@ interface PlaylistItemProps {
 export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
-  const { selectedPlaylistId, setSelectedPlaylist, deletePlaylist, createPlaylist, renamePlaylist } = useLibraryStore();
-  const { showPrompt, showConfirm } = useModalStore();
-  
-  const { isOver, setNodeRef: setDropRef } = useDroppable({
+  const { selectedPlaylistId, setSelectedPlaylist, renamePlaylist, deletePlaylist, createPlaylist } = useLibraryStore();
+  const { showConfirm, showPrompt } = useModalStore();
+
+  const isSelected = selectedPlaylistId === node.id;
+
+  const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: `playlist-${node.id}`,
     data: { playlistId: node.id, isFolder: node.isFolder }
   });
 
   const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
-    id: `move-playlist-${node.id}`,
-    data: { type: 'playlist', playlistId: node.id }
+    id: `drag-playlist-${node.id}`,
+    data: { type: 'playlist', playlistId: node.id, title: node.title }
   });
 
-  const isSelected = selectedPlaylistId === node.id;
+  const style = {
+    transform: CSS.Translate.toString(transform),
+  };
 
-  const style = transform ? {
-    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
-  } : undefined;
+  const handleAddCrate = () => {
+    showPrompt({
+        title: 'New Sub-Crate',
+        message: 'Enter crate name:',
+        onConfirm: (title) => createPlaylist(title, node.id, true)
+    });
+  };
 
-  const handleContextMenu = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setMenuPos({ x: e.clientX, y: e.clientY });
+  const handleAddPlaylist = () => {
+    showPrompt({
+        title: 'New Sub-Playlist',
+        message: 'Enter playlist name:',
+        onConfirm: (title) => createPlaylist(title, node.id, false)
+    });
   };
 
   const menuOptions = [
     { 
         label: 'Sub-Crate', 
-        icon: '📁', 
-        onClick: () => {
-            showPrompt({
-                title: 'Create Sub-Crate',
-                placeholder: 'Enter crate name',
-                onConfirm: (name) => {
-                    if (name) createPlaylist(name, node.id, true).catch(e => {
-                        if (e.code === 409) alert(e.message);
-                    });
-                }
-            });
-        }
+        icon: <Folder size={14} />, 
+        onClick: handleAddCrate
     },
     { 
         label: 'Sub-Playlist', 
-        icon: '📑', 
-        onClick: () => {
-            showPrompt({
-                title: 'Create Sub-Playlist',
-                placeholder: 'Enter playlist name',
-                onConfirm: (name) => {
-                    if (name) createPlaylist(name, node.id, false).catch(e => {
-                        if (e.code === 409) alert(e.message);
-                    });
-                }
-            });
-        }
+        icon: <Music size={14} />, 
+        onClick: handleAddPlaylist
     },
     { 
         label: 'Rename', 
-        icon: '✏️', 
+        icon: <Edit2 size={14} />, 
         onClick: () => {
             showPrompt({
                 title: 'Rename Item',
-                defaultValue: node.title,
-                onConfirm: (name) => {
-                    if (name) renamePlaylist(node.id, name);
-                }
+                message: `Enter new name for "${node.title}":`,
+                initialValue: node.title,
+                onConfirm: (title) => renamePlaylist(node.id, title)
             });
         }
     },
     { 
         label: 'Delete', 
-        icon: '✕', 
+        icon: <Trash2 size={14} />, 
         danger: true,
         onClick: () => {
             showConfirm({
                 title: 'Delete Item',
-                message: `Are you sure you want to delete "${node.title}"? This cannot be undone.`,
+                message: `Are you sure you want to delete "${node.title}"?`,
                 confirmLabel: 'Delete',
                 isDanger: true,
                 onConfirm: () => deletePlaylist(node.id)
             });
         }
-    },
+    }
   ];
 
   const filteredOptions = node.isFolder 
     ? menuOptions 
     : menuOptions.filter(opt => opt.label !== 'Sub-Crate' && opt.label !== 'Sub-Playlist');
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuPos({ x: e.clientX, y: e.clientY });
+  };
 
   return (
     <div className="flex flex-col select-none">
@@ -112,7 +108,7 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
         onContextMenu={handleContextMenu}
         className={`flex items-center gap-2 px-2 py-1.5 cursor-pointer transition-colors border-l-2 group
           ${isSelected ? 'bg-[#4DFA90]/10 border-[#4DFA90] text-white' : 'bg-transparent border-transparent text-[#4DFA90]/60 hover:bg-[#4DFA90]/5'}
-          ${isOver ? 'bg-[#0055FF]/30' : ''}
+          ${isOver ? 'bg-[#4DFA90]/20' : ''}
           ${isDragging ? 'opacity-20' : ''}
         `}
         style={{ ...style, paddingLeft: `${(depth + 1) * 12}px` }}
@@ -121,17 +117,26 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
           <button 
             onPointerDown={(e) => e.stopPropagation()}
             onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-            className="w-4 h-4 flex items-center justify-center text-[8px] opacity-40 hover:opacity-100"
+            className="w-4 h-4 flex items-center justify-center text-[#4DFA90]/40 hover:text-[#4DFA90]"
           >
-            {isExpanded ? '▼' : '▶'}
+            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
         ) : (
           <span className="w-4" />
         )}
         
-        <span className="text-[10px] font-bold uppercase tracking-widest truncate flex-1 pointer-events-none">
-          {node.isFolder ? '📁' : '📑'} {node.title}
-        </span>
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+            {node.isFolder ? (isExpanded ? <FolderOpen size={14} /> : <Folder size={14} />) : <Music size={14} />}
+            <span className="text-[10px] font-bold uppercase tracking-widest truncate">
+                {node.title}
+            </span>
+        </div>
+
+        {node.trackCount > 0 && (
+            <span className="text-[9px] font-mono bg-[#4DFA90]/10 px-1.5 rounded-full text-[#4DFA90]/60 group-hover:text-[#4DFA90]">
+                {node.trackCount}
+            </span>
+        )}
       </div>
 
       {menuPos && (
@@ -139,7 +144,7 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
             x={menuPos.x} 
             y={menuPos.y} 
             onClose={() => setMenuPos(null)} 
-            options={filteredOptions} 
+            options={filteredOptions as any} 
         />
       )}
 

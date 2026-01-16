@@ -139,13 +139,15 @@ const init = async () => {
           END;
         `);
 
-        // Initial population if FTS table is empty
+        // Initial population
         const ftsCount = dbs.m.selectObject("SELECT count(*) as count FROM Track_fts");
         if (ftsCount.count === 0) {
           log('Populating FTS index from existing tracks...');
           dbs.m.exec("INSERT INTO Track_fts(rowid, title, artist, album) SELECT id, title, artist, album FROM Track");
+          log('FTS5 Search Index populated');
+        } else {
+          log('FTS5 Search Index already initialized');
         }
-        log('FTS5 Search Index initialized');
       } catch (e) {
         error('FTS5 Initialization failed:', e);
       }
