@@ -37,8 +37,8 @@ function App() {
         });
 
         console.debug('[UI] Database Health Check PASSED - SQLite Version:', versionResult.version);
-      } catch (error: any) {
-        console.error('[UI] Database Init Failed:', error);
+      } catch (error) {
+        console.error('[UI] Database Init Failed:', error instanceof Error ? error.message : error);
       }
     };
 
@@ -58,7 +58,8 @@ function App() {
         <LibraryView />
       </main>
 
-      <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
+      <footer className="mt-auto text-[10px] opacity-40 uppercase tracking-[0.2em]">
+        Split-Brain Actor Model | React 19 | Vite | SQLite WASM | OPFS
       </footer>
     </div>
   );

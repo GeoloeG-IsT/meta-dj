@@ -82,7 +82,7 @@ development_status:
   epic-5: in-progress
   5-1-remove-library-ingestion-panel-add-context-menu-import: done
   5-2-relocate-waveform-ui-above-track-list: done
-  5-3-remove-debug-panels-from-right-sidebar: review
+  5-3-remove-debug-panels-from-right-sidebar: done
   5-4-fix-beatgrid-overlay-on-track-load: backlog
   5-5-fix-loop-creation: backlog
   5-6-implement-8-loop-system-hot-loops-saved-loops: backlog
