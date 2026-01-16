@@ -45,8 +45,6 @@ export interface AnalysisState {
   isProcessing: boolean;
   /** ID of the track currently being analyzed */
   currentTrackId: number | null;
-  /** Whether essentia WASM is ready */
-  isReady: boolean;
 
   // Actions
   initializeAnalyzer: () => Promise<void>;
@@ -67,19 +65,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
   queue: [],
   isProcessing: false,
   currentTrackId: null,
-  isReady: false,
-
-  /**
-   * Initialize the essentia.js WASM module
-   */
-  initializeAnalyzer: async () => {
-    try {
-      await warmupAnalyzer();
-      set({ isReady: true });
-    } catch (error) {
-      console.error('[AnalysisStore] Failed to initialize analyzer:', error);
-    }
-  },
 
   /**
    * Analyze a single track
@@ -89,7 +74,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     console.log(`[AnalysisStore] analyzeTrack called for track ${trackId}`, {
       isProcessing: state.isProcessing,
       currentTrackId: state.currentTrackId,
-      isReady: state.isReady,
       trackStatus: state.tracks[trackId]?.status,
     });
 
@@ -128,14 +112,6 @@ export const useAnalysisStore = create<AnalysisState>((set, get) => ({
     }));
 
     try {
-      // Initialize analyzer if not ready
-      if (!get().isReady) {
-        console.log(`[AnalysisStore] Warming up essentia.js WASM...`);
-        await warmupAnalyzer();
-        console.log(`[AnalysisStore] Essentia.js WASM ready`);
-        set({ isReady: true });
-      }
-
       // Check if cancelled before starting heavy work
       if (get().tracks[trackId]?.status !== 'analyzing') {
         get()._processQueue();
@@ -352,4 +328,3 @@ export const selectTrackAnalysis = (trackId: number) => (state: AnalysisState) =
   state.tracks[trackId];
 export const selectAnalysisQueue = (state: AnalysisState) => state.queue;
 export const selectIsProcessing = (state: AnalysisState) => state.isProcessing;
-export const selectIsReady = (state: AnalysisState) => state.isReady;

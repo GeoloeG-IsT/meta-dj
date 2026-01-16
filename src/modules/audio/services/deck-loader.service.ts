@@ -13,8 +13,6 @@ import {
   analyzeTrack as runTrackAnalysis,
   serializeBeatgrid,
   deserializeBeatgrid,
-  initEssentia,
-  isEssentiaReady,
   type TrackAnalysisResult,
 } from '../analysis/track-analyzer';
 import { detectTransients } from '../utils/transient-detector';
@@ -434,12 +432,12 @@ export async function analyzeTrackFromLibrary(
 }
 
 /**
- * Pre-initialize essentia.js WASM for faster first analysis.
+ * Pre-initialize audio analyzer libraries.
+ * No-op since music-tempo and keyfinder-js don't require initialization.
+ * @deprecated No longer needed - kept for API compatibility
  */
 export async function warmupAnalyzer(): Promise<void> {
-  if (!isEssentiaReady()) {
-    await initEssentia();
-  }
+  // No warmup needed for music-tempo or keyfinder-js
 }
 
 /**

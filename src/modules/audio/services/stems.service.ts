@@ -234,13 +234,6 @@ export class StemsService {
   }
 
   /**
-   * Check if the model is loaded and ready.
-   */
-  isReady(): boolean {
-    return this.isInitialized && this.isModelLoaded;
-  }
-
-  /**
    * Terminate the worker and clean up resources.
    */
   dispose(): void {

@@ -2,7 +2,6 @@
  * Track Analyzer Unit Tests
  *
  * Tests for BPM detection, Key detection, and Beatgrid generation.
- * Note: Full integration tests require essentia.js WASM which needs browser context.
  * These tests focus on pure logic functions that don't require WASM.
  */
 
@@ -185,7 +184,6 @@ describe('Mono Conversion', () => {
 
 describe('BPM Range Validation', () => {
   // These tests validate the BPM range normalization logic
-  // The actual detectBPM function requires essentia.js WASM
 
   it('should define valid BPM range constants', () => {
     // Import module to ensure constants are defined
