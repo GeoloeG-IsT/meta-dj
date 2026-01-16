@@ -37,6 +37,9 @@ interface ToastState {
     duration?: number;
   }) => string;
 
+  /** Update an existing toast message */
+  update: (id: string, message: string, variant?: ToastVariant) => void;
+
   /** Remove a toast by ID */
   dismiss: (id: string) => void;
 
@@ -104,6 +107,16 @@ export const useToastStore = create<ToastState>((set, get) => ({
     return id;
   },
 
+  update: (id, message, variant) => {
+    set((state) => ({
+      toasts: state.toasts.map((t) =>
+        t.id === id
+          ? { ...t, message, variant: variant ?? t.variant }
+          : t
+      ),
+    }));
+  },
+
   dismiss: (id) => {
     set((state) => ({
       toasts: state.toasts.filter((t) => t.id !== id),
@@ -139,4 +152,12 @@ export const toast = {
 
   warning: (message: string, duration?: number) =>
     useToastStore.getState().show({ message, variant: 'warning', duration }),
+
+  /** Update an existing toast's message */
+  update: (id: string, message: string, variant?: ToastVariant) =>
+    useToastStore.getState().update(id, message, variant),
+
+  /** Dismiss a toast by ID */
+  dismiss: (id: string) =>
+    useToastStore.getState().dismiss(id),
 };

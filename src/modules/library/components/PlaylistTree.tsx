@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
-import { Library, FolderPlus, FilePlus, Trash2, Zap } from 'lucide-react';
+import { Library, FolderPlus, FilePlus, Trash2, Zap, FolderInput } from 'lucide-react';
 import { useLibraryStore } from '../store/library.store';
 import { usePlaylists } from '../hooks/usePlaylists';
 import { useTracks } from '../hooks/useTracks';
@@ -9,6 +9,8 @@ import { PlaylistItem } from './PlaylistItem';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { ContextMenu } from './ContextMenu';
 import { SmartListBuilder } from './SmartListBuilder';
+import { ingestService } from '../services/ingest-service';
+import { toast } from '../../../shared/store/toast.store';
 
 export const PlaylistTree: React.FC = () => {
   const {
@@ -26,8 +28,9 @@ export const PlaylistTree: React.FC = () => {
   } = useLibraryStore();
   const { tree } = usePlaylists();
   const { showPrompt, showConfirm } = useModalStore();
-  const { totalCount } = useTracks();
+  const { totalCount, refresh: refreshTracks } = useTracks();
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   useEffect(() => {
     fetchPlaylists();
@@ -85,12 +88,59 @@ export const PlaylistTree: React.FC = () => {
     });
   };
 
+  const handleImportFolder = async () => {
+    if (isImporting) {
+      toast.warning('Import already in progress');
+      return;
+    }
+
+    try {
+      // @ts-expect-error - File System Access API not in TS lib yet
+      const dirHandle = await window.showDirectoryPicker();
+
+      setIsImporting(true);
+      // Duration 0 = no auto-dismiss (persistent until manually dismissed)
+      const toastId = toast.info('Importing: scanning...', 60000);
+
+      let lastTotal = 0;
+      await ingestService.ingestDirectory(dirHandle, (progress) => {
+        toast.update(toastId, `Importing: ${progress.currentFile} (${progress.processed}/${progress.total})`);
+        lastTotal = progress.total;
+      });
+
+      // Success
+      toast.dismiss(toastId);
+      toast.success(`Imported ${lastTotal} tracks`);
+
+      // Refresh the library
+      await fetchPlaylists();
+      refreshTracks();
+
+    } catch (err: unknown) {
+      const error = err as Error;
+      if (error.name === 'AbortError') {
+        // User cancelled folder picker - silently ignore
+        return;
+      }
+      console.error('Import failed:', error);
+      toast.error(`Import failed: ${error.message || 'Unknown error'}`);
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     setMenuPos({ x: e.clientX, y: e.clientY });
   };
 
   const allTracksMenuOptions = [
+    {
+      label: 'Import Folder...',
+      icon: <FolderInput size={14} />,
+      onClick: handleImportFolder,
+      disabled: isImporting
+    },
     {
       label: 'Clear Library',
       icon: <Trash2 size={14} />,

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { DndContext, DragOverlay, useSensor, useSensors, PointerSensor, type DragEndEvent, type DragStartEvent } from '@dnd-kit/core';
-import { ImportControl } from './components/ImportControl';
 import { TrackList, TrackRowUI } from './components/TrackList';
 import { PlaylistTree } from './components/PlaylistTree';
 import { playlistService } from './services/playlist.service';
@@ -120,10 +119,6 @@ export const LibraryView: React.FC = () => {
           </div>
 
           <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#000000]">
-            <div className="p-4 border-b border-[#4DFA90]/10 flex flex-col gap-4">
-                <ImportControl />
-            </div>
-            
             <section className="flex-1 min-h-0 flex flex-col p-4">
               <div className="flex items-center justify-between mb-4 gap-4">
                 <span className="text-[10px] uppercase tracking-widest opacity-60">Tracks</span>
