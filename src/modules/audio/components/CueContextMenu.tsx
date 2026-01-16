@@ -173,6 +173,20 @@ export function CueContextMenu({
 
   const itemLabel = type === 'cue' ? `Cue ${(data.index ?? 0) + 1}` : `Loop ${(data.index ?? 0) + 1}`;
 
+  // Calculate bounded position to keep menu within viewport
+  const MENU_WIDTH = 224; // w-56 = 14rem = 224px
+  const MENU_HEIGHT = 280; // Approximate menu height
+  const PADDING = 8;
+
+  const boundedX = Math.min(
+    Math.max(position.x, PADDING),
+    (typeof window !== 'undefined' ? window.innerWidth : 1024) - MENU_WIDTH - PADDING
+  );
+  const boundedY = Math.min(
+    Math.max(position.y, PADDING),
+    (typeof window !== 'undefined' ? window.innerHeight : 768) - MENU_HEIGHT - PADDING
+  );
+
   return (
     <Popover>
       {/* Invisible button at click position to anchor the popover */}
@@ -180,8 +194,8 @@ export function CueContextMenu({
         as="div"
         className="fixed pointer-events-none"
         style={{
-          left: position.x,
-          top: position.y,
+          left: boundedX,
+          top: boundedY,
           width: 1,
           height: 1,
         }}
@@ -191,8 +205,8 @@ export function CueContextMenu({
         static
         className="fixed z-50 w-56 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl p-3"
         style={{
-          left: position.x,
-          top: position.y,
+          left: boundedX,
+          top: boundedY,
           transform: 'translate(-8px, 8px)',
         }}
       >
@@ -268,10 +282,14 @@ export function CueContextMenu({
               bg-zinc-800 border border-red-500/30 rounded
               text-red-400 hover:bg-red-500/10
               transition-colors overflow-hidden
+              touch-none
             "
             onMouseDown={handleDeleteMouseDown}
             onMouseUp={handleDeleteMouseUp}
             onMouseLeave={handleDeleteMouseUp}
+            onTouchStart={handleDeleteMouseDown}
+            onTouchEnd={handleDeleteMouseUp}
+            onTouchCancel={handleDeleteMouseUp}
             aria-label={`Hold to delete ${type}`}
           >
             {/* Progress fill */}

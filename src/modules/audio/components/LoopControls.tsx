@@ -30,6 +30,8 @@ export interface LoopControlsProps {
   onToggleLoop: () => void;
   /** Callback when a specific loop length is selected (auto-creates loop) */
   onSetLoopLength: (beats: number) => void;
+  /** Callback when right-clicking on active loop for context menu */
+  onLoopContextMenu?: (loopIndex: number, event: React.MouseEvent) => void;
   /** Whether keyboard shortcuts are enabled */
   keyboardEnabled?: boolean;
   /** CSS class name */
@@ -84,9 +86,13 @@ export function LoopControls({
   onSetLoopOut,
   onToggleLoop,
   onSetLoopLength,
+  onLoopContextMenu,
   keyboardEnabled = true,
   className = '',
 }: LoopControlsProps) {
+  // Mark loops and bpm as used (for loop info display calculations)
+  void loops;
+  void bpm;
   const isLoopActive = activeLoop !== null && activeLoop.isActive;
   const loopColor = activeLoop?.color ?? DEFAULT_CUE_COLOR;
   const loopColorHex = CUE_COLOR_HEX[loopColor];
@@ -235,15 +241,20 @@ export function LoopControls({
         })}
       </div>
 
-      {/* Active Loop Info */}
+      {/* Active Loop Info - Right-click to edit */}
       {isLoopActive && activeLoop && (
         <div
-          className="mt-2 px-2 py-1 text-xs font-mono rounded"
+          className="mt-2 px-2 py-1 text-xs font-mono rounded cursor-context-menu"
           style={{
             backgroundColor: `${loopColorHex}10`,
             color: loopColorHex,
             border: `1px solid ${loopColorHex}40`,
           }}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            onLoopContextMenu?.(activeLoop.index, e);
+          }}
+          title="Right-click to edit loop"
         >
           <span className="opacity-60">Loop:</span>{' '}
           {formatLoopLength(activeLoopBeats)}

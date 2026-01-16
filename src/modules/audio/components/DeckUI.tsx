@@ -282,6 +282,16 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     }
   }, [deck.cuePoints]);
 
+  const handleLoopContextMenu = useCallback((loopIndex: number, event: React.MouseEvent) => {
+    // Show context menu for loops
+    setContextMenuState({
+      type: 'loop',
+      index: loopIndex,
+      x: event.clientX,
+      y: event.clientY,
+    });
+  }, []);
+
   const handleCloseContextMenu = useCallback(() => {
     setContextMenuState(null);
   }, []);
@@ -294,6 +304,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       const { type, index } = contextMenuState;
 
       if (type === 'cue') {
+        const originalColor = deck.cuePoints[index]?.color;
         // Optimistic update
         updateCuePoint(deckId, index, { color });
         // Persist
@@ -302,9 +313,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           toast.success('Color updated');
         } catch (error) {
           console.error('[DeckUI] Failed to update cue color:', error);
+          // Rollback on failure
+          if (originalColor) {
+            updateCuePoint(deckId, index, { color: originalColor });
+          }
           toast.error('Failed to update color');
         }
       } else {
+        const originalLoop = deck.loops.find((l) => l.index === index);
+        const originalColor = originalLoop?.color;
         // Optimistic update
         updateLoop(deckId, index, { color });
         // Persist
@@ -313,11 +330,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           toast.success('Color updated');
         } catch (error) {
           console.error('[DeckUI] Failed to update loop color:', error);
+          // Rollback on failure
+          if (originalColor) {
+            updateLoop(deckId, index, { color: originalColor });
+          }
           toast.error('Failed to update color');
         }
       }
     },
-    [contextMenuState, deckId, deck.trackId, updateCuePoint, updateLoop]
+    [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, updateCuePoint, updateLoop]
   );
 
   const handleContextMenuNameChange = useCallback(
@@ -327,6 +348,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
       const { type, index } = contextMenuState;
 
       if (type === 'cue') {
+        const originalName = deck.cuePoints[index]?.name;
         // Optimistic update
         updateCuePoint(deckId, index, { name });
         // Persist
@@ -335,9 +357,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           toast.success('Name updated');
         } catch (error) {
           console.error('[DeckUI] Failed to update cue name:', error);
+          // Rollback on failure
+          if (originalName !== undefined) {
+            updateCuePoint(deckId, index, { name: originalName });
+          }
           toast.error('Failed to update name');
         }
       } else {
+        const originalLoop = deck.loops.find((l) => l.index === index);
+        const originalName = originalLoop?.name;
         // Optimistic update
         updateLoop(deckId, index, { name });
         // Persist
@@ -346,11 +374,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
           toast.success('Name updated');
         } catch (error) {
           console.error('[DeckUI] Failed to update loop name:', error);
+          // Rollback on failure
+          if (originalName !== undefined) {
+            updateLoop(deckId, index, { name: originalName });
+          }
           toast.error('Failed to update name');
         }
       }
     },
-    [contextMenuState, deckId, deck.trackId, updateCuePoint, updateLoop]
+    [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, updateCuePoint, updateLoop]
   );
 
   const handleContextMenuDelete = useCallback(async () => {
@@ -359,6 +391,8 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
     const { type, index } = contextMenuState;
 
     if (type === 'cue') {
+      // Store original for rollback
+      const originalCue = deck.cuePoints[index];
       // Optimistic update
       removeCuePoint(deckId, index);
       // Persist
@@ -367,9 +401,15 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
         toast.success(`Cue ${index + 1} deleted`);
       } catch (error) {
         console.error('[DeckUI] Failed to delete cue:', error);
+        // Rollback on failure
+        if (originalCue) {
+          addCuePoint(deckId, originalCue);
+        }
         toast.error('Failed to delete cue');
       }
     } else {
+      // Store original for rollback
+      const originalLoop = deck.loops.find((l) => l.index === index);
       // Optimistic update
       removeLoop(deckId, index);
       // Persist
@@ -378,12 +418,16 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
         toast.success(`Loop ${index + 1} deleted`);
       } catch (error) {
         console.error('[DeckUI] Failed to delete loop:', error);
+        // Rollback on failure
+        if (originalLoop) {
+          addLoop(deckId, originalLoop);
+        }
         toast.error('Failed to delete loop');
       }
     }
 
     setContextMenuState(null);
-  }, [contextMenuState, deckId, deck.trackId, removeCuePoint, removeLoop]);
+  }, [contextMenuState, deckId, deck.trackId, deck.cuePoints, deck.loops, removeCuePoint, removeLoop, addCuePoint, addLoop]);
 
   // Loop control callbacks
   const handleSetLoopIn = useCallback((samplePosition: number) => {
@@ -444,10 +488,10 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
   );
 
   const handleToggleLoop = useCallback(() => {
-    // If there's an active loop, deactivate it
+    // If there's an active loop, deactivate it by setting index to -1
     // If there's no active loop but loops exist, activate the first one
     if (deck.activeLoopIndex >= 0) {
-      setActiveLoop(deckId, deck.activeLoopIndex); // Toggle off
+      setActiveLoop(deckId, -1); // Deactivate loop
     } else if (deck.loops.length > 0) {
       setActiveLoop(deckId, deck.loops[0].index); // Activate first loop
     }
@@ -683,6 +727,7 @@ export function DeckUI({ deckId, className = '' }: DeckUIProps) {
             onSetLoopOut={handleSetLoopOut}
             onToggleLoop={handleToggleLoop}
             onSetLoopLength={handleSetLoopLength}
+            onLoopContextMenu={handleLoopContextMenu}
             keyboardEnabled={true}
           />
         </div>

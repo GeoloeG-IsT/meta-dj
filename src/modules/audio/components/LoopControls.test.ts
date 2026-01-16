@@ -158,3 +158,111 @@ describe('LoopControls active loop detection', () => {
     expect(isCurrentLength(2, 4)).toBe(false);
   });
 });
+
+describe('LoopControls keyboard shortcut handler logic', () => {
+  // Simulates the keyboard handler logic from LoopControls
+  function shouldHandleKeyEvent(
+    key: string,
+    targetTagName: string,
+    contentEditable: string,
+    keyboardEnabled: boolean
+  ): boolean {
+    if (!keyboardEnabled) return false;
+
+    // Skip if target is an input element
+    if (
+      targetTagName === 'INPUT' ||
+      targetTagName === 'TEXTAREA' ||
+      contentEditable === 'true'
+    ) {
+      return false;
+    }
+
+    // Only handle 'l' or 'L' key
+    return key === 'l' || key === 'L';
+  }
+
+  it('should handle L key when keyboard is enabled', () => {
+    expect(shouldHandleKeyEvent('l', 'DIV', 'false', true)).toBe(true);
+    expect(shouldHandleKeyEvent('L', 'DIV', 'false', true)).toBe(true);
+  });
+
+  it('should not handle L key when keyboard is disabled', () => {
+    expect(shouldHandleKeyEvent('l', 'DIV', 'false', false)).toBe(false);
+    expect(shouldHandleKeyEvent('L', 'DIV', 'false', false)).toBe(false);
+  });
+
+  it('should not handle L key when target is INPUT', () => {
+    expect(shouldHandleKeyEvent('l', 'INPUT', 'false', true)).toBe(false);
+  });
+
+  it('should not handle L key when target is TEXTAREA', () => {
+    expect(shouldHandleKeyEvent('l', 'TEXTAREA', 'false', true)).toBe(false);
+  });
+
+  it('should not handle L key when target is contentEditable', () => {
+    expect(shouldHandleKeyEvent('l', 'DIV', 'true', true)).toBe(false);
+  });
+
+  it('should not handle other keys', () => {
+    expect(shouldHandleKeyEvent('k', 'DIV', 'false', true)).toBe(false);
+    expect(shouldHandleKeyEvent('Enter', 'DIV', 'false', true)).toBe(false);
+    expect(shouldHandleKeyEvent('Escape', 'DIV', 'false', true)).toBe(false);
+  });
+});
+
+describe('PerformancePads keyboard shortcut handler logic', () => {
+  // Simulates the keyboard handler logic from PerformancePads
+  const CUE_SHORTCUTS: Record<string, number> = {
+    '1': 0, '2': 1, '3': 2, '4': 3,
+    '5': 4, '6': 5, '7': 6, '8': 7,
+  };
+
+  function getPadIndexFromKey(
+    key: string,
+    targetTagName: string,
+    contentEditable: string,
+    keyboardEnabled: boolean
+  ): number | null {
+    if (!keyboardEnabled) return null;
+
+    // Skip if target is an input element
+    if (
+      targetTagName === 'INPUT' ||
+      targetTagName === 'TEXTAREA' ||
+      contentEditable === 'true'
+    ) {
+      return null;
+    }
+
+    return CUE_SHORTCUTS[key] ?? null;
+  }
+
+  it('should return pad index for number keys 1-8', () => {
+    expect(getPadIndexFromKey('1', 'DIV', 'false', true)).toBe(0);
+    expect(getPadIndexFromKey('2', 'DIV', 'false', true)).toBe(1);
+    expect(getPadIndexFromKey('8', 'DIV', 'false', true)).toBe(7);
+  });
+
+  it('should return null for keys outside 1-8', () => {
+    expect(getPadIndexFromKey('0', 'DIV', 'false', true)).toBe(null);
+    expect(getPadIndexFromKey('9', 'DIV', 'false', true)).toBe(null);
+    expect(getPadIndexFromKey('a', 'DIV', 'false', true)).toBe(null);
+  });
+
+  it('should return null when keyboard is disabled', () => {
+    expect(getPadIndexFromKey('1', 'DIV', 'false', false)).toBe(null);
+  });
+
+  it('should return null when target is INPUT', () => {
+    expect(getPadIndexFromKey('1', 'INPUT', 'false', true)).toBe(null);
+  });
+
+  it('should return null when target is TEXTAREA', () => {
+    expect(getPadIndexFromKey('1', 'TEXTAREA', 'false', true)).toBe(null);
+  });
+
+  it('should return null when target is contentEditable', () => {
+    expect(getPadIndexFromKey('1', 'DIV', 'true', true)).toBe(null);
+  });
+});
