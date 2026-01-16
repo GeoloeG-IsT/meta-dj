@@ -5,7 +5,7 @@
  * Stems are cached to avoid re-analyzing tracks that have already been processed.
  */
 
-import type { StemBuffers, StemType } from '../types/stems';
+import type { StemBuffers } from '../types/stems';
 
 const DB_NAME = 'meta-dj-stems-cache';
 const DB_VERSION = 1;
@@ -405,7 +405,7 @@ class StemsCacheService {
     },
     audioContext: AudioContext
   ): StemBuffers {
-    const { stems, sampleRate, numSamples } = cachedStems;
+    const { stems, sampleRate } = cachedStems;
 
     const createBuffer = (data: ArrayBuffer): AudioBuffer | null => {
       if (data.byteLength === 0) return null;

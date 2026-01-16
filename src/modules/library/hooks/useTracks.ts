@@ -42,7 +42,7 @@ export function useTracks(searchQuery?: string) {
 
       let countSql = 'SELECT COUNT(*) as count FROM Track';
       let dataSql = `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename FROM Track`;
-      let params: any[] = [];
+      const params: (string | number)[] = [];
 
       // 1. Playlist Filter (Recursive)
       if (selectedPlaylistId) {
@@ -132,7 +132,9 @@ export function useTracks(searchQuery?: string) {
             if (isMounted && result?.ready) {
               setIsDbReady(true);
             }
-        } catch (e) {}
+        } catch {
+          // DB not ready yet, will be notified via DB_READY event
+        }
     };
     checkReady();
 
@@ -143,7 +145,7 @@ export function useTracks(searchQuery?: string) {
         setIsDbReady(true);
       } else if (msg.type === EventType.DB_QUERY_RESPONSE) {
         // Only refresh on operations that likely affect track membership
-        const payload = msg.payload as any;
+        const payload = msg.payload as { success?: boolean; changes?: number } | undefined;
         if (payload?.success && payload?.changes !== undefined && payload?.changes > 0) {
           fetchTracks();
         }

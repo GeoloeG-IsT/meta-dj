@@ -8,11 +8,26 @@ import { useModalStore } from '../../shared/components/modals/modal.store';
 import { SearchOverlay } from './components/SearchOverlay';
 import { LibraryWaveform } from './components/LibraryWaveform';
 
+interface DraggedTrack {
+  id: number;
+  title: string;
+  artist: string;
+  bpm?: number;
+  key?: string;
+  duration?: number;
+}
+
+interface DraggedPlaylist {
+  type: 'playlist';
+  playlistId: number;
+  name: string;
+}
+
 export const LibraryView: React.FC = () => {
   const { fetchPlaylists, movePlaylist } = useLibraryStore();
   const { isOpen: isModalOpen } = useModalStore();
-  const [activeTrack, setActiveTrack] = useState<any | null>(null);
-  const [activePlaylist, setActivePlaylist] = useState<any | null>(null);
+  const [activeTrack, setActiveTrack] = useState<DraggedTrack | null>(null);
+  const [activePlaylist, setActivePlaylist] = useState<DraggedPlaylist | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -82,8 +97,9 @@ export const LibraryView: React.FC = () => {
       if (movedId !== playlistId) {
         try {
           await movePlaylist(movedId, playlistId);
-        } catch (e: any) {
-          if (e.code === 409) alert(e.message);
+        } catch (e) {
+          const err = e as { code?: number; message?: string };
+          if (err.code === 409) alert(err.message ?? 'Conflict error');
           else console.error('Failed to move playlist:', e);
         }
       }

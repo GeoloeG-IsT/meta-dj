@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { useAudioStore } from './audio.store';
 import { createInitialStemState } from '../types/stems';
-import type { StemBuffers, StemType } from '../types/stems';
+import type { StemBuffers } from '../types/stems';
 
 describe('Stem State Management', () => {
   beforeEach(() => {

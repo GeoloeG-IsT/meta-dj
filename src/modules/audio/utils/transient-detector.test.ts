@@ -106,12 +106,18 @@ describe('findNearestTransient', () => {
 
 describe('detectTransients', () => {
   // Helper to create mock waveform data
+  // The transient detector combines low/mid/high into a single peaks array using max
   function createMockWaveform(peaks: number[], samplesPerPeak: number = 256): WaveformData {
+    const peaksFloat = new Float32Array(peaks);
+    const sampleRate = 44100;
+    const pointsPerSecond = Math.round(sampleRate / samplesPerPeak);
     return {
-      peaks,
-      duration: (peaks.length * samplesPerPeak) / 44100,
-      samplesPerPeak,
-      colorMode: 'rgb',
+      low: peaksFloat,
+      mid: new Float32Array(peaks.length).fill(0), // Zero out mid/high so only low affects result
+      high: new Float32Array(peaks.length).fill(0),
+      sampleRate,
+      duration: (peaks.length * samplesPerPeak) / sampleRate,
+      pointsPerSecond,
     };
   }
 
@@ -169,11 +175,17 @@ describe('detectTransients', () => {
 
 describe('TransientDetector class', () => {
   function createMockWaveform(peaks: number[]): WaveformData {
+    const peaksFloat = new Float32Array(peaks);
+    const samplesPerPeak = 256;
+    const sampleRate = 44100;
+    const pointsPerSecond = Math.round(sampleRate / samplesPerPeak);
     return {
-      peaks,
-      duration: (peaks.length * 256) / 44100,
-      samplesPerPeak: 256,
-      colorMode: 'rgb',
+      low: peaksFloat,
+      mid: new Float32Array(peaks.length).fill(0),
+      high: new Float32Array(peaks.length).fill(0),
+      sampleRate,
+      duration: (peaks.length * samplesPerPeak) / sampleRate,
+      pointsPerSecond,
     };
   }
 

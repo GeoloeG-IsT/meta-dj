@@ -14,17 +14,31 @@ import { generateSmartListSql, type SmartListRule } from './smartlist';
 
 declare const self: DedicatedWorkerGlobalScope;
 
+// SQLite WASM types (minimal declarations for what we use)
+interface SQLiteDatabase {
+  exec(sqlOrOptions: string | { sql: string; bind?: unknown[]; returnValue?: string; rowMode?: string }): unknown[];
+  selectObject(sql: string, params?: unknown[]): Record<string, unknown>;
+  changes(): number;
+}
+
+interface SQLite3Module {
+  opfs?: boolean;
+  oo1: {
+    OpfsDb: new (path: string, mode: string) => SQLiteDatabase;
+  };
+}
+
 interface Dictionaries {
-  m: any; // Metadata DB
-  p: any; // Performance DB (future use)
+  m: SQLiteDatabase;
+  p: SQLiteDatabase;
 }
 
 let dbs: Dictionaries | null = null;
-let sqlite3: any;
+let sqlite3: SQLite3Module | null = null;
 let initPromise: Promise<void> | null = null;
 
-const log = (...args: any[]) => console.log('[DB Worker]', ...args);
-const error = (...args: any[]) => console.error('[DB Worker]', ...args);
+const log = (...args: unknown[]) => console.log('[DB Worker]', ...args);
+const error = (...args: unknown[]) => console.error('[DB Worker]', ...args);
 
 log('Database Worker Script Loading...');
 
@@ -36,9 +50,9 @@ const init = async () => {
       sqlite3 = await sqlite3InitModule({
         print: log,
         printErr: error,
-      });
+      }) as SQLite3Module;
 
-      if (!sqlite3.opfs) {
+      if (!sqlite3?.opfs) {
         throw new Error('OPFS is not available in this browser. Persistent database access required.');
       }
 
@@ -71,13 +85,17 @@ const init = async () => {
           dbs.m.exec("ALTER TABLE Playlist ADD COLUMN parentListId INTEGER DEFAULT 0");
           dbs.m.exec("ALTER TABLE Playlist ADD COLUMN isFolder BOOLEAN DEFAULT 0");
           log('Migrated Playlist table');
-        } catch (e) {}
+        } catch {
+          // Column already exists, ignore
+        }
 
         // Migration: SmartList support
         try {
           dbs.m.exec("ALTER TABLE Playlist ADD COLUMN isSmartList BOOLEAN DEFAULT 0");
           log('Migrated Playlist table for SmartLists');
-        } catch (e) {}
+        } catch {
+          // Column already exists, ignore
+        }
 
         try {
           dbs.m.exec(`
@@ -92,7 +110,9 @@ const init = async () => {
             )
           `);
           log('Created SmartListRule table');
-        } catch (e) {}
+        } catch {
+          // Table already exists, ignore
+        }
 
         // Migration: WaveformData table for 3-band FFT visualization
         try {
@@ -110,11 +130,13 @@ const init = async () => {
           `);
           dbs.m.exec('CREATE INDEX IF NOT EXISTS idx_waveform_track ON WaveformData(trackId)');
           log('Created WaveformData table');
-        } catch (e) {}
+        } catch {
+          // Table already exists, ignore
+        }
 
         // Migration: PlaylistEntity table (fix for persistent "playlistId" NOT NULL constraints)
         try {
-          const columns: any[] = dbs.m.exec({ sql: "PRAGMA table_info(PlaylistEntity)", returnValue: 'resultRows', rowMode: 'object' });
+          const columns = dbs.m.exec({ sql: "PRAGMA table_info(PlaylistEntity)", returnValue: 'resultRows', rowMode: 'object' }) as Array<{ name: string }>;
           const hasPlaylistId = columns.some(c => c.name === 'playlistId');
           
           if (hasPlaylistId) {
@@ -139,7 +161,7 @@ const init = async () => {
                 dbs.m.exec("ALTER TABLE PlaylistEntity ADD COLUMN nextEntityId INTEGER DEFAULT 0");
             }
           }
-        } catch (e) {
+        } catch {
           log('PlaylistEntity check failed, ensuring table exists...');
           dbs.m.exec(`
             CREATE TABLE IF NOT EXISTS PlaylistEntity (
@@ -191,8 +213,9 @@ const init = async () => {
       } catch (e) {
         error('FTS5 Initialization failed:', e);
       }
-    } catch (err: any) {
-      error('Initialization failed:', err.name, err.message);
+    } catch (err) {
+      const e = err as Error;
+      error('Initialization failed:', e.name, e.message);
       initPromise = null;
       throw err;
     }
@@ -237,7 +260,7 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
         if (!dbs) throw new Error('Database initialization failed');
         
         const { sql, params, method, targetDb = 'm' } = payload;
-        const target = (dbs as any)[targetDb] || dbs.m;
+        const target = targetDb === 'p' ? dbs.p : dbs.m;
 
         const bindOptions = (params && params.length > 0) ? { bind: params } : {};
 
@@ -360,15 +383,16 @@ const handleMessage = async (event: MessageEvent, source: MessagePort | Dedicate
       default:
         break;
     }
-  } catch (err: any) {
-    error('Query failed:', err.message);
+  } catch (err) {
+    const e = err as Error;
+    error('Query failed:', e.message);
     source.postMessage({
       id,
       type: EventType.DB_ERROR,
-      payload: err.message,
+      payload: e.message,
       timestamp: Date.now()
     });
   }
 };
 
-self.onmessage = (event) => handleMessage(event, self as any);
+self.onmessage = (event) => handleMessage(event, self);

@@ -2,22 +2,24 @@ import { create } from 'zustand';
 
 type ModalType = 'confirm' | 'prompt' | null;
 
+interface ModalConfig {
+  title: string;
+  message?: string;
+  placeholder?: string;
+  defaultValue?: string;
+  confirmLabel?: string;
+  isDanger?: boolean;
+  onConfirm?: ((value: void) => void) | ((value: string) => void);
+}
+
 interface ModalState {
   type: ModalType;
   isOpen: boolean;
-  config: {
-    title: string;
-    message?: string;
-    placeholder?: string;
-    defaultValue?: string;
-    confirmLabel?: string;
-    isDanger?: boolean;
-    onConfirm?: (value: any) => void;
-  };
-  
+  config: ModalConfig;
+
   // API
-  showConfirm: (config: Omit<ModalState['config'], 'onConfirm'> & { onConfirm: () => void }) => void;
-  showPrompt: (config: Omit<ModalState['config'], 'onConfirm'> & { onConfirm: (val: string) => void }) => void;
+  showConfirm: (config: Omit<ModalConfig, 'onConfirm'> & { onConfirm: () => void }) => void;
+  showPrompt: (config: Omit<ModalConfig, 'onConfirm'> & { onConfirm: (val: string) => void }) => void;
   hideModal: () => void;
 }
 

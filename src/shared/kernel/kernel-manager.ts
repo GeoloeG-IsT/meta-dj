@@ -3,10 +3,16 @@ import type { WorkerMessage } from '../types/messaging';
 
 type MessageHandler = (message: WorkerMessage) => void;
 
+// Pending request callbacks
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (reason: Error) => void;
+}
+
 class KernelManager {
   private worker: SharedWorker | null = null;
   private dbWorker: Worker | null = null; // Main thread spawns DB worker
-  private pendingRequests = new Map<string, { resolve: Function; reject: Function }>();
+  private pendingRequests = new Map<string, PendingRequest>();
   private handlers = new Set<MessageHandler>();
 
   constructor() {
@@ -92,18 +98,18 @@ class KernelManager {
     this.handlers.forEach(handler => handler(message));
   }
 
-  public waitFor(type: EventType): Promise<any> {
+  public waitFor<T = unknown>(type: EventType): Promise<T> {
     return new Promise((resolve) => {
       const unsubscribe = this.addHandler((msg) => {
         if (msg.type === type) {
           unsubscribe();
-          resolve(msg.payload);
+          resolve(msg.payload as T);
         }
       });
     });
   }
 
-  public send<T = any, R = any>(type: EventType, payload: T): Promise<R> {
+  public send<T = unknown, R = unknown>(type: EventType, payload: T): Promise<R> {
     if (!this.worker) return Promise.reject('Worker not initialized');
 
     const id = crypto.randomUUID();

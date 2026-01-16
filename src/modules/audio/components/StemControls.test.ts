@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type { StemState, StemAnalysisStage, StemType } from '../types/stems';
+import type { StemAnalysisStage, StemType } from '../types/stems';
 import { createInitialStemState, STEM_COLORS, STEM_LABELS } from '../types/stems';
 
 /**

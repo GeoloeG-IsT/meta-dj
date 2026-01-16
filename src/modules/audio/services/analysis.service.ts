@@ -8,14 +8,13 @@
 import { kernel } from '../../../shared/kernel/kernel-manager';
 import { EventType } from '../../../shared/types/messaging';
 import type { BeatgridData } from '../analysis/track-analyzer';
-import { serializeBeatgrid, deserializeBeatgrid } from '../analysis/track-analyzer';
-import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
+import { serializeBeatgrid } from '../analysis/track-analyzer';
+import type { HotCueData, LoopData } from '../types/cue-loop';
 import {
   serializeHotCue,
   deserializeHotCue,
   serializeLoop,
   deserializeLoop,
-  DEFAULT_CUE_COLOR,
 } from '../types/cue-loop';
 
 /**

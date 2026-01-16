@@ -10,14 +10,25 @@ import { loadTrackFromLibrary } from '../../audio/services/deck-loader.service';
 import { useAnalysisStore, selectTrackAnalysis } from '../../audio/store/analysis.store';
 import { AnalysisProgressInline } from '../../audio/components/AnalysisProgress';
 
-export const formatDuration = (seconds: number) => {
+// Format duration (exported for reuse)
+export function formatDuration(seconds: number) {
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
   return `${mins}:${secs.toString().padStart(2, '0')}`;
-};
+}
+
+interface TrackForDisplay {
+  id: number;
+  title: string;
+  artist: string;
+  bpm?: number;
+  key?: string;
+  duration?: number;
+  isAnalyzed?: boolean;
+}
 
 interface TrackRowUIProps {
-    track: any;
+    track: TrackForDisplay;
     isDragging?: boolean;
     isVirtual?: boolean;
     style?: React.CSSProperties;
@@ -99,7 +110,13 @@ export const TrackRowUI: React.FC<TrackRowUIProps> = ({
     );
 };
 
-const TrackRow: React.FC<{ track: any; virtualItem: any }> = ({ track, virtualItem }) => {
+interface VirtualItem {
+  index: number;
+  size: number;
+  start: number;
+}
+
+const TrackRow: React.FC<{ track: TrackForDisplay; virtualItem: VirtualItem }> = ({ track, virtualItem }) => {
   const { deleteTrack, removeTrackFromPlaylist, selectedPlaylistId } = useLibraryStore();
   const { showConfirm } = useModalStore();
   const analyzeTrack = useAnalysisStore((state) => state.analyzeTrack);

@@ -38,8 +38,8 @@ export class PlaylistService {
     if (!parent) throw new Error('Parent not found');
 
     if (parent.isFolder === 0) {
-      const error = new Error('Hierarchical Integrity Violation: Cannot create children inside a Playlist.');
-      (error as any).code = 409;
+      const error: Error & { code?: number } = new Error('Hierarchical Integrity Violation: Cannot create children inside a Playlist.');
+      error.code = 409;
       throw error;
     }
   }

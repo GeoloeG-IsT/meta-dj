@@ -10,6 +10,23 @@ export interface IngestProgress {
   currentFile: string;
 }
 
+interface TrackIngestData {
+  title: string;
+  artist: string;
+  album: string;
+  genre: string;
+  bpm: number;
+  key: string;
+  duration: number;
+  path: string;
+  filename: string;
+  fileSize: number;
+  bitrate: number | undefined;
+  fileType: string;
+  dateAdded: number;
+  comment: string;
+}
+
 export type ProgressCallback = (progress: IngestProgress) => void;
 
 export class IngestService {
@@ -31,7 +48,7 @@ export class IngestService {
     const batchSize = 10;
     for (let i = 0; i < files.length; i += batchSize) {
       const batch = files.slice(i, i + batchSize);
-      const trackBatch: Array<{ data: any; handle: FileSystemFileHandle; path: string }> = [];
+      const trackBatch: Array<{ data: TrackIngestData; handle: FileSystemFileHandle; path: string }> = [];
 
       for (const file of batch) {
         try {
@@ -146,20 +163,20 @@ export class IngestService {
     return map;
   }
 
-  private async saveTracks(tracks: any[]) {
+  private async saveTracks(tracks: TrackIngestData[]) {
     // Construct batch insert
     // Note: SQLite WASM selectObjects/exec handles params
     // We'll use individual inserts in a transaction or a multi-values insert
     // Since our database.worker handles one query at a time, we'll build a batch SQL
-    
+
     const columns = [
-      'title', 'artist', 'album', 'genre', 'bpm', 'key', 
+      'title', 'artist', 'album', 'genre', 'bpm', 'key',
       'duration', 'path', 'filename', 'dateAdded', 'comment'
-    ];
-    
+    ] as const;
+
     const placeholders = tracks.map(() => `(${columns.map(() => '?').join(',')})`).join(',');
     const sql = `INSERT OR REPLACE INTO Track (${columns.join(',')}) VALUES ${placeholders}`;
-    const params = tracks.flatMap(t => columns.map(col => (t as any)[col]));
+    const params = tracks.flatMap(t => columns.map(col => t[col]));
 
     await kernel.send(EventType.DB_QUERY_REQUEST, {
       sql,

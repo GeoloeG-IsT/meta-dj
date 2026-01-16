@@ -3,7 +3,7 @@ import { Folder, FolderOpen, Music, ChevronRight, ChevronDown, Edit2, Trash2, Za
 import { useLibraryStore } from '../store/library.store';
 import { type PlaylistNode } from '../hooks/usePlaylists';
 import { useDroppable, useDraggable } from '@dnd-kit/core';
-import { ContextMenu } from './ContextMenu';
+import { ContextMenu, type ContextMenuOption } from './ContextMenu';
 import { useModalStore } from '../../../shared/components/modals/modal.store';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -51,7 +51,7 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
     });
   };
 
-  const menuOptions = [
+  const menuOptions: ContextMenuOption[] = [
     {
         label: 'Sub-Crate',
         icon: <Folder size={14} />,
@@ -158,7 +158,7 @@ export const PlaylistItem: React.FC<PlaylistItemProps> = ({ node, depth = 0 }) =
             x={menuPos.x} 
             y={menuPos.y} 
             onClose={() => setMenuPos(null)} 
-            options={filteredOptions as any} 
+            options={filteredOptions} 
         />
       )}
 

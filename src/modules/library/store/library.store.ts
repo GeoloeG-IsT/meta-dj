@@ -46,7 +46,8 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
             } else {
                 return;
             }
-        } catch (e) {
+        } catch {
+            // DB not ready, will be notified via event
             return;
         }
     }

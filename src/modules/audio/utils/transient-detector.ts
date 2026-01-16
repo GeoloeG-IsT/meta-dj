@@ -58,13 +58,22 @@ export function detectTransients(
     ...config,
   };
 
-  const peaks = waveformData.peaks;
-  if (!peaks || peaks.length === 0) {
+  // Create combined peaks from low/mid/high bands (use max of each band)
+  // This captures transients from any frequency range
+  const { low, mid, high, sampleRate, pointsPerSecond } = waveformData;
+  if (!low || low.length === 0) {
     return [];
   }
 
+  // Create combined peaks array using max of all bands at each point
+  const peaks = new Float32Array(low.length);
+  for (let i = 0; i < low.length; i++) {
+    peaks[i] = Math.max(low[i], mid[i], high[i]);
+  }
+
   const transients: number[] = [];
-  const samplesPerPeak = waveformData.samplesPerPeak;
+  // Calculate samples per peak from pointsPerSecond
+  const samplesPerPeak = Math.round(sampleRate / pointsPerSecond);
 
   // Find local maxima above threshold
   for (let i = 1; i < peaks.length - 1; i++) {

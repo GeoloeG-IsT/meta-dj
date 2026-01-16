@@ -139,9 +139,6 @@ describe('getVisibleBeats', () => {
     // View only middle portion
     const viewRange = { start: 0.3, end: 0.7 };
 
-    // Get beats visible without offset
-    const beatsNoOffset = getVisibleBeats(beatgrid, viewRange, totalSamples, 0);
-
     // Apply large positive offset that pushes some beats out of view
     const largeOffset = Math.round(totalSamples * 0.3);
     const beatsWithOffset = getVisibleBeats(beatgrid, viewRange, totalSamples, largeOffset);

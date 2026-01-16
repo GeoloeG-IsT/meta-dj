@@ -97,10 +97,8 @@ describe('Hot Cue Serialization', () => {
 
   it('should deserialize ArrayBuffer input', () => {
     const serialized = serializeHotCue(testCue);
-    const arrayBuffer = serialized.buffer.slice(
-      serialized.byteOffset,
-      serialized.byteOffset + serialized.byteLength
-    );
+    // Use Uint8Array to create a clean ArrayBuffer copy
+    const arrayBuffer = new Uint8Array(serialized).buffer as ArrayBuffer;
     const deserialized = deserializeHotCue(arrayBuffer);
 
     expect(deserialized).not.toBeNull();

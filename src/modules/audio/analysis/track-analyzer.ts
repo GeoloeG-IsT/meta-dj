@@ -16,10 +16,11 @@
  */
 
 import { toCamelot } from '../constants/camelot';
+import type { Essentia, EssentiaWASMModule, EssentiaVector } from 'essentia.js';
 
 // Lazy-loaded essentia module
-let essentiaModule: any = null;
-let essentia: any = null;
+let essentiaModule: EssentiaWASMModule | null = null;
+let essentia: Essentia | null = null;
 
 /**
  * BPM detection result
@@ -85,7 +86,7 @@ const MAX_BPM = 200;
 export async function initEssentia(): Promise<void> {
   if (essentia) return;
 
-  let loadedModule: any = null;
+  let loadedModule: EssentiaWASMModule | null = null;
   try {
     // Dynamic import for worker context
     const { Essentia, EssentiaWASM } = await import('essentia.js');
@@ -130,7 +131,7 @@ export function toMono(samples: Float32Array, channelCount: number): Float32Arra
 /**
  * Convert Float32Array to essentia vector format.
  */
-function toEssentiaVector(samples: Float32Array): any {
+function toEssentiaVector(samples: Float32Array): EssentiaVector {
   if (!essentia) throw new Error('Essentia not initialized');
   return essentia.arrayToVector(samples);
 }
@@ -138,9 +139,9 @@ function toEssentiaVector(samples: Float32Array): any {
 /**
  * Free essentia vector memory to avoid leaks.
  */
-function freeVector(vector: any): void {
-  if (vector && vector.delete) {
-    vector.delete();
+function freeVector(vector: EssentiaVector): void {
+  if (vector && typeof (vector as unknown as { delete?: () => void }).delete === 'function') {
+    (vector as unknown as { delete: () => void }).delete();
   }
 }
 

@@ -21,8 +21,8 @@ const broadcast = (message: WorkerMessage) => {
     try {
       port.postMessage(message);
       return true;
-    } catch (e) {
-      // console.warn('[Kernel Worker] Removing stale connection');
+    } catch {
+      // Connection closed, remove stale port
       return false;
     }
   });
@@ -33,12 +33,12 @@ const setupDbPort = (port: MessagePort) => {
   dbPort.start();
 
   dbPort.onmessage = (event) => {
-    const { id, type, payload } = event.data;
+    const { id, type, payload } = event.data as { id?: string; type: EventType; payload: unknown };
     // console.log(`[Kernel Worker] DB Worker Message: ${type}`, payload);
-    
+
     broadcast({
       id: id || crypto.randomUUID(),
-      type: type as any,
+      type,
       payload,
       timestamp: Date.now()
     });
@@ -106,12 +106,13 @@ ctx.onconnect = (event: MessageEvent) => {
         default:
           console.warn(`[Kernel Worker] Unhandled message type: ${type}`);
       }
-    } catch (err: any) {
-      console.error(`[Kernel Worker] Error handling message ${type}:`, err);
+    } catch (err) {
+      const e = err as Error;
+      console.error(`[Kernel Worker] Error handling message ${type}:`, e);
       port.postMessage({
         id,
         type: EventType.ERROR,
-        payload: `Kernel Error: ${err.message}`,
+        payload: `Kernel Error: ${e.message}`,
         timestamp: Date.now()
       });
     }

@@ -10,7 +10,7 @@ import { persist } from 'zustand/middleware';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
-import type { HotCueData, LoopData, CueColor } from '../types/cue-loop';
+import type { HotCueData, LoopData } from '../types/cue-loop';
 import { createEmptyHotCues } from '../types/cue-loop';
 import type { StemState, StemType, StemBuffers, StemAnalysisStage } from '../types/stems';
 import { createInitialStemState } from '../types/stems';
