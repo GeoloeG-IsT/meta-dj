@@ -47,7 +47,7 @@ development_status:
   1-3-local-folder-ingestion-track-scanning: done
   1-4-track-list-virtualization-rendering: done
   1-5-playlist-tree-management: done
-  1-6-full-text-search-fts-type-ahead: review
+  1-6-full-text-search-fts-type-ahead: done
   1-7-smartlist-visual-query-builder: backlog
   epic-1-retrospective: optional
 

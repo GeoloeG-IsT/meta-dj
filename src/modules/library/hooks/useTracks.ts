@@ -4,6 +4,7 @@ import { EventType } from '../../../shared/types/messaging';
 import { useLibraryStore } from '../store/library.store';
 
 const METADATA_DB = 'm';
+const SORT_WHITELIST = ['title', 'artist', 'album', 'bpm', 'key', 'duration', 'genre'];
 
 export interface Track {
   id: number;
@@ -35,6 +36,10 @@ export function useTracks(searchQuery?: string) {
 
     setIsLoading(true);
     try {
+      // Validate sort field
+      const safeSortField = SORT_WHITELIST.includes(sort.field) ? sort.field : 'title';
+      const safeSortOrder = sort.order === 'DESC' ? 'DESC' : 'ASC';
+
       let countSql = 'SELECT COUNT(*) as count FROM Track';
       let dataSql = `SELECT id, title, artist, album, bpm, key, duration, genre, path, filename FROM Track`;
       let params: any[] = [];
@@ -68,11 +73,15 @@ export function useTracks(searchQuery?: string) {
 
       // 2. Search Filter (FTS5)
       if (searchQuery && searchQuery.trim().length > 0) {
-        const ftsMatch = `${searchQuery.trim()}*`;
+        // Robust FTS5 Sanitization: Remove special characters that can break MATCH
+        const cleanQuery = searchQuery.trim()
+            .replace(/[^\w\s]/gi, ' ') // Only allow alphanumeric and spaces
+            .replace(/\s+/g, ' ');     // Collapse spaces
+            
+        const ftsMatch = `"${cleanQuery}"*`; 
         const ftsSubquery = `id IN (SELECT rowid FROM Track_fts WHERE Track_fts MATCH ?)`;
         
         if (selectedPlaylistId) {
-            // Add to existing CTE-based query
             countSql += ` AND t.${ftsSubquery}`;
             dataSql += ` AND t.${ftsSubquery}`;
         } else {
@@ -93,7 +102,7 @@ export function useTracks(searchQuery?: string) {
 
       // 2. Fetch tracks
       const queryResult = await kernel.send(EventType.DB_QUERY_REQUEST, {
-        sql: `${dataSql} ORDER BY ${sort.field} ${sort.order}`,
+        sql: `${dataSql} ORDER BY ${safeSortField} ${safeSortOrder}`,
         params,
         method: 'all',
         targetDb: METADATA_DB
@@ -130,8 +139,9 @@ export function useTracks(searchQuery?: string) {
       if (msg.type === EventType.DB_READY) {
         setIsDbReady(true);
       } else if (msg.type === EventType.DB_QUERY_RESPONSE) {
+        // Only refresh on operations that likely affect track membership
         const payload = msg.payload as any;
-        if (payload?.success || payload?.changes !== undefined) {
+        if (payload?.success && payload?.changes !== undefined && payload?.changes > 0) {
           fetchTracks();
         }
       }
