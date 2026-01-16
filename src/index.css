@@ -8,6 +8,9 @@
 
 .beatgrid-snapped {
   animation: beatgrid-snap-pulse 0.3s ease-in-out;
+  width: 3px !important;
+  opacity: 1 !important;
+  box-shadow: 0 0 8px #4DFA90, 0 0 16px #4DFA90;
 }
 
 /* Toast slide-in animation */

@@ -145,18 +145,10 @@ export function BeatgridOverlay({
             className={`absolute top-0 bottom-0 ${isSnapped ? 'beatgrid-snapped' : ''}`}
             style={{
               left: `${beat.position * 100}%`,
-              width: beat.isDownbeat || isSnapped ? '2px' : '1px',
+              width: beat.isDownbeat ? '2px' : '1px',
               backgroundColor: color,
               opacity: beat.isDownbeat ? 0.8 : 0.4,
               transform: 'translateX(-50%)',
-              // Add glow effect for snapped beat
-              ...(isSnapped
-                ? {
-                    boxShadow: `0 0 8px ${BEAT_COLOR_SNAPPED}, 0 0 16px ${BEAT_COLOR_SNAPPED}`,
-                    opacity: 1,
-                    width: '3px',
-                  }
-                : {}),
             }}
           />
         );

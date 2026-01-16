@@ -56,7 +56,7 @@ function ToastItem({
 
   return (
     <div
-      className="toast-item animate-slide-in"
+      className="toast-item"
       style={{
         backgroundColor: styles.bg,
         borderLeft: `3px solid ${styles.border}`,

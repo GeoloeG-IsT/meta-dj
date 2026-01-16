@@ -311,13 +311,16 @@ export function WaveformDetail({
   }, [isSlipDragging, onSlipCommit]);
 
   // Handle keyboard nudge (Shift+Arrow keys)
+  // Per AC6: Shift+Left/Right nudges beatgrid by 1ms increments
+  // Direction: Left = earlier (negative offset), Right = later (positive offset)
+  // At 44.1kHz: 1ms ≈ 44 samples (sampleRate / 1000)
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       // Only handle Shift+Arrow for nudge when we have beatgrid data
       if (!event.shiftKey || !beatgridData || !onKeyboardNudge) return;
 
-      // 1ms nudge = ~44 samples at 44.1kHz
-      const NUDGE_SAMPLES = Math.round(sampleRate / 1000); // 44 samples for 44.1kHz
+      // 1ms nudge calculated dynamically for any sample rate
+      const NUDGE_SAMPLES = Math.round(sampleRate / 1000);
 
       if (event.key === 'ArrowLeft') {
         event.preventDefault();
