@@ -10,7 +10,7 @@ import { persist } from 'zustand/middleware';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode, DeckId } from '../types';
-import type { HotCueData, LoopData } from '../types/cue-loop';
+import type { HotCueData, LoopData, LoopMode } from '../types/cue-loop';
 import { createEmptyHotCues } from '../types/cue-loop';
 import type { StemState, StemType, StemBuffers, StemAnalysisStage } from '../types/stems';
 import { createInitialStemState } from '../types/stems';
@@ -67,6 +67,8 @@ export interface DeckState {
   loops: LoopData[];
   /** Currently active loop index (-1 if no loop active) */
   activeLoopIndex: number;
+  /** Loop pad mode: 'hot' for press-and-hold, 'saved' for click-to-trigger */
+  loopMode: LoopMode;
   /** Stem separation state */
   stems: StemState;
 }
@@ -122,6 +124,7 @@ export interface AudioState {
   updateLoop: (deckId: DeckId, loopIndex: number, updates: Partial<Pick<LoopData, 'color' | 'name' | 'inPoint' | 'outPoint'>>) => void;
   removeLoop: (deckId: DeckId, loopIndex: number) => void;
   setActiveLoop: (deckId: DeckId, loopIndex: number) => void;
+  setLoopMode: (deckId: DeckId, mode: LoopMode) => void;
 
   // Actions - Stems
   setStemBuffers: (deckId: DeckId, buffers: StemBuffers) => void;
@@ -167,6 +170,7 @@ const createInitialDeckState = (): DeckState => ({
   cuePoints: createEmptyHotCues(),
   loops: [],
   activeLoopIndex: -1,
+  loopMode: 'saved',
   stems: createInitialStemState(),
 });
 
@@ -557,6 +561,17 @@ export const useAudioStore = create<AudioState>()(
           };
         }),
 
+      setLoopMode: (deckId, mode) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              loopMode: mode,
+            },
+          },
+        })),
+
       // Stem actions
       setStemBuffers: (deckId, buffers) =>
         set((state) => ({
@@ -730,3 +745,8 @@ export const selectStemAnalyzing = (deckId: DeckId) => (state: AudioState) => st
 export const selectStemProgress = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.progress;
 export const selectStemMuted = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.muted;
 export const selectStemSolo = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].stems.solo;
+
+// Loop selectors
+export const selectDeckLoops = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].loops;
+export const selectActiveLoopIndex = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].activeLoopIndex;
+export const selectLoopMode = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].loopMode;

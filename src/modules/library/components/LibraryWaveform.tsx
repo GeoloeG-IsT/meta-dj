@@ -10,6 +10,8 @@ import { WaveformOverview } from '@/modules/audio/components/WaveformOverview';
 import { WaveformDetail } from '@/modules/audio/components/WaveformDetail';
 import { PerformancePads } from '@/modules/audio/components/PerformancePads';
 import { LoopControls } from '@/modules/audio/components/LoopControls';
+import { LoopPads } from '@/modules/audio/components/LoopPads';
+import { LoopModeToggle } from '@/modules/audio/components/LoopModeToggle';
 import { CueContextMenu } from '@/modules/audio/components/CueContextMenu';
 import { StemControls } from '@/modules/audio/components/StemControls';
 import {
@@ -19,12 +21,13 @@ import {
   selectHasWebGPU,
   selectWebGPUUnavailableReason,
   selectDeckStems,
+  selectLoopMode,
 } from '@/modules/audio/store/audio.store';
 import { pickAndLoadTrack, ejectTrack } from '@/modules/audio/services/deck-loader.service';
 import { analysisService } from '@/modules/audio/services/analysis.service';
 import { toast } from '@/shared/store/toast.store';
 import type { WaveformColorMode, DeckId } from '@/modules/audio/types';
-import type { HotCueData, LoopData, CueColor } from '@/modules/audio/types/cue-loop';
+import type { HotCueData, LoopData, CueColor, LoopMode } from '@/modules/audio/types/cue-loop';
 import { DEFAULT_CUE_COLOR } from '@/modules/audio/types/cue-loop';
 import type { StemType } from '@/modules/audio/types/stems';
 import { stemsService, StemsService } from '@/modules/audio/services/stems.service';
@@ -86,6 +89,8 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
   const removeLoop = useAudioStore((s) => s.removeLoop);
   const setActiveLoop = useAudioStore((s) => s.setActiveLoop);
   const updateLoop = useAudioStore((s) => s.updateLoop);
+  const loopMode = useAudioStore(selectLoopMode(deckId));
+  const setLoopMode = useAudioStore((s) => s.setLoopMode);
 
   // Cue update action
   const updateCuePoint = useAudioStore((s) => s.updateCuePoint);
@@ -566,6 +571,100 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
     [deckId, deck.trackId, deck.beatgridData, deck.bpm, deck.sampleRate, deck.duration, deck.loops, playheadPosition, addLoop, setActiveLoop, removeLoop]
   );
 
+  // Loop pad click handler - handles both hot and saved mode
+  const handleLoopPadClick = useCallback(
+    async (padIndex: number) => {
+      if (!deck.trackId) return;
+
+      const existingLoop = deck.loops.find((l) => l.index === padIndex);
+
+      if (loopMode === 'saved') {
+        // SAVED MODE: Click to jump to loop and activate
+        if (existingLoop) {
+          // Loop exists - seek to in-point and activate
+          const normalizedPosition = existingLoop.inPoint / (deck.duration * deck.sampleRate);
+          setPlayheadPosition(normalizedPosition);
+          setPosition(deckId, normalizedPosition);
+          setActiveLoop(deckId, padIndex);
+        } else {
+          // No loop at this pad - create and save a new loop
+          const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+          const samplesPerBeat = (60 / deck.bpm) * deck.sampleRate;
+          const loopLength = Math.round(4 * samplesPerBeat); // Default 4 beats
+
+          const newLoop: LoopData = {
+            index: padIndex,
+            inPoint: currentSample,
+            outPoint: currentSample + loopLength,
+            color: DEFAULT_CUE_COLOR,
+            name: '',
+            isActive: true,
+          };
+
+          // Optimistic update
+          addLoop(deckId, newLoop);
+          setActiveLoop(deckId, padIndex);
+
+          // Persist to database
+          try {
+            await analysisService.saveLoop(deck.trackId, newLoop);
+            toast.success(`Loop ${padIndex + 1} saved`);
+          } catch (error) {
+            console.error('[LibraryWaveform] Failed to save loop:', error);
+            removeLoop(deckId, padIndex);
+            toast.error('Failed to save loop');
+          }
+        }
+      } else {
+        // HOT MODE: Press to activate loop immediately
+        if (existingLoop) {
+          // Loop exists - activate it (seek optional, but keep position)
+          setActiveLoop(deckId, padIndex);
+        } else {
+          // No loop at this pad - create temporary hot loop at current position
+          const currentSample = Math.round(playheadPosition * deck.duration * deck.sampleRate);
+          const samplesPerBeat = (60 / deck.bpm) * deck.sampleRate;
+          const loopLength = Math.round(4 * samplesPerBeat); // Default 4 beats
+
+          const newLoop: LoopData = {
+            index: padIndex,
+            inPoint: currentSample,
+            outPoint: currentSample + loopLength,
+            color: DEFAULT_CUE_COLOR,
+            name: '',
+            isActive: true,
+          };
+
+          // Add to store (not persisted until converted to saved)
+          addLoop(deckId, newLoop);
+          setActiveLoop(deckId, padIndex);
+        }
+      }
+    },
+    [deckId, deck.trackId, deck.loops, deck.duration, deck.sampleRate, deck.bpm, loopMode, playheadPosition, addLoop, setActiveLoop, removeLoop, setPosition]
+  );
+
+  // Loop pad release handler - for hot loop mode only
+  const handleLoopPadRelease = useCallback(
+    (padIndex: number) => {
+      if (loopMode !== 'hot') return;
+
+      // Only deactivate if this is the currently active loop
+      if (deck.activeLoopIndex === padIndex) {
+        setActiveLoop(deckId, -1); // Deactivate loop
+      }
+    },
+    [deckId, deck.activeLoopIndex, loopMode, setActiveLoop]
+  );
+
+  // Loop mode toggle handler
+  const handleLoopModeChange = useCallback(
+    (mode: LoopMode) => {
+      setLoopMode(deckId, mode);
+    },
+    [deckId, setLoopMode]
+  );
+
   // Stem control callbacks
   const handleStemMuteToggle = useCallback(
     (stemType: StemType) => {
@@ -793,6 +892,29 @@ export function LibraryWaveform({ deckId, className = '' }: LibraryWaveformProps
             cuePoints={deck.cuePoints}
             onPadClick={handlePadClick}
             onPadContextMenu={handlePadContextMenu}
+            keyboardEnabled={true}
+          />
+        </div>
+      )}
+
+      {/* Loop Pads */}
+      {hasTrack && (
+        <div className="px-4 pb-2">
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-xs font-mono text-[#4DFA90]/60">LOOP PADS</div>
+            <LoopModeToggle
+              mode={loopMode}
+              onModeChange={handleLoopModeChange}
+              keyboardEnabled={true}
+            />
+          </div>
+          <LoopPads
+            loops={deck.loops}
+            activeLoopIndex={deck.activeLoopIndex}
+            loopMode={loopMode}
+            onPadClick={handleLoopPadClick}
+            onPadRelease={handleLoopPadRelease}
+            onPadContextMenu={handleLoopContextMenu}
             keyboardEnabled={true}
           />
         </div>

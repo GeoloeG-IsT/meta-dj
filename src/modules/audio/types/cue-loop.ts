@@ -5,7 +5,15 @@
  * Compatible with Engine DJ database schema (PerformanceData table).
  *
  * Story 2.4: Hot Cue & Loop Management
+ * Story 5.6: Implement 8-Loop System (Hot Loops + Saved Loops)
  */
+
+/**
+ * Loop pad mode for pad behavior.
+ * - 'hot': Press-and-hold creates temporary loop, release exits
+ * - 'saved': Click to jump to and activate saved loop
+ */
+export type LoopMode = 'hot' | 'saved';
 
 /**
  * Engine DJ standard color palette for cue points and loops.
