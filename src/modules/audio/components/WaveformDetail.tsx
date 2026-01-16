@@ -11,11 +11,12 @@ import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import { WaveformCanvas } from './WaveformCanvas';
 import { BeatgridOverlay } from './BeatgridOverlay';
 import { CueMarkerOverlay } from './CueMarkerOverlay';
+import { LoopRegionOverlay } from './LoopRegionOverlay';
 import { findNearestTransient, DEFAULT_TRANSIENT_CONFIG } from '../utils/transient-detector';
 import type { WaveformData } from '../analysis/waveform-analyzer';
 import type { BeatgridData } from '../analysis/track-analyzer';
 import type { WaveformColorMode } from '../types';
-import type { HotCueData } from '../types/cue-loop';
+import type { HotCueData, LoopData } from '../types/cue-loop';
 
 export interface WaveformDetailProps {
   /** Waveform data to render */
@@ -68,6 +69,12 @@ export interface WaveformDetailProps {
   onCueClick?: (cueIndex: number) => void;
   /** Callback when a cue marker is right-clicked (context menu) */
   onCueContextMenu?: (cueIndex: number, event: React.MouseEvent) => void;
+  /** Loop regions to display on the waveform */
+  loops?: LoopData[];
+  /** Callback when a loop region is clicked */
+  onLoopClick?: (loopIndex: number) => void;
+  /** Callback when a loop region is right-clicked (context menu) */
+  onLoopContextMenu?: (loopIndex: number, event: React.MouseEvent) => void;
 }
 
 /** Calculate view range based on zoom level and center position */
@@ -148,6 +155,9 @@ export function WaveformDetail({
   cuePoints = [],
   onCueClick,
   onCueContextMenu,
+  loops = [],
+  onLoopClick,
+  onLoopContextMenu,
 }: WaveformDetailProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -160,6 +170,12 @@ export function WaveformDetail({
   // Calculate duration and total samples
   const duration = waveformData?.duration ?? 0;
   const totalSamples = Math.round(duration * sampleRate);
+
+  // Calculate samples per beat for loop length labels
+  const samplesPerBeat = useMemo(() => {
+    if (bpm <= 0) return 22050; // Default at 120 BPM
+    return (sampleRate * 60) / bpm;
+  }, [bpm, sampleRate]);
 
   // Reset browse offset when playback starts
   useEffect(() => {
@@ -430,6 +446,19 @@ export function WaveformDetail({
           height={height}
           onCueClick={onCueClick}
           onCueContextMenu={onCueContextMenu}
+        />
+      )}
+
+      {/* Loop Region Overlay */}
+      {loops.length > 0 && (
+        <LoopRegionOverlay
+          loops={loops}
+          viewRange={viewRange}
+          totalSamples={totalSamples}
+          height={height}
+          samplesPerBeat={samplesPerBeat}
+          onLoopClick={onLoopClick}
+          onLoopContextMenu={onLoopContextMenu}
         />
       )}
 

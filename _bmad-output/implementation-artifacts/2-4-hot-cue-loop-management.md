@@ -51,13 +51,13 @@ So that I can mark specific performance sections and trigger them during a set.
   - [x] Integrate with WaveformDetail component
   - [x] Write unit tests for position calculations
 
-- [ ] **Task 4: Loop Region Overlay Component** (AC: 3)
-  - [ ] Create `LoopRegionOverlay.tsx` component for rendering loop regions
-  - [ ] Render bracketed region from in-point to out-point
-  - [ ] Show loop length label (e.g., "4 bars", "1/2 beat")
-  - [ ] Apply semi-transparent fill with border
-  - [ ] Integrate with WaveformDetail component
-  - [ ] Write unit tests for region calculations
+- [x] **Task 4: Loop Region Overlay Component** (AC: 3)
+  - [x] Create `LoopRegionOverlay.tsx` component for rendering loop regions
+  - [x] Render bracketed region from in-point to out-point
+  - [x] Show loop length label (e.g., "4 bars", "1/2 beat")
+  - [x] Apply semi-transparent fill with border
+  - [x] Integrate with WaveformDetail component
+  - [x] Write unit tests for region calculations
 
 - [ ] **Task 5: Performance Pad UI** (AC: 1, 7)
   - [ ] Create `PerformancePads.tsx` component with 8 pad buttons
