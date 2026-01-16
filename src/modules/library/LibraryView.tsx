@@ -6,6 +6,7 @@ import { playlistService } from './services/playlist.service';
 import { useLibraryStore } from './store/library.store';
 import { useModalStore } from '../../shared/components/modals/modal.store';
 import { SearchOverlay } from './components/SearchOverlay';
+import { LibraryWaveform } from './components/LibraryWaveform';
 
 export const LibraryView: React.FC = () => {
   const { fetchPlaylists, movePlaylist } = useLibraryStore();
@@ -119,6 +120,11 @@ export const LibraryView: React.FC = () => {
           </div>
 
           <div className="flex-1 flex flex-col min-h-0 min-w-0 bg-[#000000]">
+            {/* Waveform preview of loaded track (Deck A) */}
+            <div className="p-4 border-b border-[#4DFA90]/10">
+              <LibraryWaveform />
+            </div>
+
             <section className="flex-1 min-h-0 flex flex-col p-4">
               <div className="flex items-center justify-between mb-4 gap-4">
                 <span className="text-[10px] uppercase tracking-widest opacity-60">Tracks</span>

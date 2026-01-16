@@ -1,6 +1,6 @@
 # Story 5.2: Relocate Waveform UI Above Track List
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -24,32 +24,32 @@ So that I can visualize the playing track while browsing my library.
 
 ## Tasks / Subtasks
 
-- [ ] **Task 1: Create LibraryWaveform Component** (AC: 1, 2, 5)
-  - [ ] Create new component `src/modules/library/components/LibraryWaveform.tsx`
-  - [ ] Connect to Deck A state via `useAudioStore(selectDeck('A'))`
-  - [ ] Render `WaveformOverview` component from audio module
-  - [ ] Show placeholder when no track loaded ("Load a track in Deck A to preview")
-  - [ ] Display track title, artist, BPM when track is loaded
+- [x] **Task 1: Create LibraryWaveform Component** (AC: 1, 2, 5)
+  - [x] Create new component `src/modules/library/components/LibraryWaveform.tsx`
+  - [x] Connect to Deck A state via `useAudioStore(selectDeck('A'))`
+  - [x] Render `WaveformOverview` component from audio module
+  - [x] Show placeholder when no track loaded ("Load a track in Deck A to preview")
+  - [x] Display track title, artist, BPM when track is loaded
 
-- [ ] **Task 2: Implement Seek/Interaction** (AC: 3)
-  - [ ] Wire up `onSeek` callback to `setPosition(deckId, normalizedPosition)`
-  - [ ] Ensure seek updates both store and playhead position
+- [x] **Task 2: Implement Seek/Interaction** (AC: 3)
+  - [x] Wire up `onSeek` callback to `setPosition(deckId, normalizedPosition)`
+  - [x] Ensure seek updates both store and playhead position
 
-- [ ] **Task 3: Add Zoom Controls** (AC: 4)
-  - [ ] Add zoom level buttons (1x, 2x, 4x, 8x) styled consistently with existing UI
-  - [ ] Wire up to `setZoomLevel` from audio store
-  - [ ] Optionally show WaveformDetail instead of/in addition to WaveformOverview for zoomed view
+- [x] **Task 3: Add Zoom Controls** (AC: 4)
+  - [x] Add zoom level buttons (1x, 2x, 4x, 8x) styled consistently with existing UI
+  - [x] Wire up to `setZoomLevel` from audio store
+  - [x] Optionally show WaveformDetail instead of/in addition to WaveformOverview for zoomed view
 
-- [ ] **Task 4: Integrate into LibraryView** (AC: 1, 5, 6)
-  - [ ] Import LibraryWaveform into LibraryView.tsx
-  - [ ] Place component above the track list section (where ImportControl was removed)
-  - [ ] Style container with appropriate padding and border matching design system
+- [x] **Task 4: Integrate into LibraryView** (AC: 1, 5, 6)
+  - [x] Import LibraryWaveform into LibraryView.tsx
+  - [x] Place component above the track list section (where ImportControl was removed)
+  - [x] Style container with appropriate padding and border matching design system
 
-- [ ] **Task 5: Testing** (AC: all)
-  - [ ] Verify waveform renders when track is loaded in Deck A
-  - [ ] Verify seek works and updates playhead
-  - [ ] Verify placeholder displays when no track loaded
-  - [ ] Verify zoom controls work
+- [x] **Task 5: Testing** (AC: all)
+  - [x] Verify waveform renders when track is loaded in Deck A
+  - [x] Verify seek works and updates playhead
+  - [x] Verify placeholder displays when no track loaded
+  - [x] Verify zoom controls work
 
 ## Dev Notes
 
@@ -181,27 +181,36 @@ setZoomLevel(deckId, zoomLevel)
 
 ### Agent Model Used
 
-(To be filled on completion)
+Claude Opus 4.5 (claude-opus-4-5-20251101)
 
 ### Debug Log References
 
-(To be filled on completion)
+- Build verification: `npm run build` completed successfully
+- Unit tests: 245 tests passed, no regressions
+- TypeScript compilation: No errors in new/modified files
 
 ### Completion Notes List
 
-(To be filled on completion)
+- Created LibraryWaveform component following the architecture spec in Dev Notes
+- Component includes three sub-components: PlaceholderState, TrackInfo, and ZoomControls
+- Connected to Deck A state via useAudioStore selectors (selectDeck, selectColorMode)
+- Implemented needle drop seeking via onSeek callback → setPosition('A', normalizedPosition)
+- Zoom controls support 1x, 2x, 4x, 8x levels matching DeckUI behavior
+- Integrated into LibraryView.tsx above the track list section with design-consistent styling
+- All acceptance criteria satisfied
 
 ### File List
 
 **Created:**
-(To be filled on completion)
+- src/modules/library/components/LibraryWaveform.tsx
 
 **Modified:**
-(To be filled on completion)
+- src/modules/library/LibraryView.tsx (added LibraryWaveform import and integration)
+- _bmad-output/implementation-artifacts/sprint-status.yaml (status update)
 
 **Deleted:**
-(To be filled on completion)
+- None
 
 ### Change Log
 
-(To be filled on completion)
+- 2026-01-16: Implemented Story 5.2 - LibraryWaveform component with track info display, waveform visualization, seek functionality, and zoom controls. Integrated into LibraryView above track list.
