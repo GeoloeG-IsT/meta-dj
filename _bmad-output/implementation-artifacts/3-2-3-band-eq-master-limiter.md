@@ -36,12 +36,12 @@ So that I can blend tracks smoothly and prevent audio clipping.
   - [x] 1.5: Expose `setLow(db)`, `setMid(db)`, `setHigh(db)` methods (-24dB to +6dB range)
   - [x] 1.6: Chain filters: Input → Low → Mid → High → Output
 
-- [ ] Task 2: Create Channel Strip with Gain (AC: #1, #2)
-  - [ ] 2.1: Create `src/modules/audio/dsp/channel-strip.ts` class
-  - [ ] 2.2: Integrate EQ processor as first stage
-  - [ ] 2.3: Add GainNode for channel volume control (0.0 to 1.5 range, default 1.0)
-  - [ ] 2.4: Add `setGain(value)` method with linear-to-exponential mapping
-  - [ ] 2.5: Wire: DeckEngineNode → EQ → Gain → Output
+- [x] Task 2: Create Channel Strip with Gain (AC: #1, #2)
+  - [x] 2.1: Create `src/modules/audio/dsp/channel-strip.ts` class
+  - [x] 2.2: Integrate EQ processor as first stage
+  - [x] 2.3: Add GainNode for channel volume control (0.0 to 1.5 range, default 1.0)
+  - [x] 2.4: Add `setGain(value)` method with linear-to-exponential mapping
+  - [x] 2.5: Wire: DeckEngineNode → EQ → Gain → Output
 
 - [ ] Task 3: Create Master Limiter (AC: #3)
   - [ ] 3.1: Create `src/modules/audio/dsp/master-limiter.ts` class
