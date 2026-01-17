@@ -43,17 +43,17 @@ So that I can blend tracks smoothly and prevent audio clipping.
   - [x] 2.4: Add `setGain(value)` method with linear-to-exponential mapping
   - [x] 2.5: Wire: DeckEngineNode → EQ → Gain → Output
 
-- [ ] Task 3: Create Master Limiter (AC: #3)
-  - [ ] 3.1: Create `src/modules/audio/dsp/master-limiter.ts` class
-  - [ ] 3.2: Configure DynamicsCompressorNode with limiter-optimized settings:
+- [x] Task 3: Create Master Limiter (AC: #3)
+  - [x] 3.1: Create `src/modules/audio/dsp/master-limiter.ts` class
+  - [x] 3.2: Configure DynamicsCompressorNode with limiter-optimized settings:
     - threshold: -3 dB (brick wall)
     - knee: 0 (hard knee for limiting)
     - ratio: 20:1 (effectively limiting)
     - attack: 0.001s (1ms - fast attack)
     - release: 0.1s (100ms - moderate release)
-  - [ ] 3.3: Add master GainNode before limiter for overall volume
-  - [ ] 3.4: Expose `setMasterGain(value)` method
-  - [ ] 3.5: Wire: Sum of all decks → Master Gain → Limiter → Destination
+  - [x] 3.3: Add master GainNode before limiter for overall volume
+  - [x] 3.4: Expose `setMasterGain(value)` method
+  - [x] 3.5: Wire: Sum of all decks → Master Gain → Limiter → Destination
 
 - [ ] Task 4: Implement Peak Metering via SharedArrayBuffer (AC: #4)
   - [ ] 4.1: Create `src/modules/audio/dsp/peak-meter.ts` class
