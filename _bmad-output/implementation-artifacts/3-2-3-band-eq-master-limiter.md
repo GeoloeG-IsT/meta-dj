@@ -28,13 +28,13 @@ So that I can blend tracks smoothly and prevent audio clipping.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: Create EQ Processor Node (AC: #1)
-  - [ ] 1.1: Create `src/modules/audio/dsp/eq-processor.ts` with 3-band EQ class
-  - [ ] 1.2: Implement Low shelf filter (BiquadFilterNode type: 'lowshelf', freq: 320Hz)
-  - [ ] 1.3: Implement Mid peaking filter (BiquadFilterNode type: 'peaking', freq: 1000Hz, Q: 0.7)
-  - [ ] 1.4: Implement High shelf filter (BiquadFilterNode type: 'highshelf', freq: 3200Hz)
-  - [ ] 1.5: Expose `setLow(db)`, `setMid(db)`, `setHigh(db)` methods (-24dB to +6dB range)
-  - [ ] 1.6: Chain filters: Input → Low → Mid → High → Output
+- [x] Task 1: Create EQ Processor Node (AC: #1)
+  - [x] 1.1: Create `src/modules/audio/dsp/eq-processor.ts` with 3-band EQ class
+  - [x] 1.2: Implement Low shelf filter (BiquadFilterNode type: 'lowshelf', freq: 320Hz)
+  - [x] 1.3: Implement Mid peaking filter (BiquadFilterNode type: 'peaking', freq: 1000Hz, Q: 0.7)
+  - [x] 1.4: Implement High shelf filter (BiquadFilterNode type: 'highshelf', freq: 3200Hz)
+  - [x] 1.5: Expose `setLow(db)`, `setMid(db)`, `setHigh(db)` methods (-24dB to +6dB range)
+  - [x] 1.6: Chain filters: Input → Low → Mid → High → Output
 
 - [ ] Task 2: Create Channel Strip with Gain (AC: #1, #2)
   - [ ] 2.1: Create `src/modules/audio/dsp/channel-strip.ts` class
