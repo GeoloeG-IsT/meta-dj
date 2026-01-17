@@ -7,19 +7,37 @@
  * - Deck engine creation and disposal
  * - AudioContext management
  * - Connection to audio output
+ * - 3-band EQ per deck
+ * - Master bus with limiter
+ * - Peak metering
  */
 
 import type { DeckId } from '../types';
 import { DeckEngineNode, resampleBuffer } from '../worklet/deck-engine.node';
 import { useAudioStore } from '../store/audio.store';
+import { ChannelStrip } from '../dsp/channel-strip';
+import { MasterBus } from '../dsp/master-bus';
+import { PeakMeter, createMeterSAB } from '../dsp/peak-meter';
+
+/** Map deck IDs to meter channel offsets */
+const DECK_METER_OFFSETS: Record<DeckId, number> = {
+  A: 0,
+  B: 1,
+  C: 2,
+  D: 3,
+};
 
 /** Deck engine instance with associated metadata */
 interface DeckEngineInstance {
   engine: DeckEngineNode;
   deckId: DeckId;
   trackId: number | null;
-  gainNode: GainNode | null;
+  channelStrip: ChannelStrip;
+  peakMeter: PeakMeter;
 }
+
+/** EQ band type */
+type EQBand = 'low' | 'mid' | 'high';
 
 /**
  * DeckEngineService - Manages AudioWorklet deck engines
@@ -32,16 +50,24 @@ interface DeckEngineInstance {
  * // Load and play a track
  * await service.loadTrack('A', audioBuffer, trackId);
  * service.play('A');
+ *
+ * // EQ and gain control
+ * service.setDeckEQ('A', 'low', -6);
+ * service.setDeckGain('A', 0.8);
+ * service.setMasterGain(0.9);
  * ```
  */
 class DeckEngineServiceClass {
   private static instance: DeckEngineServiceClass | null = null;
 
   private audioContext: AudioContext | null = null;
-  private masterGain: GainNode | null = null;
+  private masterBus: MasterBus | null = null;
+  private meterSAB: SharedArrayBuffer | null = null;
   private decks: Map<DeckId, DeckEngineInstance> = new Map();
   private initialized = false;
   private initializing = false;
+  private meterUpdateId: number = 0;
+  private isMeterUpdating = false;
 
   private constructor() {
     // Private constructor for singleton
@@ -88,10 +114,12 @@ class DeckEngineServiceClass {
       // Load the AudioWorklet module
       await DeckEngineNode.loadModule(this.audioContext);
 
-      // Create master gain node
-      this.masterGain = this.audioContext.createGain();
-      this.masterGain.gain.value = 1.0;
-      this.masterGain.connect(this.audioContext.destination);
+      // Create shared SAB for all metering
+      this.meterSAB = createMeterSAB();
+
+      // Create master bus with limiter and metering
+      this.masterBus = new MasterBus(this.audioContext, this.meterSAB);
+      this.masterBus.connect(this.audioContext.destination);
 
       // Create deck engines for all four decks
       const deckIds: DeckId[] = ['A', 'B', 'C', 'D'];
@@ -99,8 +127,11 @@ class DeckEngineServiceClass {
         await this.createDeckEngine(deckId);
       }
 
+      // Start automatic meter updates
+      this.startMeterUpdates();
+
       this.initialized = true;
-      console.log('[DeckEngineService] Initialized successfully');
+      console.log('[DeckEngineService] Initialized with EQ, limiter, and metering');
     } catch (error) {
       console.error('[DeckEngineService] Initialization failed:', error);
       throw error;
@@ -131,10 +162,17 @@ class DeckEngineServiceClass {
   }
 
   /**
-   * Get the SharedArrayBuffer for a deck (for usePlayheadSync hook)
+   * Get the SharedArrayBuffer for a deck's playhead (for usePlayheadSync hook)
    */
   getPlayheadSAB(deckId: DeckId): SharedArrayBuffer | null {
     return this.decks.get(deckId)?.engine.sharedArrayBuffer ?? null;
+  }
+
+  /**
+   * Get the SharedArrayBuffer for metering (for usePeakMeter hook)
+   */
+  getMeteringSAB(): SharedArrayBuffer | null {
+    return this.meterSAB;
   }
 
   /**
@@ -291,35 +329,113 @@ class DeckEngineServiceClass {
     }
   }
 
+  // ============ EQ Methods ============
+
   /**
-   * Set master volume
+   * Set EQ band for a specific deck
+   * @param deckId - Target deck
+   * @param band - EQ band ('low', 'mid', 'high')
+   * @param db - Gain in decibels (-24 to +6)
    */
-  setMasterVolume(volume: number): void {
-    if (this.masterGain) {
-      this.masterGain.gain.value = Math.max(0, Math.min(1, volume));
-      useAudioStore.getState().setMasterVolume(volume);
+  setDeckEQ(deckId: DeckId, band: EQBand, db: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) return;
+
+    switch (band) {
+      case 'low':
+        deckInstance.channelStrip.setLow(db);
+        break;
+      case 'mid':
+        deckInstance.channelStrip.setMid(db);
+        break;
+      case 'high':
+        deckInstance.channelStrip.setHigh(db);
+        break;
     }
   }
 
   /**
-   * Set volume for a specific deck
+   * Get EQ values for a specific deck
    * @param deckId - Target deck
-   * @param volume - Volume level (0-1)
+   * @returns Object with low, mid, high values in dB
+   */
+  getDeckEQ(deckId: DeckId): { low: number; mid: number; high: number } {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) {
+      return { low: 0, mid: 0, high: 0 };
+    }
+
+    return {
+      low: deckInstance.channelStrip.getLow(),
+      mid: deckInstance.channelStrip.getMid(),
+      high: deckInstance.channelStrip.getHigh(),
+    };
+  }
+
+  // ============ Gain Methods ============
+
+  /**
+   * Set channel gain for a specific deck
+   * @param deckId - Target deck
+   * @param value - Gain value (0.0 to 1.5)
+   */
+  setDeckGain(deckId: DeckId, value: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (deckInstance) {
+      deckInstance.channelStrip.setGain(value);
+    }
+  }
+
+  /**
+   * Get channel gain for a specific deck
+   */
+  getDeckGain(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.channelStrip.getGain() ?? 1;
+  }
+
+  /**
+   * Set volume for a specific deck (alias for setDeckGain for backward compatibility)
+   * @param deckId - Target deck
+   * @param volume - Volume level (0-1.5)
    */
   setDeckVolume(deckId: DeckId, volume: number): void {
-    const deckInstance = this.decks.get(deckId);
-    if (deckInstance?.gainNode) {
-      deckInstance.gainNode.gain.value = Math.max(0, Math.min(1, volume));
+    this.setDeckGain(deckId, volume);
+  }
+
+  /**
+   * Get volume for a specific deck (alias for getDeckGain for backward compatibility)
+   */
+  getDeckVolume(deckId: DeckId): number {
+    return this.getDeckGain(deckId);
+  }
+
+  /**
+   * Set master gain
+   * @param value - Gain value (0.0 to 1.5)
+   */
+  setMasterGain(value: number): void {
+    if (this.masterBus) {
+      this.masterBus.setMasterGain(value);
+      useAudioStore.getState().setMasterVolume(value);
     }
   }
 
   /**
-   * Get volume for a specific deck
+   * Get master gain
    */
-  getDeckVolume(deckId: DeckId): number {
-    const deckInstance = this.decks.get(deckId);
-    return deckInstance?.gainNode?.gain.value ?? 1;
+  getMasterGain(): number {
+    return this.masterBus?.getMasterGain() ?? 1;
   }
+
+  /**
+   * Set master volume (alias for setMasterGain for backward compatibility)
+   */
+  setMasterVolume(volume: number): void {
+    this.setMasterGain(volume);
+  }
+
+  // ============ Position Methods ============
 
   /**
    * Get the current playhead position for a deck in samples
@@ -354,24 +470,67 @@ class DeckEngineServiceClass {
     }
   }
 
+  // ============ Metering Methods ============
+
+  /**
+   * Start automatic meter updates (already called in initialize)
+   */
+  private startMeterUpdates(): void {
+    if (this.isMeterUpdating) return;
+    this.isMeterUpdating = true;
+
+    const updateLoop = () => {
+      // Update all deck meters
+      for (const [, instance] of this.decks) {
+        instance.peakMeter.update();
+      }
+      // Update master meter
+      if (this.masterBus) {
+        this.masterBus.update();
+      }
+
+      if (this.isMeterUpdating) {
+        this.meterUpdateId = requestAnimationFrame(updateLoop);
+      }
+    };
+
+    this.meterUpdateId = requestAnimationFrame(updateLoop);
+  }
+
+  /**
+   * Stop automatic meter updates
+   */
+  private stopMeterUpdates(): void {
+    this.isMeterUpdating = false;
+    if (this.meterUpdateId) {
+      cancelAnimationFrame(this.meterUpdateId);
+      this.meterUpdateId = 0;
+    }
+  }
+
   /**
    * Dispose of the service and release resources
    */
   async dispose(): Promise<void> {
-    // Dispose all deck engines and their gain nodes
-    for (const [_deckId, instance] of this.decks) {
+    // Stop meter updates
+    this.stopMeterUpdates();
+
+    // Dispose all deck engines and channel strips
+    for (const [, instance] of this.decks) {
       instance.engine.dispose();
-      if (instance.gainNode) {
-        instance.gainNode.disconnect();
-      }
+      instance.channelStrip.dispose();
+      instance.peakMeter.dispose();
     }
     this.decks.clear();
 
-    // Disconnect master gain
-    if (this.masterGain) {
-      this.masterGain.disconnect();
-      this.masterGain = null;
+    // Dispose master bus
+    if (this.masterBus) {
+      this.masterBus.dispose();
+      this.masterBus = null;
     }
+
+    // Clear SAB reference
+    this.meterSAB = null;
 
     // Close AudioContext
     if (this.audioContext) {
@@ -391,20 +550,27 @@ class DeckEngineServiceClass {
    * Create a deck engine for a specific deck
    */
   private async createDeckEngine(deckId: DeckId): Promise<void> {
-    if (!this.audioContext || !this.masterGain) {
+    if (!this.audioContext || !this.masterBus || !this.meterSAB) {
       throw new Error('AudioContext not initialized');
     }
 
     // Create the deck engine
     const engine = new DeckEngineNode(this.audioContext, true);
 
-    // Create per-deck gain node for individual volume control
-    const gainNode = this.audioContext.createGain();
-    gainNode.gain.value = 1.0;
+    // Create channel strip (EQ + Gain)
+    const channelStrip = new ChannelStrip(this.audioContext);
 
-    // Connect: engine -> deck gain -> master gain
-    engine.connect(gainNode);
-    gainNode.connect(this.masterGain);
+    // Create peak meter for this deck
+    const peakMeter = new PeakMeter(
+      this.audioContext,
+      this.meterSAB,
+      DECK_METER_OFFSETS[deckId]
+    );
+
+    // Wire: Engine → ChannelStrip → PeakMeter → MasterBus
+    engine.connect(channelStrip.input);
+    channelStrip.output.connect(peakMeter.input);
+    peakMeter.output.connect(this.masterBus.input);
 
     // Set up event handlers
     engine.on('stateChanged', (payload) => {
@@ -420,7 +586,8 @@ class DeckEngineServiceClass {
       engine,
       deckId,
       trackId: null,
-      gainNode,
+      channelStrip,
+      peakMeter,
     });
   }
 }
@@ -429,4 +596,4 @@ class DeckEngineServiceClass {
 export const DeckEngineService = DeckEngineServiceClass.getInstance();
 
 // Export type for external use
-export type { DeckEngineInstance };
+export type { DeckEngineInstance, EQBand };

@@ -78,8 +78,11 @@ export {
   selectColorMode,
   selectActiveDeck,
   selectMasterVolume,
+  selectDeckEQ,
+  selectDeckGain,
   type AudioState,
   type DeckState,
+  type EQState,
   type AudioSettings,
 } from './store/audio.store';
 
@@ -113,7 +116,17 @@ export {
 
 // Deck Engine (AudioWorklet)
 export { DeckEngineNode, resampleBuffer } from './worklet/deck-engine.node';
-export { DeckEngineService } from './services/deck-engine.service';
+export { DeckEngineService, type EQBand } from './services/deck-engine.service';
+
+// DSP Components
+export { EQProcessor, EQ_FREQUENCIES, EQ_GAIN_LIMITS, EQ_MID_Q } from './dsp/eq-processor';
+export { ChannelStrip, GAIN_LIMITS } from './dsp/channel-strip';
+export { MasterLimiter, LIMITER_SETTINGS, MASTER_GAIN_LIMITS } from './dsp/master-limiter';
+export { PeakMeter, MeterReader, createMeterSAB, METER_SAB_LAYOUT, type MeterData } from './dsp/peak-meter';
+export { MasterBus } from './dsp/master-bus';
+
+// Hooks - Peak Metering
+export { usePeakMeter, useMasterPeakMeter, type UsePeakMeterOptions } from './hooks/usePeakMeter';
 
 // Types
 export {

@@ -31,6 +31,16 @@ export interface SlipModeState {
   isSnapped: boolean;
 }
 
+/** EQ state for a single deck */
+export interface EQState {
+  /** Low band gain in dB (-24 to +6) */
+  low: number;
+  /** Mid band gain in dB (-24 to +6) */
+  mid: number;
+  /** High band gain in dB (-24 to +6) */
+  high: number;
+}
+
 /** State for a single deck */
 export interface DeckState {
   /** Track ID loaded in this deck */
@@ -49,6 +59,10 @@ export interface DeckState {
   isPlaying: boolean;
   /** Current playhead position (0-1) */
   position: number;
+  /** EQ settings */
+  eq: EQState;
+  /** Channel gain (0.0 to 1.5) */
+  gain: number;
   /** Waveform data for visualization */
   waveformData: WaveformData | null;
   /** Beatgrid data for beat markers */
@@ -105,6 +119,10 @@ export interface AudioState {
   setAnalyzing: (deckId: DeckId, isAnalyzing: boolean) => void;
   setZoomLevel: (deckId: DeckId, zoomLevel: 1 | 2 | 4 | 8) => void;
 
+  // Actions - EQ & Gain
+  setDeckEQ: (deckId: DeckId, band: 'low' | 'mid' | 'high', db: number) => void;
+  setDeckGain: (deckId: DeckId, value: number) => void;
+
   // Actions - Slip Mode
   startSlipMode: (deckId: DeckId, startX: number, originalFirstBeat: number) => void;
   updateSlipOffset: (deckId: DeckId, offset: number) => void;
@@ -151,6 +169,13 @@ const createInitialSlipModeState = (): SlipModeState => ({
   isSnapped: false,
 });
 
+/** Create initial EQ state */
+const createInitialEQState = (): EQState => ({
+  low: 0,
+  mid: 0,
+  high: 0,
+});
+
 /** Create initial deck state */
 const createInitialDeckState = (): DeckState => ({
   trackId: null,
@@ -161,6 +186,8 @@ const createInitialDeckState = (): DeckState => ({
   sampleRate: 44100,
   isPlaying: false,
   position: 0,
+  eq: createInitialEQState(),
+  gain: 1.0,
   waveformData: null,
   beatgridData: null,
   transients: [],
@@ -302,6 +329,32 @@ export const useAudioStore = create<AudioState>()(
             [deckId]: {
               ...state.decks[deckId],
               zoomLevel,
+            },
+          },
+        })),
+
+      // EQ & Gain actions
+      setDeckEQ: (deckId, band, db) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              eq: {
+                ...state.decks[deckId].eq,
+                [band]: Math.max(-24, Math.min(6, db)),
+              },
+            },
+          },
+        })),
+
+      setDeckGain: (deckId, value) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              gain: Math.max(0, Math.min(1.5, value)),
             },
           },
         })),
@@ -750,3 +803,7 @@ export const selectStemSolo = (deckId: DeckId) => (state: AudioState) => state.d
 export const selectDeckLoops = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].loops;
 export const selectActiveLoopIndex = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].activeLoopIndex;
 export const selectLoopMode = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].loopMode;
+
+// EQ & Gain selectors
+export const selectDeckEQ = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].eq;
+export const selectDeckGain = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].gain;
