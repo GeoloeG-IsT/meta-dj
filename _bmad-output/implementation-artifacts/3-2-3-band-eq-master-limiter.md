@@ -55,13 +55,13 @@ So that I can blend tracks smoothly and prevent audio clipping.
   - [x] 3.4: Expose `setMasterGain(value)` method
   - [x] 3.5: Wire: Sum of all decks → Master Gain → Limiter → Destination
 
-- [ ] Task 4: Implement Peak Metering via SharedArrayBuffer (AC: #4)
-  - [ ] 4.1: Create `src/modules/audio/dsp/peak-meter.ts` class
-  - [ ] 4.2: Define SharedArrayBuffer layout for 4 decks + master (5 channels × 2 floats = 40 bytes)
-  - [ ] 4.3: Use AnalyserNode.getFloatTimeDomainData() to calculate RMS and peak values
-  - [ ] 4.4: Write peak values atomically to SAB every animation frame (~16ms)
-  - [ ] 4.5: Create `usePeakMeter(deckId)` hook for UI consumption
-  - [ ] 4.6: Expose peak and RMS values for VU meter rendering
+- [x] Task 4: Implement Peak Metering via SharedArrayBuffer (AC: #4)
+  - [x] 4.1: Create `src/modules/audio/dsp/peak-meter.ts` class
+  - [x] 4.2: Define SharedArrayBuffer layout for 4 decks + master (5 channels × 2 floats = 40 bytes)
+  - [x] 4.3: Use AnalyserNode.getFloatTimeDomainData() to calculate RMS and peak values
+  - [x] 4.4: Write peak values atomically to SAB every animation frame (~16ms)
+  - [x] 4.5: Create `usePeakMeter(deckId)` hook for UI consumption
+  - [x] 4.6: Expose peak and RMS values for VU meter rendering
 
 - [ ] Task 5: Integrate with DeckEngineService (AC: #1, #2, #3, #4)
   - [ ] 5.1: Update `DeckEngineService.createDeck()` to instantiate ChannelStrip per deck
