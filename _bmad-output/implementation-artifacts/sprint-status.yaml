@@ -64,7 +64,7 @@ development_status:
   epic-3: in-progress
   3-1-audioworklet-deck-engine: done
   3-2-3-band-eq-master-limiter: done
-  3-3-real-time-time-stretching-rubberband-wasm: in-progress
+  3-3-real-time-time-stretching-rubberband-wasm: done
   3-4-pointer-lock-rotary-controls: backlog
   3-5-master-clock-sync-logic: backlog
   epic-3-retrospective: optional

@@ -24,7 +24,10 @@ export type ProcessorCommandType =
   | 'JUMP_TO_CUE'
   | 'SET_LOOP'
   | 'CLEAR_LOOP'
-  | 'SET_SAB';
+  | 'SET_SAB'
+  | 'SET_TIME_RATIO'
+  | 'SET_PITCH_SCALE'
+  | 'SET_KEYLOCK';
 
 /** Message types received from the processor */
 export type ProcessorEventType =
@@ -34,7 +37,10 @@ export type ProcessorEventType =
   | 'POSITION_CHANGED'
   | 'CUE_SET'
   | 'LOOP_CHANGED'
-  | 'PLAYBACK_ENDED';
+  | 'PLAYBACK_ENDED'
+  | 'TIME_RATIO_CHANGED'
+  | 'PITCH_SCALE_CHANGED'
+  | 'KEYLOCK_CHANGED';
 
 /** Event payload for state changes */
 export interface StateChangedPayload {
@@ -56,6 +62,21 @@ export interface LoopChangedPayload {
   end?: number;
 }
 
+/** Event payload for time ratio changes */
+export interface TimeRatioChangedPayload {
+  timeRatio: number;
+}
+
+/** Event payload for pitch scale changes */
+export interface PitchScaleChangedPayload {
+  pitchScale: number;
+}
+
+/** Event payload for keylock changes */
+export interface KeylockChangedPayload {
+  keylockEnabled: boolean;
+}
+
 /** Events emitted by DeckEngineNode */
 export interface DeckEngineEvents {
   ready: () => void;
@@ -65,6 +86,9 @@ export interface DeckEngineEvents {
   cueSet: (position: number) => void;
   loopChanged: (payload: LoopChangedPayload) => void;
   playbackEnded: () => void;
+  timeRatioChanged: (payload: TimeRatioChangedPayload) => void;
+  pitchScaleChanged: (payload: PitchScaleChangedPayload) => void;
+  keylockChanged: (payload: KeylockChangedPayload) => void;
 }
 
 /**
@@ -100,6 +124,11 @@ export class DeckEngineNode extends AudioWorkletNode {
   private _loopEnabled = false;
   private _loopStart = 0;
   private _loopEnd = 0;
+
+  // Time-stretch state
+  private _timeRatio = 1.0;
+  private _pitchScale = 1.0;
+  private _keylockEnabled = false;
 
   // Event callbacks
   private eventHandlers: Partial<DeckEngineEvents> = {};
@@ -273,6 +302,31 @@ export class DeckEngineNode extends AudioWorkletNode {
     return this._loopEnd;
   }
 
+  // ============ Time-Stretch State Getters ============
+
+  /**
+   * Get the current time ratio
+   * (0.5 = 2x faster, 1.0 = normal, 2.0 = 2x slower)
+   */
+  get timeRatio(): number {
+    return this._timeRatio;
+  }
+
+  /**
+   * Get the current pitch scale
+   * (0.5 = octave down, 1.0 = normal, 2.0 = octave up)
+   */
+  get pitchScale(): number {
+    return this._pitchScale;
+  }
+
+  /**
+   * Check if keylock is enabled
+   */
+  get keylockEnabled(): boolean {
+    return this._keylockEnabled;
+  }
+
   /**
    * Load an AudioBuffer into the processor
    * @param audioBuffer - The AudioBuffer to load
@@ -423,6 +477,49 @@ export class DeckEngineNode extends AudioWorkletNode {
     this.port.postMessage({ type: 'CLEAR_LOOP' });
   }
 
+  // ============ Time-Stretch Controls ============
+
+  /**
+   * Set the time ratio (tempo change)
+   * Note: This tracks state for the processor. Actual time-stretching
+   * is handled by TimeStretchNode in the audio graph.
+   *
+   * @param ratio - Time ratio (0.5 = 2x faster, 2.0 = 2x slower)
+   */
+  setTimeRatio(ratio: number): void {
+    this.port.postMessage({ type: 'SET_TIME_RATIO', payload: ratio });
+  }
+
+  /**
+   * Set the pitch scale
+   * Note: This tracks state for the processor. Actual pitch-shifting
+   * is handled by TimeStretchNode in the audio graph.
+   *
+   * @param scale - Pitch scale (0.5 = octave down, 2.0 = octave up)
+   */
+  setPitchScale(scale: number): void {
+    this.port.postMessage({ type: 'SET_PITCH_SCALE', payload: scale });
+  }
+
+  /**
+   * Set the pitch in semitones (convenience method)
+   *
+   * @param semitones - Pitch shift in semitones (-12 to +12)
+   */
+  setSemitones(semitones: number): void {
+    const scale = Math.pow(2, semitones / 12);
+    this.setPitchScale(scale);
+  }
+
+  /**
+   * Enable or disable keylock
+   *
+   * @param enabled - Whether keylock should be enabled
+   */
+  setKeylockEnabled(enabled: boolean): void {
+    this.port.postMessage({ type: 'SET_KEYLOCK', payload: enabled });
+  }
+
   /**
    * Register an event handler
    * @param event - Event name
@@ -503,6 +600,27 @@ export class DeckEngineNode extends AudioWorkletNode {
         this._isPlaying = false;
         this.eventHandlers.playbackEnded?.();
         break;
+
+      case 'TIME_RATIO_CHANGED': {
+        const data = payload as TimeRatioChangedPayload;
+        this._timeRatio = data.timeRatio;
+        this.eventHandlers.timeRatioChanged?.(data);
+        break;
+      }
+
+      case 'PITCH_SCALE_CHANGED': {
+        const data = payload as PitchScaleChangedPayload;
+        this._pitchScale = data.pitchScale;
+        this.eventHandlers.pitchScaleChanged?.(data);
+        break;
+      }
+
+      case 'KEYLOCK_CHANGED': {
+        const data = payload as KeylockChangedPayload;
+        this._keylockEnabled = data.keylockEnabled;
+        this.eventHandlers.keylockChanged?.(data);
+        break;
+      }
     }
   }
 }

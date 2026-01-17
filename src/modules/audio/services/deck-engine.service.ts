@@ -18,6 +18,7 @@ import { useAudioStore } from '../store/audio.store';
 import { ChannelStrip } from '../dsp/channel-strip';
 import { MasterBus } from '../dsp/master-bus';
 import { PeakMeter, createMeterSAB } from '../dsp/peak-meter';
+import { TimeStretchNode } from '../dsp/time-stretch-node';
 
 /** Map deck IDs to meter channel offsets */
 const DECK_METER_OFFSETS: Record<DeckId, number> = {
@@ -34,6 +35,7 @@ interface DeckEngineInstance {
   trackId: number | null;
   channelStrip: ChannelStrip;
   peakMeter: PeakMeter;
+  timeStretchNode: TimeStretchNode;
 }
 
 /** EQ band type */
@@ -474,6 +476,146 @@ class DeckEngineServiceClass {
     }
   }
 
+  // ============ Time-Stretch Methods ============
+
+  /**
+   * Set the time ratio for a deck (tempo change)
+   * @param deckId - Target deck
+   * @param ratio - Time ratio (0.5 = 2x faster, 1.0 = normal, 2.0 = 2x slower)
+   */
+  setDeckTimeRatio(deckId: DeckId, ratio: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) return;
+
+    // Clamp to valid range
+    const clampedRatio = Math.max(0.5, Math.min(2.0, ratio));
+
+    // Update TimeStretchNode for actual audio processing
+    deckInstance.timeStretchNode.setTimeRatio(clampedRatio);
+
+    // Update DeckEngineNode for state tracking
+    deckInstance.engine.setTimeRatio(clampedRatio);
+
+    // Sync to store for UI reactivity
+    useAudioStore.getState().setDeckTimeRatio(deckId, clampedRatio);
+  }
+
+  /**
+   * Get the current time ratio for a deck
+   */
+  getDeckTimeRatio(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.timeStretchNode.getTimeRatio() ?? 1.0;
+  }
+
+  /**
+   * Set the pitch scale for a deck
+   * @param deckId - Target deck
+   * @param scale - Pitch scale (0.5 = octave down, 1.0 = normal, 2.0 = octave up)
+   */
+  setDeckPitchScale(deckId: DeckId, scale: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) return;
+
+    // Clamp to valid range
+    const clampedScale = Math.max(0.5, Math.min(2.0, scale));
+
+    // Update TimeStretchNode for actual audio processing
+    deckInstance.timeStretchNode.setPitchScale(clampedScale);
+
+    // Update DeckEngineNode for state tracking
+    deckInstance.engine.setPitchScale(clampedScale);
+
+    // Sync to store for UI reactivity
+    useAudioStore.getState().setDeckPitchScale(deckId, clampedScale);
+  }
+
+  /**
+   * Get the current pitch scale for a deck
+   */
+  getDeckPitchScale(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.timeStretchNode.getPitchScale() ?? 1.0;
+  }
+
+  /**
+   * Set the pitch in semitones for a deck (convenience method)
+   * @param deckId - Target deck
+   * @param semitones - Pitch shift in semitones (-12 to +12)
+   */
+  setDeckSemitones(deckId: DeckId, semitones: number): void {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) return;
+
+    // Clamp to valid range
+    const clampedSemitones = Math.max(-12, Math.min(12, semitones));
+
+    // Update TimeStretchNode for actual audio processing
+    deckInstance.timeStretchNode.setSemitones(clampedSemitones);
+
+    // Update DeckEngineNode for state tracking
+    deckInstance.engine.setSemitones(clampedSemitones);
+
+    // Sync to store for UI reactivity
+    const pitchScale = Math.pow(2, clampedSemitones / 12);
+    useAudioStore.getState().setDeckPitchScale(deckId, pitchScale);
+  }
+
+  /**
+   * Get the current pitch in semitones for a deck
+   */
+  getDeckSemitones(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.timeStretchNode.getSemitones() ?? 0;
+  }
+
+  /**
+   * Enable or disable keylock for a deck
+   * @param deckId - Target deck
+   * @param enabled - Whether keylock should be enabled
+   */
+  setDeckKeylock(deckId: DeckId, enabled: boolean): void {
+    const deckInstance = this.decks.get(deckId);
+    if (!deckInstance) return;
+
+    // Update TimeStretchNode (controls bypass mode)
+    deckInstance.timeStretchNode.setKeylockEnabled(enabled);
+
+    // Update DeckEngineNode for state tracking
+    deckInstance.engine.setKeylockEnabled(enabled);
+
+    // Sync to store for UI reactivity
+    useAudioStore.getState().setDeckKeylock(deckId, enabled);
+  }
+
+  /**
+   * Check if keylock is enabled for a deck
+   */
+  isDeckKeylockEnabled(deckId: DeckId): boolean {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.timeStretchNode.isKeylockEnabled() ?? false;
+  }
+
+  /**
+   * Get the processing latency for a deck (in samples)
+   * Useful for latency compensation in UI rendering
+   */
+  getDeckLatency(deckId: DeckId): number {
+    const deckInstance = this.decks.get(deckId);
+    return deckInstance?.timeStretchNode.getLatency() ?? 0;
+  }
+
+  /**
+   * Reset the time-stretch processor for a deck
+   * Call this after seeking or loading a new track
+   */
+  resetDeckTimeStretch(deckId: DeckId): void {
+    const deckInstance = this.decks.get(deckId);
+    if (deckInstance) {
+      deckInstance.timeStretchNode.reset();
+    }
+  }
+
   // ============ Metering Methods ============
 
   /**
@@ -519,9 +661,10 @@ class DeckEngineServiceClass {
     // Stop meter updates
     this.stopMeterUpdates();
 
-    // Dispose all deck engines and channel strips
+    // Dispose all deck engines, time-stretch nodes, and channel strips
     for (const [, instance] of this.decks) {
       instance.engine.dispose();
+      instance.timeStretchNode.dispose();
       instance.channelStrip.dispose();
       instance.peakMeter.dispose();
     }
@@ -559,6 +702,10 @@ class DeckEngineServiceClass {
     // Create the deck engine
     const engine = new DeckEngineNode(this.audioContext, true);
 
+    // Create time-stretch node for keylock functionality
+    const timeStretchNode = new TimeStretchNode(this.audioContext);
+    await timeStretchNode.initialize();
+
     // Create channel strip (EQ + Gain)
     const channelStrip = new ChannelStrip(this.audioContext);
 
@@ -569,8 +716,9 @@ class DeckEngineServiceClass {
       DECK_METER_OFFSETS[deckId]
     );
 
-    // Wire: Engine → ChannelStrip → PeakMeter → MasterBus
-    engine.connect(channelStrip.input);
+    // Wire: Engine → TimeStretchNode → ChannelStrip → PeakMeter → MasterBus
+    engine.connect(timeStretchNode.input);
+    timeStretchNode.connect(channelStrip.input);
     channelStrip.output.connect(peakMeter.input);
     peakMeter.output.connect(this.masterBus.input);
 
@@ -583,6 +731,19 @@ class DeckEngineServiceClass {
       useAudioStore.getState().setPlaying(deckId, false);
     });
 
+    // Set up time-stretch event handlers
+    engine.on('timeRatioChanged', (payload) => {
+      useAudioStore.getState().setDeckTimeRatio(deckId, payload.timeRatio);
+    });
+
+    engine.on('pitchScaleChanged', (payload) => {
+      useAudioStore.getState().setDeckPitchScale(deckId, payload.pitchScale);
+    });
+
+    engine.on('keylockChanged', (payload) => {
+      useAudioStore.getState().setDeckKeylock(deckId, payload.keylockEnabled);
+    });
+
     // Store the instance
     this.decks.set(deckId, {
       engine,
@@ -590,6 +751,7 @@ class DeckEngineServiceClass {
       trackId: null,
       channelStrip,
       peakMeter,
+      timeStretchNode,
     });
   }
 }

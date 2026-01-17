@@ -63,6 +63,16 @@ export interface DeckState {
   eq: EQState;
   /** Channel gain (0.0 to 1.5) */
   gain: number;
+  /** Time ratio for tempo change (0.5 = 2x faster, 1.0 = normal, 2.0 = 2x slower) */
+  timeRatio: number;
+  /** Pitch scale (0.5 = octave down, 1.0 = normal, 2.0 = octave up) */
+  pitchScale: number;
+  /** Whether keylock is enabled (tempo change without pitch change) */
+  keylockEnabled: boolean;
+  /** Pitch shift in semitones (-12 to +12), derived from pitchScale */
+  semitones: number;
+  /** Effective BPM after time-stretch (originalBpm / timeRatio) */
+  effectiveBpm: number;
   /** Waveform data for visualization */
   waveformData: WaveformData | null;
   /** Beatgrid data for beat markers */
@@ -122,6 +132,11 @@ export interface AudioState {
   // Actions - EQ & Gain
   setDeckEQ: (deckId: DeckId, band: 'low' | 'mid' | 'high', db: number) => void;
   setDeckGain: (deckId: DeckId, value: number) => void;
+
+  // Actions - Time-Stretch
+  setDeckTimeRatio: (deckId: DeckId, ratio: number) => void;
+  setDeckPitchScale: (deckId: DeckId, scale: number) => void;
+  setDeckKeylock: (deckId: DeckId, enabled: boolean) => void;
 
   // Actions - Slip Mode
   startSlipMode: (deckId: DeckId, startX: number, originalFirstBeat: number) => void;
@@ -188,6 +203,11 @@ const createInitialDeckState = (): DeckState => ({
   position: 0,
   eq: createInitialEQState(),
   gain: 1.0,
+  timeRatio: 1.0,
+  pitchScale: 1.0,
+  keylockEnabled: false,
+  semitones: 0,
+  effectiveBpm: 120,
   waveformData: null,
   beatgridData: null,
   transients: [],
@@ -355,6 +375,52 @@ export const useAudioStore = create<AudioState>()(
             [deckId]: {
               ...state.decks[deckId],
               gain: Math.max(0, Math.min(1.5, value)),
+            },
+          },
+        })),
+
+      // Time-Stretch actions
+      setDeckTimeRatio: (deckId, ratio) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const clampedRatio = Math.max(0.5, Math.min(2.0, ratio));
+          const effectiveBpm = deck.bpm / clampedRatio;
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                timeRatio: clampedRatio,
+                effectiveBpm,
+              },
+            },
+          };
+        }),
+
+      setDeckPitchScale: (deckId, scale) =>
+        set((state) => {
+          const deck = state.decks[deckId];
+          const clampedScale = Math.max(0.5, Math.min(2.0, scale));
+          const semitones = Math.round(12 * Math.log2(clampedScale));
+          return {
+            decks: {
+              ...state.decks,
+              [deckId]: {
+                ...deck,
+                pitchScale: clampedScale,
+                semitones,
+              },
+            },
+          };
+        }),
+
+      setDeckKeylock: (deckId, enabled) =>
+        set((state) => ({
+          decks: {
+            ...state.decks,
+            [deckId]: {
+              ...state.decks[deckId],
+              keylockEnabled: enabled,
             },
           },
         })),
@@ -807,3 +873,10 @@ export const selectLoopMode = (deckId: DeckId) => (state: AudioState) => state.d
 // EQ & Gain selectors
 export const selectDeckEQ = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].eq;
 export const selectDeckGain = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].gain;
+
+// Time-Stretch selectors
+export const selectDeckTimeRatio = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].timeRatio;
+export const selectDeckPitchScale = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].pitchScale;
+export const selectDeckKeylock = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].keylockEnabled;
+export const selectDeckSemitones = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].semitones;
+export const selectDeckEffectiveBpm = (deckId: DeckId) => (state: AudioState) => state.decks[deckId].effectiveBpm;

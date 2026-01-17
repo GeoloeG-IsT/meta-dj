@@ -35,7 +35,10 @@ interface ProcessorMessage {
     | 'JUMP_TO_CUE'
     | 'SET_LOOP'
     | 'CLEAR_LOOP'
-    | 'SET_SAB';
+    | 'SET_SAB'
+    | 'SET_TIME_RATIO'
+    | 'SET_PITCH_SCALE'
+    | 'SET_KEYLOCK';
   payload?: unknown;
 }
 
@@ -103,6 +106,12 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
   private loopEnabled = false;
   private loopStart = 0;
   private loopEnd = 0;
+
+  // Time-stretch state (actual processing done on main thread via TimeStretchNode)
+  // These values are tracked for state reporting and future AudioWorklet integration
+  private timeRatio = 1.0;
+  private pitchScale = 1.0;
+  private keylockEnabled = false;
 
   // SharedArrayBuffer writer for UI sync
   private playheadWriter: PlayheadWriter | null = null;
@@ -302,6 +311,42 @@ class DeckEngineProcessor extends AudioWorkletProcessor {
         this.loopEnd = 0;
         this.port.postMessage({ type: 'LOOP_CHANGED', payload: { enabled: false } });
         break;
+
+      case 'SET_TIME_RATIO': {
+        const ratio = payload as number;
+        if (typeof ratio === 'number' && !isNaN(ratio)) {
+          this.timeRatio = Math.max(0.5, Math.min(2.0, ratio));
+          this.port.postMessage({
+            type: 'TIME_RATIO_CHANGED',
+            payload: { timeRatio: this.timeRatio },
+          });
+        }
+        break;
+      }
+
+      case 'SET_PITCH_SCALE': {
+        const scale = payload as number;
+        if (typeof scale === 'number' && !isNaN(scale)) {
+          this.pitchScale = Math.max(0.5, Math.min(2.0, scale));
+          this.port.postMessage({
+            type: 'PITCH_SCALE_CHANGED',
+            payload: { pitchScale: this.pitchScale },
+          });
+        }
+        break;
+      }
+
+      case 'SET_KEYLOCK': {
+        const enabled = payload as boolean;
+        if (typeof enabled === 'boolean') {
+          this.keylockEnabled = enabled;
+          this.port.postMessage({
+            type: 'KEYLOCK_CHANGED',
+            payload: { keylockEnabled: this.keylockEnabled },
+          });
+        }
+        break;
+      }
 
       default:
         // Silently ignore unknown message types to avoid string allocation
