@@ -32,8 +32,6 @@ export class MasterBus {
   private readonly limiter: MasterLimiter;
   private readonly masterMeter: PeakMeter;
   private readonly meterSAB: SharedArrayBuffer;
-  private animationFrameId: number = 0;
-  private isUpdating: boolean = false;
 
   /**
    * Create a new master bus
@@ -119,45 +117,16 @@ export class MasterBus {
   /**
    * Update master meter values
    * Call this in requestAnimationFrame for ~60Hz updates
+   * Note: DeckEngineService manages the animation frame loop centrally
    */
   update(): void {
     this.masterMeter.update();
   }
 
   /**
-   * Start automatic meter updates
-   * Call this to start updating meters automatically
-   */
-  startMeterUpdates(): void {
-    if (this.isUpdating) return;
-    this.isUpdating = true;
-
-    const updateLoop = () => {
-      this.masterMeter.update();
-      if (this.isUpdating) {
-        this.animationFrameId = requestAnimationFrame(updateLoop);
-      }
-    };
-
-    this.animationFrameId = requestAnimationFrame(updateLoop);
-  }
-
-  /**
-   * Stop automatic meter updates
-   */
-  stopMeterUpdates(): void {
-    this.isUpdating = false;
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = 0;
-    }
-  }
-
-  /**
    * Disconnect all nodes and release resources
    */
   dispose(): void {
-    this.stopMeterUpdates();
     this.masterMeter.dispose();
     this.limiter.dispose();
   }

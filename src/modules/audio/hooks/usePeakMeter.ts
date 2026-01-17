@@ -27,13 +27,10 @@ import { MeterReader, type MeterData } from '../dsp/peak-meter';
 export interface UsePeakMeterOptions {
   /** Update rate in Hz (default: 60) */
   updateRate?: number;
-  /** Decay rate for peak hold (0-1, default: 0.95) */
-  peakDecay?: number;
 }
 
 const DEFAULT_OPTIONS: Required<UsePeakMeterOptions> = {
   updateRate: 60,
-  peakDecay: 0.95,
 };
 
 /**

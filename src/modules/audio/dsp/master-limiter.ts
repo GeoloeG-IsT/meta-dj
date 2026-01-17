@@ -18,7 +18,7 @@
 export const LIMITER_SETTINGS = {
   THRESHOLD: -3,      // dB - Start limiting at -3dB (brick wall)
   KNEE: 0,            // dB - Hard knee for true limiting
-  RATIO: 20,          // Essentially infinite ratio
+  RATIO: 20,          // 20:1 ratio - strong limiting (Web Audio max is 20)
   ATTACK: 0.001,      // seconds - 1ms fast attack
   RELEASE: 0.1,       // seconds - 100ms release
 } as const;

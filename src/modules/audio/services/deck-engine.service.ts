@@ -131,7 +131,6 @@ class DeckEngineServiceClass {
       this.startMeterUpdates();
 
       this.initialized = true;
-      console.log('[DeckEngineService] Initialized with EQ, limiter, and metering');
     } catch (error) {
       console.error('[DeckEngineService] Initialization failed:', error);
       throw error;
@@ -352,6 +351,9 @@ class DeckEngineServiceClass {
         deckInstance.channelStrip.setHigh(db);
         break;
     }
+
+    // Sync to store for UI reactivity
+    useAudioStore.getState().setDeckEQ(deckId, band, db);
   }
 
   /**
@@ -383,6 +385,8 @@ class DeckEngineServiceClass {
     const deckInstance = this.decks.get(deckId);
     if (deckInstance) {
       deckInstance.channelStrip.setGain(value);
+      // Sync to store for UI reactivity
+      useAudioStore.getState().setDeckGain(deckId, value);
     }
   }
 
@@ -542,8 +546,6 @@ class DeckEngineServiceClass {
 
     // Reset singleton for clean reinitialization (useful for tests/hot reload)
     DeckEngineServiceClass.instance = null;
-
-    console.log('[DeckEngineService] Disposed');
   }
 
   /**
@@ -596,4 +598,4 @@ class DeckEngineServiceClass {
 export const DeckEngineService = DeckEngineServiceClass.getInstance();
 
 // Export type for external use
-export type { DeckEngineInstance, EQBand };
+export type { EQBand };

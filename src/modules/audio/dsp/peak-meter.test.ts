@@ -127,12 +127,12 @@ describe('MeterReader', () => {
     sab = createMeterSAB();
     reader = new MeterReader(sab);
 
-    // Write some test values to SAB
+    // Write some test values to SAB using layout constants
     const view = new Float32Array(sab);
-    view[0] = 0.75; // Deck A peak
-    view[1] = 0.5;  // Deck A RMS
-    view[8] = 0.9;  // Master peak
-    view[9] = 0.6;  // Master RMS
+    view[METER_SAB_LAYOUT.DECK_A_PEAK / 4] = 0.75; // Deck A peak
+    view[METER_SAB_LAYOUT.DECK_A_RMS / 4] = 0.5;   // Deck A RMS
+    view[METER_SAB_LAYOUT.MASTER_PEAK / 4] = 0.9;  // Master peak
+    view[METER_SAB_LAYOUT.MASTER_RMS / 4] = 0.6;   // Master RMS
   });
 
   it('should read deck peak values', () => {

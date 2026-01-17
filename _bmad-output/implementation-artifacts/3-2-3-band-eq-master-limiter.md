@@ -1,6 +1,6 @@
 # Story 3.2: 3-Band EQ & Master Limiter
 
-Status: review
+Status: done
 
 ## Story
 
@@ -434,9 +434,36 @@ None - implementation completed without errors.
 - src/modules/audio/store/audio.store.ts - Added EQState, eq/gain to DeckState, setDeckEQ/setDeckGain actions
 - src/modules/audio/index.ts - Added exports for new DSP classes and hooks
 
+## Senior Developer Review (AI)
+
+**Reviewer:** Claude Opus 4.5
+**Date:** 2026-01-17
+**Outcome:** ✅ APPROVED (after fixes)
+
+### Issues Found and Fixed
+
+| Severity | Issue | Resolution |
+|----------|-------|------------|
+| HIGH | EQ/Gain store actions not synced to service | Added useAudioStore.getState().setDeckEQ/setDeckGain calls in service |
+| MEDIUM | Uncommitted implementation changes | Will be committed with this review |
+| MEDIUM | Unused peakDecay option in usePeakMeter | Removed from interface and defaults |
+| MEDIUM | Duplicate animation frame loops | Removed internal loop from MasterBus |
+| MEDIUM | Internal DeckEngineInstance type exported | Removed from exports |
+| LOW | console.log in production code | Removed |
+| LOW | Misleading "infinite ratio" comment | Corrected to "20:1 strong limiting" |
+| LOW | Magic numbers in test | Replaced with METER_SAB_LAYOUT constants |
+
+### Verification
+
+- ✅ All 363 unit tests pass
+- ✅ TypeScript compiles cleanly
+- ✅ All ACs implemented and verified
+- ✅ All tasks marked [x] confirmed complete
+
 ## Change Log
 
 | Date | Change | Author |
 |------|--------|--------|
 | 2026-01-17 | Story created via create-story workflow | Claude Opus 4.5 |
 | 2026-01-17 | Implemented 3-band EQ, channel strip, master limiter, peak metering, service integration | Claude Opus 4.5 |
+| 2026-01-17 | Code review: fixed 1 HIGH, 4 MEDIUM, 3 LOW issues | Claude Opus 4.5 |
